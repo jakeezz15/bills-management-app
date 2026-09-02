@@ -6,4 +6,5 @@ export interface Debt {
     isPaid: boolean;
     remarks?: string;
     minimumPayment: number;
+    type: string;
 }

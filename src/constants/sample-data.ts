@@ -1,8 +1,9 @@
-import { Bill } from "@/types/bill";
 import { Debt } from "@/types/debt";
+import { Expenses } from "@/types/expense";
 import { Income } from "@/types/income";
+import { SavingsGoal } from "@/types/savings";
 
-export const billsData: Bill[] = [
+export const expensesData: Expenses[] = [
     {
         id: "1",
         name: "Electricity",
@@ -10,6 +11,8 @@ export const billsData: Bill[] = [
         dueDay: 15,
         isPaid: false,
         category: "Utilities",
+        isRecurring: true,
+
     },
     {
         id: "2",
@@ -18,6 +21,7 @@ export const billsData: Bill[] = [
         dueDay: 10,
         isPaid: false,
         category: "Utilities",
+        isRecurring: true,
     },
     {
         id: "3",
@@ -26,6 +30,7 @@ export const billsData: Bill[] = [
         dueDay: 30,
         isPaid: false,
         category: "House",
+        isRecurring: true
     },
 ]
 
@@ -35,7 +40,7 @@ export const incomeData: Income[] = [
         date: "07/28/26",
         gross: 1100,
         net: 900,
-        source: "Salary"
+        source: "Salary",
     },
     {
         id: "2",
@@ -54,7 +59,8 @@ export const debtData: Debt[] = [
         dueDay: 15,
         minimumPayment: 45,
         isPaid: false,
-        remarks: "Can't pay right now"
+        remarks: "Can't pay right now",
+        type: "loan",
     },
     {
         id: "2",
@@ -63,5 +69,23 @@ export const debtData: Debt[] = [
         dueDay: 15,
         minimumPayment: 75,
         isPaid: false,
+        type: "loan"
     }
 ]
+
+export const savingsData: SavingsGoal[] = [
+    {
+        id: "1",
+        name: "Emergency Fund",
+        targetAmount: 5000,
+        currentAmount: 1200,
+        monthlyContribution: 200,
+    },
+    {
+        id: "2",
+        name: "Vacation",
+        targetAmount: 2000,
+        currentAmount: 400,
+        monthlyContribution: 100,
+    },
+];

@@ -33,4 +33,12 @@ export const screenStyles = StyleSheet.create({
         padding: 16,
         paddingTop: 48
     },
+    expenseTextInput: {
+        backgroundColor: "#fff",
+        borderWidth: 1,
+        borderColor: "#ccc",
+        padding: 12,
+        borderRadius: 8,
+        marginBottom: 12,
+    }
 });
