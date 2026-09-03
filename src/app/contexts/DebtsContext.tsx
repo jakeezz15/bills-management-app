@@ -6,7 +6,8 @@ import { createContext, useCallback, useContext, useEffect, useState } from "rea
 type DebtsContextValue = {
     debts: Debt[];
     loading: boolean;
-    addDebt: (debt: Debt) => Promise<void>
+    addDebt: (debt: Debt) => Promise<void>;
+    reload: () => Promise<void>;
 }
 const DebtsContext = createContext<DebtsContextValue | null>(null);
 
@@ -24,8 +25,15 @@ export function DebtsProvider({ children }: { children: React.ReactNode }) {
         await saveDebts(updated);
     }, [debts]);
 
+    const reload = useCallback(async () => {
+        setLoading(true);
+        const data = await loadDebts();
+        setDebts(data);
+        setLoading(false);
+    }, [])
+
     return (
-        <DebtsContext.Provider value={{ debts, loading, addDebt }}>
+        <DebtsContext.Provider value={{ debts, loading, addDebt, reload }}>
             {children}
         </DebtsContext.Provider>
     )

@@ -6,7 +6,8 @@ import { createContext, useCallback, useContext, useEffect, useState } from "rea
 type ExpensesContextValue = {
     expenses: Expenses[];
     loading: boolean;
-    addExpense: (expense: Expenses) => Promise<void>
+    addExpense: (expense: Expenses) => Promise<void>;
+    reload: () => Promise<void>;
 }
 const ExpensesContext = createContext<ExpensesContextValue | null>(null);
 
@@ -24,8 +25,15 @@ export function ExpensesProvider({ children }: { children: React.ReactNode }) {
         await saveExpenses(updated);
     }, [expenses]);
 
+    const reload = useCallback(async () => {
+        setLoading(true);
+        const data = await loadExpenses();
+        setExpenses(data);
+        setLoading(false);
+    }, []);
+
     return (
-        <ExpensesContext.Provider value={{ expenses, loading, addExpense }}>
+        <ExpensesContext.Provider value={{ expenses, loading, addExpense, reload }}>
             {children}
         </ExpensesContext.Provider>
     )
