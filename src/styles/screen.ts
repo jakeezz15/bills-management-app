@@ -57,6 +57,90 @@ export const screenStyles = StyleSheet.create({
         fontSize: 20,
     },
 
+    // List-tab page description (under title)
+    screenDescription: {
+        color: "#64748B",
+        fontSize: 13,
+        lineHeight: 18,
+        marginTop: 3,
+    },
+
+    // List heading + count
+    listHeader: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginTop: 8,
+        marginBottom: 12,
+    },
+
+    listTitle: {
+        color: "#0F172A",
+        fontSize: 16,
+        fontWeight: "600",
+    },
+
+    countBadge: {
+        minWidth: 24,
+        height: 24,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#E2E8F0",
+        borderRadius: 12,
+        paddingHorizontal: 7,
+        marginLeft: 8,
+    },
+
+    countBadgeText: {
+        color: "#475569",
+        fontSize: 12,
+        fontWeight: "600",
+    },
+
+    // Empty list state
+    emptyState: {
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#F8FAFC",
+        borderWidth: 1,
+        borderColor: "#E2E8F0",
+        borderRadius: 14,
+        paddingHorizontal: 24,
+        paddingVertical: 40,
+        marginTop: 12,
+    },
+
+    emptyStateIcon: {
+        width: 48,
+        height: 48,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#DBEAFE",
+        borderRadius: 24,
+        marginBottom: 14,
+    },
+
+    emptyStateIconText: {
+        color: "#2563EB",
+        fontSize: 22,
+        fontWeight: "700",
+    },
+
+    emptyStateTitle: {
+        color: "#0F172A",
+        fontSize: 17,
+        fontWeight: "600",
+        marginBottom: 6,
+    },
+
+    emptyStateText: {
+        maxWidth: 280,
+        color: "#64748B",
+        fontSize: 14,
+        lineHeight: 20,
+        textAlign: "center",
+        marginBottom: 18,
+    },
+
     // Suggested addition: summary card
     expenseSummary: {
         backgroundColor: "#EFF6FF",

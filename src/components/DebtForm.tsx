@@ -1,116 +1,227 @@
 import { useDebt } from "@/app/contexts/DebtsContext";
+import { buttonStyle } from "@/styles/button-style";
 import { modalForm } from "@/styles/modal-form";
-import { Debt } from "@/types/debt";
 import { useState } from "react";
 import { Modal, Pressable, Text, TextInput, View } from "react-native";
 
 type DebtFormProps = {
-    visible: boolean,
+    visible: boolean;
     onClose: () => void;
-}
+};
 
-export default function DebtForm({ visible, onClose }: DebtFormProps) {
-    const LOAN_TYPES = ["Credit Card", "Student Loan", "Mortgage", "Car Loan", "Personal Loan"] as const;
+const LOAN_TYPES = [
+    "Credit Card",
+    "Student Loan",
+    "Mortgage",
+    "Car Loan",
+    "Personal Loan",
+] as const;
 
+export default function DebtForm({
+    visible,
+    onClose,
+}: DebtFormProps) {
     const { addDebt } = useDebt();
-    const [debtInfo, setDebtInfo] = useState<Debt>({
-        id: "",
-        name: "",
-        balance: 0,
-        dueDay: 0,
-        isPaid: false,
-        type: "",
-        minimumPayment: 0,
-    });
+
+    const [name, setName] = useState("");
+    const [balance, setBalance] = useState("");
+    const [minimumPayment, setMinimumPayment] = useState("");
+    const [dueDay, setDueDay] = useState("");
+    const [type, setType] = useState("");
+
+    const [focusedInput, setFocusedInput] = useState<string | null>(null);
+    const [showErrors, setShowErrors] = useState(false);
+
+    const nameHasError = showErrors && name.trim() === "";
+    const balanceHasError = showErrors && balance.trim() === "";
+    const paymentHasError = showErrors && minimumPayment.trim() === "";
+    const dueDayHasError = showErrors && dueDay.trim() === "";
+    const typeHasError = showErrors && type.trim() === "";
 
     const handleSubmit = async () => {
-        if (!debtInfo.name.trim() || !debtInfo.type) return;
-        if (debtInfo.balance <= 0 || debtInfo.minimumPayment <= 0) return;
-        if (debtInfo.dueDay < 1 || debtInfo.dueDay > 31) return;
+        if (!name || !balance || !minimumPayment || !dueDay || !type) {
+            setShowErrors(true);
+            return;
+        }
 
-        await addDebt(debtInfo);
+        const dueDayNumber = Number(dueDay);
+        if (dueDayNumber < 1 || dueDayNumber > 31) {
+            setShowErrors(true);
+            return;
+        }
 
-        setDebtInfo({
-            ...debtInfo,
+        await addDebt({
             id: Date.now().toString(),
-            name: "",
-            balance: 0,
-            dueDay: 0,
-            type: "",
-            minimumPayment: 0,
-        })
+            name,
+            balance: Number(balance),
+            minimumPayment: Number(minimumPayment),
+            dueDay: dueDayNumber,
+            isPaid: false,
+            type,
+        });
+
+        setName("");
+        setBalance("");
+        setMinimumPayment("");
+        setDueDay("");
+        setType("");
+        setShowErrors(false);
+
         onClose();
-    }
+    };
 
     return (
-        <Modal visible={visible} animationType="slide" transparent>
+        <Modal
+            visible={visible}
+            animationType="fade"
+            transparent
+            onRequestClose={onClose}
+        >
             <View style={modalForm.overlay}>
-                <View style={modalForm.card}>
+                <View
+                    style={[
+                        modalForm.card,
+                        modalForm.cardResponsive,
+                        modalForm.cardShadow,
+                    ]}
+                >
                     <Text style={modalForm.title}>Add Debt</Text>
+
                     <TextInput
-                        style={modalForm.input}
+                        style={[
+                            modalForm.input,
+                            focusedInput === "name" && modalForm.inputFocused,
+                            nameHasError && modalForm.inputError,
+                        ]}
                         placeholder="Debt name"
                         placeholderTextColor="#888"
-                        value={debtInfo.name}
-                        onChangeText={(text) => setDebtInfo((prev) => ({ ...prev, name: text }))}
+                        value={name}
+                        onChangeText={setName}
+                        onFocus={() => setFocusedInput("name")}
+                        onBlur={() => setFocusedInput(null)}
                     />
+                    {nameHasError && (
+                        <Text style={modalForm.errorText}>
+                            Debt name is required.
+                        </Text>
+                    )}
+
                     <TextInput
-                        style={modalForm.input}
+                        style={[
+                            modalForm.input,
+                            focusedInput === "balance" && modalForm.inputFocused,
+                            balanceHasError && modalForm.inputError,
+                        ]}
                         placeholder="Balance"
                         placeholderTextColor="#888"
-                        value={debtInfo.balance ? debtInfo.balance.toString() : ""}
-                        onChangeText={(text) =>
-                            setDebtInfo((prev) => ({ ...prev, balance: Number(text) || 0 }))
-                        }
+                        value={balance}
+                        onChangeText={setBalance}
                         keyboardType="numeric"
+                        onFocus={() => setFocusedInput("balance")}
+                        onBlur={() => setFocusedInput(null)}
                     />
-                    <TextInput
-                        style={modalForm.input}
-                        placeholder="Minimum Payment"
-                        placeholderTextColor="#888"
-                        value={debtInfo.minimumPayment ? debtInfo.minimumPayment.toString() : ""}
-                        onChangeText={(text) =>
-                            setDebtInfo((prev) => ({ ...prev, minimumPayment: Number(text) || 0 }))
-                        }
-                        keyboardType="numeric"
-                    />
-                    <TextInput
-                        style={modalForm.input}
-                        placeholder="Due Day"
-                        placeholderTextColor="#888"
-                        value={debtInfo.dueDay ? debtInfo.dueDay.toString() : ""}
-                        onChangeText={(text) =>
-                            setDebtInfo((prev) => ({ ...prev, dueDay: Number(text) || 0 }))
-                        }
-                        keyboardType="numeric"
-                    />
-                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
-                        {LOAN_TYPES.map((t) => (
-                            <Pressable
-                                key={t}
-                                onPress={() => setDebtInfo((prev) => ({ ...prev, type: t }))}
-                                style={{
-                                    padding: 8,
-                                    borderWidth: 1,
-                                    borderColor: debtInfo.type === t ? "#208AEF" : "#ccc",
-                                    borderRadius: 8,
-                                }}
-                            >
-                                <Text>{t}</Text>
-                            </Pressable>
-                        ))}
-                    </View>
+                    {balanceHasError && (
+                        <Text style={modalForm.errorText}>
+                            Balance is required.
+                        </Text>
+                    )}
 
-                    <Pressable onPress={handleSubmit} style={modalForm.submitButton}>
-                        <Text style={modalForm.submitButton}>Add Debt</Text>
+                    <TextInput
+                        style={[
+                            modalForm.input,
+                            focusedInput === "minimumPayment" && modalForm.inputFocused,
+                            paymentHasError && modalForm.inputError,
+                        ]}
+                        placeholder="Minimum payment"
+                        placeholderTextColor="#888"
+                        value={minimumPayment}
+                        onChangeText={setMinimumPayment}
+                        keyboardType="numeric"
+                        onFocus={() => setFocusedInput("minimumPayment")}
+                        onBlur={() => setFocusedInput(null)}
+                    />
+                    {paymentHasError && (
+                        <Text style={modalForm.errorText}>
+                            Minimum payment is required.
+                        </Text>
+                    )}
+
+                    <TextInput
+                        style={[
+                            modalForm.input,
+                            focusedInput === "dueDay" && modalForm.inputFocused,
+                            dueDayHasError && modalForm.inputError,
+                        ]}
+                        placeholder="Due day (1-31)"
+                        placeholderTextColor="#888"
+                        value={dueDay}
+                        onChangeText={setDueDay}
+                        keyboardType="numeric"
+                        onFocus={() => setFocusedInput("dueDay")}
+                        onBlur={() => setFocusedInput(null)}
+                    />
+                    {dueDayHasError && (
+                        <Text style={modalForm.errorText}>
+                            Due day is required (1-31).
+                        </Text>
+                    )}
+
+                    <View style={modalForm.typeRow}>
+                        {LOAN_TYPES.map((loanType) => {
+                            const selected = type === loanType;
+
+                            return (
+                                <Pressable
+                                    key={loanType}
+                                    onPress={() => setType(loanType)}
+                                    style={[
+                                        modalForm.typeChip,
+                                        selected && modalForm.typeChipSelected,
+                                    ]}
+                                >
+                                    <Text
+                                        style={[
+                                            modalForm.typeChipText,
+                                            selected && modalForm.typeChipTextSelected,
+                                        ]}
+                                    >
+                                        {loanType}
+                                    </Text>
+                                </Pressable>
+                            );
+                        })}
+                    </View>
+                    {typeHasError && (
+                        <Text style={modalForm.errorText}>
+                            Loan type is required.
+                        </Text>
+                    )}
+
+                    <Pressable
+                        style={({ pressed }) => [
+                            buttonStyle.submitButton,
+                            pressed && buttonStyle.buttonPressed,
+                        ]}
+                        onPress={handleSubmit}
+                    >
+                        <Text style={buttonStyle.buttonText}>
+                            Add Debt
+                        </Text>
                     </Pressable>
-                    <Pressable onPress={onClose} style={modalForm.cancel}>
-                        <Text style={modalForm.cancel}>Cancel</Text>
+
+                    <Pressable
+                        onPress={onClose}
+                        style={({ pressed }) => [
+                            buttonStyle.cancelButton,
+                            pressed && buttonStyle.cancelButtonPressed,
+                        ]}
+                    >
+                        <Text style={buttonStyle.buttonText}>
+                            Cancel
+                        </Text>
                     </Pressable>
                 </View>
             </View>
         </Modal>
     );
-
 }
-

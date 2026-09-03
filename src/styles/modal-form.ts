@@ -25,25 +25,6 @@ export const modalForm = StyleSheet.create({
         padding: 12,
         marginBottom: 12,
     },
-    cancel: {
-        textAlign: "center",
-        alignItems: "center",
-        padding: 4,
-        color: "#ffffff",
-        backgroundColor: "#b5b9bd",
-        borderRadius: 4,
-        marginVertical: 2
-    },
-    submitButton: {
-        textAlign: "center",
-        alignItems: "center",
-        padding: 4,
-        color: "#ffffff",
-        backgroundColor: "#3096fc",
-        borderRadius: 4,
-        marginVertical: 2
-
-    },
     // Suggested addition: keeps the card responsive
     cardResponsive: {
         width: "100%",
@@ -80,5 +61,39 @@ export const modalForm = StyleSheet.create({
         fontSize: 12,
         marginTop: -8,
         marginBottom: 12,
+    },
+
+    // Debt type chip row
+    typeRow: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: 8,
+        marginBottom: 12,
+    },
+
+    typeChip: {
+        paddingHorizontal: 10,
+        paddingVertical: 8,
+        borderWidth: 1,
+        borderColor: "#ccc",
+        borderRadius: 8,
+        backgroundColor: "#fff",
+    },
+
+    typeChipSelected: {
+        borderColor: "#3096FC",
+        borderWidth: 2,
+        backgroundColor: "#EFF6FF",
+    },
+
+    typeChipText: {
+        color: "#0F172A",
+        fontSize: 13,
+        fontWeight: "500",
+    },
+
+    typeChipTextSelected: {
+        color: "#1D4ED8",
+        fontWeight: "600",
     },
 });
