@@ -3,6 +3,7 @@ import { LoadingScreen } from "@/components/LoadingScreen";
 import SavingsForm from "@/components/SavingsForm";
 import { buttonStyle } from "@/styles/button-style";
 import { screenStyles } from "@/styles/screen";
+import { SavingsGoal } from "@/types/savings";
 import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSavings } from "../contexts/SavingsContext";
@@ -10,6 +11,8 @@ import { useSavings } from "../contexts/SavingsContext";
 export default function SavingsScreen() {
     const [isOpen, setIsOpen] = useState(false);
     const { savings, loading } = useSavings();
+    const [editSavingsInfo, setEditSavingsInfo] = useState<SavingsGoal | null>(null);
+
 
     return (
         <>
@@ -45,7 +48,11 @@ export default function SavingsScreen() {
 
                 <SavingsForm
                     visible={isOpen}
-                    onClose={() => setIsOpen(false)}
+                    onClose={() => {
+                        setIsOpen(false);
+                        setEditSavingsInfo(null);
+                    }}
+                    savingsInfo={editSavingsInfo ?? undefined}
                 />
 
                 {savings.length > 0 && (
@@ -99,6 +106,10 @@ export default function SavingsScreen() {
                         label={goal.name}
                         amount={goal.monthlyContribution || 0}
                         subtitle={`$${goal.currentAmount} / $${goal.targetAmount}`}
+                        onPress={() => {
+                            setIsOpen(true);
+                            setEditSavingsInfo(goal);
+                        }}
                     />
                 ))}
             </ScrollView>

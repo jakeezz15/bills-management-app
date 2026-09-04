@@ -1,19 +1,22 @@
 import { useSavings } from "@/app/contexts/SavingsContext";
 import { buttonStyle } from "@/styles/button-style";
 import { modalForm } from "@/styles/modal-form";
-import { useState } from "react";
+import { SavingsGoal } from "@/types/savings";
+import { useEffect, useState } from "react";
 import { Modal, Pressable, Text, TextInput, View } from "react-native";
 
 type SavingsFormProps = {
     visible: boolean;
     onClose: () => void;
+    savingsInfo?: SavingsGoal
 };
 
 export default function SavingsForm({
     visible,
     onClose,
+    savingsInfo
 }: SavingsFormProps) {
-    const { addSavings } = useSavings();
+    const { addSavings, updateSavings, deleteSavings } = useSavings();
 
     const [name, setName] = useState("");
     const [targetAmount, setTargetAmount] = useState("");
@@ -28,28 +31,56 @@ export default function SavingsForm({
     const currentHasError = showErrors && currentAmount.trim() === "";
     const contributionHasError = showErrors && monthlyContribution.trim() === "";
 
+    useEffect(() => {
+        if (savingsInfo) {
+            setName(savingsInfo.name);
+            setTargetAmount(savingsInfo.targetAmount.toString());
+            setCurrentAmount(savingsInfo.currentAmount.toString());
+            setMonthlyContribution(savingsInfo.monthlyContribution?.toString() || "");
+        } else {
+            setName("");
+            setTargetAmount("");
+            setCurrentAmount("");
+            setMonthlyContribution("");
+
+        }
+        setShowErrors(false);
+
+    }, [savingsInfo, visible])
+
     const handleSubmit = async () => {
         if (!name || !targetAmount || !currentAmount || !monthlyContribution) {
             setShowErrors(true);
             return;
         }
+        if (savingsInfo) {
+            await updateSavings(savingsInfo.id, { name: name, targetAmount: Number(targetAmount), currentAmount: Number(currentAmount), monthlyContribution: Number(monthlyContribution) })
+        } else {
+            await addSavings({
+                id: Date.now().toString(),
+                name,
+                targetAmount: Number(targetAmount),
+                currentAmount: Number(currentAmount),
+                monthlyContribution: Number(monthlyContribution),
+            });
+            setName("");
+            setTargetAmount("");
+            setCurrentAmount("");
+            setMonthlyContribution("");
+            setShowErrors(false);
+        }
+        onClose();
 
-        await addSavings({
-            id: Date.now().toString(),
-            name,
-            targetAmount: Number(targetAmount),
-            currentAmount: Number(currentAmount),
-            monthlyContribution: Number(monthlyContribution),
-        });
+    };
 
+    const handleDelete = async (id: string) => {
+        await deleteSavings(id)
         setName("");
         setTargetAmount("");
         setCurrentAmount("");
         setMonthlyContribution("");
-        setShowErrors(false);
-
         onClose();
-    };
+    }
 
     return (
         <Modal
@@ -66,7 +97,7 @@ export default function SavingsForm({
                         modalForm.cardShadow,
                     ]}
                 >
-                    <Text style={modalForm.title}>Add Savings</Text>
+                    <Text style={modalForm.title}> {savingsInfo ? "Update" : "Add"} Savings</Text>
 
                     <TextInput
                         style={[
@@ -155,7 +186,7 @@ export default function SavingsForm({
                         onPress={handleSubmit}
                     >
                         <Text style={buttonStyle.buttonText}>
-                            Add Savings
+                            {savingsInfo ? "Update" : "Add"} Savings
                         </Text>
                     </Pressable>
 
@@ -170,6 +201,20 @@ export default function SavingsForm({
                             Cancel
                         </Text>
                     </Pressable>
+                    {savingsInfo && <Pressable
+                        onPress={() => {
+                            onClose();
+                            handleDelete(savingsInfo.id);
+                        }}
+                        style={({ pressed }) => [
+                            buttonStyle.deleteButton,
+                            pressed && buttonStyle.cancelButtonPressed
+                        ]}
+                    >
+                        <Text style={buttonStyle.buttonText}>
+                            Delete Savings
+                        </Text>
+                    </Pressable>}
                 </View>
             </View>
         </Modal>
