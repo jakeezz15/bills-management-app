@@ -1,19 +1,23 @@
 import { useExpenses } from "@/app/contexts/ExpensesContext";
 import { buttonStyle } from "@/styles/button-style";
 import { modalForm } from "@/styles/modal-form";
-import { useState } from "react";
+import { Expenses } from "@/types/expense";
+import { useEffect, useState } from "react";
 import { Modal, Pressable, Text, TextInput, View } from "react-native";
 
 type ExpenseFormProps = {
     visible: boolean;
     onClose: () => void;
+    expense?: Expenses;
+
 };
 
 export default function ExpenseForm({
     visible,
-    onClose
+    onClose,
+    expense
 }: ExpenseFormProps) {
-    const { addExpense } = useExpenses();
+    const { addExpense, updateExpense, deleteExpense } = useExpenses();
 
     const [name, setName] = useState("");
     const [amount, setAmount] = useState("");
@@ -28,30 +32,50 @@ export default function ExpenseForm({
     const nameHasError = showErrors && name.trim() === "";
     const amountHasError = showErrors && amount.trim() === "";
 
+    useEffect(() => {
+        if (expense) {
+            setName(expense.name);
+            setAmount(String(expense.amount));
+        } else {
+            setName("");
+            setAmount("");
+        }
+        setShowErrors(false);
+    }, [expense, visible]);
+
     const handleSubmit = async () => {
         // Suggested addition: display errors after an invalid submission
         if (!name || !amount) {
             setShowErrors(true);
             return;
         }
+        if (expense) {
+            await updateExpense(expense.id, { name: name, amount: Number(amount) })
+        } else {
+            await addExpense({
+                id: Date.now().toString(),
+                name,
+                amount: Number(amount),
+                dueDay: 1,
+                isPaid: false,
+                isRecurring: false
+            });
+            setName("");
+            setAmount("");
+        }
 
-        await addExpense({
-            id: Date.now().toString(),
-            name,
-            amount: Number(amount),
-            dueDay: 1,
-            isPaid: false,
-            isRecurring: false
-        });
-
-        setName("");
-        setAmount("");
-
-        // Suggested addition: reset validation after submission
         setShowErrors(false);
 
         onClose();
+
+
     };
+    const handleDelete = async (id: string) => {
+        await deleteExpense(id)
+        setName("");
+        setAmount("");
+        onClose();
+    }
 
     return (
         <Modal
@@ -72,7 +96,7 @@ export default function ExpenseForm({
                         modalForm.cardShadow,
                     ]}
                 >
-                    <Text style={modalForm.title}>Add Expense</Text>
+                    <Text style={modalForm.title}>{expense ? "Update" : "Add"} Expense</Text>
 
                     <TextInput
                         style={[
@@ -114,6 +138,7 @@ export default function ExpenseForm({
                             // Suggested addition: error appearance
                             amountHasError &&
                             modalForm.inputError,
+
                         ]}
                         placeholder="Amount"
                         placeholderTextColor="#888"
@@ -132,6 +157,7 @@ export default function ExpenseForm({
                             Amount is required.
                         </Text>
                     )}
+                    <View style={{ marginBottom: 18 }}></View>
 
                     <Pressable
                         style={({ pressed }) => [
@@ -141,7 +167,7 @@ export default function ExpenseForm({
                         onPress={handleSubmit}
                     >
                         <Text style={buttonStyle.buttonText}>
-                            Add Expense
+                            {expense ? "Update" : "Add"} Expense
                         </Text>
                     </Pressable>
 
@@ -156,6 +182,20 @@ export default function ExpenseForm({
                             Cancel
                         </Text>
                     </Pressable>
+                    {expense && <Pressable
+                        onPress={() => {
+                            onClose();
+                            handleDelete(expense.id);
+                        }}
+                        style={({ pressed }) => [
+                            buttonStyle.deleteButton,
+                            pressed && buttonStyle.cancelButtonPressed
+                        ]}
+                    >
+                        <Text style={buttonStyle.buttonText}>
+                            Delete Expense
+                        </Text>
+                    </Pressable>}
                 </View>
             </View>
         </Modal>

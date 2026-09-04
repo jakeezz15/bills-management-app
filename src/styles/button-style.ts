@@ -44,6 +44,27 @@ export const buttonStyle = StyleSheet.create({
         elevation: 3,
     },
 
+    deleteButton: {
+        textAlign: "center",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: 44,
+        padding: 8,
+        color: "#FFFFFF",
+        backgroundColor: "#f74f4f",
+        borderRadius: 8,
+        marginVertical: 2,
+
+        shadowColor: "#7F1D1D",
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.16,
+        shadowRadius: 3,
+        elevation: 3,
+    },
+
     cancelButton: {
         textAlign: "center",
         alignItems: "center",
@@ -51,7 +72,7 @@ export const buttonStyle = StyleSheet.create({
         minHeight: 44,
         padding: 8,
         color: "#FFFFFF",
-        backgroundColor: "#DC2626",
+        backgroundColor: "#aba9a9",
         borderRadius: 8,
         marginVertical: 2,
 
@@ -66,7 +87,7 @@ export const buttonStyle = StyleSheet.create({
     },
 
     cancelButtonPressed: {
-        backgroundColor: "#B91C1C",
+        backgroundColor: "#919191",
         opacity: 0.9,
         transform: [{ scale: 0.98 }],
     },

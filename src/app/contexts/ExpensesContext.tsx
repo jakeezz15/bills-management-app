@@ -7,6 +7,8 @@ type ExpensesContextValue = {
     expenses: Expenses[];
     loading: boolean;
     addExpense: (expense: Expenses) => Promise<void>;
+    updateExpense: (id: string, updates: Partial<Expenses>) => Promise<void>;
+    deleteExpense: (id: string) => Promise<void>;
     reload: () => Promise<void>;
 }
 const ExpensesContext = createContext<ExpensesContextValue | null>(null);
@@ -25,6 +27,23 @@ export function ExpensesProvider({ children }: { children: React.ReactNode }) {
         await saveExpenses(updated);
     }, [expenses]);
 
+    const updateExpense = useCallback(async (id: string, updates: Partial<Expenses>) => {
+        const updated = expenses.map((expense) => {
+            if (expense.id === id) {
+                return { ...expense, ...updates };
+            }
+            return expense;
+        });
+        setExpenses(updated);
+        await saveExpenses(updated);
+    }, [expenses]);
+
+    const deleteExpense = useCallback(async (id: string) => {
+        const updated = expenses.filter((expense) => expense.id !== id)
+        setExpenses(updated);
+        await saveExpenses(updated);
+    }, [expenses])
+
     const reload = useCallback(async () => {
         setLoading(true);
         const data = await loadExpenses();
@@ -33,7 +52,7 @@ export function ExpensesProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     return (
-        <ExpensesContext.Provider value={{ expenses, loading, addExpense, reload }}>
+        <ExpensesContext.Provider value={{ expenses, loading, addExpense, reload, updateExpense, deleteExpense }}>
             {children}
         </ExpensesContext.Provider>
     )

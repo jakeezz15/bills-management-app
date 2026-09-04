@@ -13,7 +13,7 @@ export const modalForm = StyleSheet.create({
         padding: 20,
     },
     title: {
-        fontSize: 18,
+        fontSize: 20,
         fontWeight: "600",
         marginBottom: 16,
     },
@@ -24,6 +24,8 @@ export const modalForm = StyleSheet.create({
         borderRadius: 8,
         padding: 12,
         marginBottom: 12,
+        fontSize: 16
+
     },
     // Suggested addition: keeps the card responsive
     cardResponsive: {

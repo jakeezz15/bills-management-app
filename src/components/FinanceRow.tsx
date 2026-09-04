@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 // Suggested future change: wait until you approve an API change
 type FinanceRowProps = {
@@ -7,50 +7,56 @@ type FinanceRowProps = {
     subtitle?: string;
     isPaid?: boolean;
     isRecurring?: boolean;
+    onPress?: () => void;
+
 }
 
 export function FinanceRow({
     label,
     amount,
-    subtitle
+    subtitle,
+    onPress
 }: FinanceRowProps) {
     return (
-        <View style={styles.row}>
-            {/* Suggested addition: controls the left-side width */}
-            <View style={styles.details}>
-                <Text
-                    style={styles.label}
-
-                    // Suggested addition: prevents long labels from
-                    // pushing the amount outside the row
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                >
-                    {label}
-                </Text>
-
-                {subtitle ? (
+        <Pressable onPress={onPress}>
+            <View style={styles.row}>
+                {/* Suggested addition: controls the left-side width */}
+                <View style={styles.details}>
                     <Text
-                        style={styles.subtitle}
+                        style={styles.label}
 
-                        // Suggested addition: protects the row layout
+                        // Suggested addition: prevents long labels from
+                        // pushing the amount outside the row
                         numberOfLines={1}
+                        ellipsizeMode="tail"
                     >
-                        {subtitle}
+                        {label}
                     </Text>
-                ) : null}
+
+                    {subtitle ? (
+                        <Text
+                            style={styles.subtitle}
+
+                            // Suggested addition: protects the row layout
+                            numberOfLines={1}
+                        >
+                            {subtitle}
+                        </Text>
+                    ) : null}
+                </View>
+
+                <Text
+                    style={styles.amount}
+
+                    // Suggested addition: protects the amount layout
+                    numberOfLines={1}
+                >
+                    {/* Suggested change: consistent decimal formatting */}
+                    ${amount.toFixed(2)}
+                </Text>
             </View>
+        </Pressable>
 
-            <Text
-                style={styles.amount}
-
-                // Suggested addition: protects the amount layout
-                numberOfLines={1}
-            >
-                {/* Suggested change: consistent decimal formatting */}
-                ${amount.toFixed(2)}
-            </Text>
-        </View>
     );
 }
 

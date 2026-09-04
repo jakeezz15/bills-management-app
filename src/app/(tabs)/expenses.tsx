@@ -3,6 +3,7 @@ import { FinanceRow } from "@/components/FinanceRow";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { buttonStyle } from "@/styles/button-style";
 import { screenStyles } from "@/styles/screen";
+import { Expenses } from "@/types/expense";
 import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useExpenses } from "../contexts/ExpensesContext";
@@ -11,6 +12,7 @@ export default function ExpensesScreen() {
     const { expenses, loading } = useExpenses();
 
     const [isOpen, setIsOpen] = useState(false);
+    const [editingExpense, setEditingExpense] = useState<Expenses | null>(null);
 
     return (
         <>
@@ -36,7 +38,10 @@ export default function ExpensesScreen() {
                             buttonStyle.normalButton,
                             pressed && buttonStyle.buttonPressed
                         ]}
-                        onPress={() => setIsOpen(true)}
+                        onPress={() => {
+                            setIsOpen(true)
+                            setEditingExpense(null)
+                        }}
                     >
                         <Text style={buttonStyle.buttonText}>
                             + Add expense
@@ -46,7 +51,11 @@ export default function ExpensesScreen() {
 
                 <ExpenseForm
                     visible={isOpen}
-                    onClose={() => setIsOpen(false)}
+                    onClose={() => {
+                        setIsOpen(false);
+                        setEditingExpense(null);
+                    }}
+                    expense={editingExpense ?? undefined}
                 />
 
                 {expenses.length > 0 && (
@@ -81,11 +90,15 @@ export default function ExpensesScreen() {
                         </Text>
 
                         <Pressable
+
                             style={({ pressed }) => [
                                 buttonStyle.normalButton,
                                 pressed && buttonStyle.buttonPressed
                             ]}
-                            onPress={() => setIsOpen(true)}
+                            onPress={() => {
+                                setIsOpen(true);
+                                setEditingExpense(null);
+                            }}
                         >
                             <Text style={buttonStyle.buttonText}>
                                 + Add first expense
@@ -96,6 +109,10 @@ export default function ExpensesScreen() {
 
                 {expenses.map((expense) => (
                     <FinanceRow
+                        onPress={() => {
+                            setEditingExpense(expense);
+                            setIsOpen(true);
+                        }}
                         key={expense.id}
                         label={expense.name}
                         amount={expense.amount}
@@ -113,6 +130,7 @@ export default function ExpensesScreen() {
                                 )
                         }
                     />
+
                 ))}
             </ScrollView>
         </>
