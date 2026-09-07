@@ -8,6 +8,8 @@ import {
     countMonthsOverlapping,
     dueDayFallsInRange,
     isIsoInRange,
+    rangeThrough,
+    startOfYear,
 } from "@/utils/date";
 
 export function getTotalIncome(income: Income[]) {
@@ -25,7 +27,7 @@ export function getTotalBills(bills: Bill[]) {
 }
 
 export function getTotalDebtPayments(debts: Debt[]) {
-    return debts.reduce((sum, item) => sum + item.minimumPayment, 0);
+    return debts.reduce((sum, item) => sum + (item.totalPaid ?? 0), 0);
 }
 
 export function getTotalSavings(savings: SavingsGoal[]) {
@@ -58,12 +60,15 @@ export type PeriodTotals = {
 };
 
 /**
- * Totals for a selected period.
- * - Expenses / income: ISO `date` must fall in range.
- * - Bills: only **paid** bills whose `dueDay` falls in the range (unpaid = reminder only).
- * - Debts: `dueDay` must fall on a day inside the range.
- * - Savings: monthly contribution × months overlapping the range
- *   (until contribution dates exist).
+ * Running balance **as of the end** of the selected period (not period-only P&L).
+ *
+ * Example: paid on the 15th → still counts when you view the 16th.
+ *
+ * - Income / expenses: ISO `date` on or before `range.end`
+ * - Bills: **paid** only, and due day occurred on or before `range.end`
+ * - Debts: sum of `totalPaid` (installment payments recorded so far)
+ * - Savings: monthly contribution × months from Jan 1 of that year through `range.end`
+ *   (until contribution dates exist)
  */
 export function getTotalsForRange(
     range: DateRange,
@@ -73,30 +78,33 @@ export function getTotalsForRange(
     savings: SavingsGoal[],
     income: Income[]
 ): PeriodTotals {
-    const incomeInRange = income.filter((item) =>
-        isIsoInRange(item.date, range)
+    const through = rangeThrough(range.end);
+
+    const incomeToDate = income.filter((item) =>
+        isIsoInRange(item.date, through)
     );
-    const expensesInRange = expenses.filter((item) =>
-        isIsoInRange(item.date, range)
+    const expensesToDate = expenses.filter((item) =>
+        isIsoInRange(item.date, through)
     );
-    const billsInRange = bills.filter(
+    const billsToDate = bills.filter(
         (item) =>
-            item.isPaid && dueDayFallsInRange(item.dueDay, range)
-    );
-    const debtsInRange = debts.filter((item) =>
-        dueDayFallsInRange(item.dueDay, range)
+            item.isPaid && dueDayFallsInRange(item.dueDay, through)
     );
 
-    const monthCount = countMonthsOverlapping(range);
+    const savingsYearRange: DateRange = {
+        start: startOfYear(range.end),
+        end: through.end,
+    };
+    const monthCount = countMonthsOverlapping(savingsYearRange);
     const savingsTotal = savings.reduce(
         (sum, item) => sum + (item.monthlyContribution ?? 0) * monthCount,
         0
     );
 
-    const incomeTotal = getTotalIncome(incomeInRange);
-    const expensesTotal = getTotalExpenses(expensesInRange);
-    const billsTotal = getTotalBills(billsInRange);
-    const debtTotal = getTotalDebtPayments(debtsInRange);
+    const incomeTotal = getTotalIncome(incomeToDate);
+    const expensesTotal = getTotalExpenses(expensesToDate);
+    const billsTotal = getTotalBills(billsToDate);
+    const debtTotal = getTotalDebtPayments(debts);
 
     return {
         income: incomeTotal,

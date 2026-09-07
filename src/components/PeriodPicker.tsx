@@ -73,7 +73,7 @@ export function PeriodPicker({
                 >
                     <Text style={styles.label}>{label}</Text>
                     <Text style={screenStyles.screenDescription}>
-                        Tap label to reset to this month
+                        Balance as of this point · tap to reset
                     </Text>
                 </Pressable>
 

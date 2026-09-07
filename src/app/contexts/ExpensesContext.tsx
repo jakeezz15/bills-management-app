@@ -1,11 +1,12 @@
 import { loadExpenses, saveExpenses } from "@/services/storage";
 import { Expense } from "@/types/expense";
+import { stampCreate, stampUpdate } from "@/utils/timestamps";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 
 type ExpensesContextValue = {
     expenses: Expense[];
     loading: boolean;
-    addExpense: (expense: Expense) => Promise<void>;
+    addExpense: (expense: Omit<Expense, "createdAt" | "updatedAt">) => Promise<void>;
     updateExpense: (id: string, updates: Partial<Expense>) => Promise<void>;
     deleteExpense: (id: string) => Promise<void>;
     reload: () => Promise<void>;
@@ -21,8 +22,9 @@ export function ExpensesProvider({ children }: { children: React.ReactNode }) {
         loadExpenses().then(setExpenses).finally(() => setLoading(false));
     }, []);
 
-    const addExpense = useCallback(async (expense: Expense) => {
-        const updated = [...expenses, expense];
+    const addExpense = useCallback(async (expense: Omit<Expense, "createdAt" | "updatedAt">) => {
+        const stamped: Expense = { ...expense, ...stampCreate() };
+        const updated = [...expenses, stamped];
         setExpenses(updated);
         await saveExpenses(updated);
     }, [expenses]);
@@ -30,7 +32,7 @@ export function ExpensesProvider({ children }: { children: React.ReactNode }) {
     const updateExpense = useCallback(async (id: string, updates: Partial<Expense>) => {
         const updated = expenses.map((expense) => {
             if (expense.id === id) {
-                return { ...expense, ...updates };
+                return { ...expense, ...updates, ...stampUpdate() };
             }
             return expense;
         });

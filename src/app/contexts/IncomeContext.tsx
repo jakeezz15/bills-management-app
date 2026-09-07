@@ -1,11 +1,12 @@
 import { loadIncome, saveIncome } from "@/services/storage";
 import { Income } from "@/types/income";
+import { stampCreate, stampUpdate } from "@/utils/timestamps";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 
 type IncomeContextValue = {
     income: Income[];
     loading: boolean;
-    addIncome: (entry: Income) => Promise<void>;
+    addIncome: (entry: Omit<Income, "createdAt" | "updatedAt">) => Promise<void>;
     updateIncome: (id: string, updates: Partial<Income>) => Promise<void>;
     deleteIncome: (id: string) => Promise<void>;
     reload: () => Promise<void>;
@@ -21,8 +22,9 @@ export function IncomeProvider({ children }: { children: React.ReactNode }) {
         loadIncome().then(setIncome).finally(() => setLoading(false));
     }, []);
 
-    const addIncome = useCallback(async (entry: Income) => {
-        const updated = [...income, entry];
+    const addIncome = useCallback(async (entry: Omit<Income, "createdAt" | "updatedAt">) => {
+        const stamped: Income = { ...entry, ...stampCreate() };
+        const updated = [...income, stamped];
         setIncome(updated);
         await saveIncome(updated);
     }, [income]);
@@ -30,7 +32,7 @@ export function IncomeProvider({ children }: { children: React.ReactNode }) {
     const updateIncome = useCallback(async (id: string, updates: Partial<Income>) => {
         const updated = income.map((entry) => {
             if (entry.id === id) {
-                return { ...entry, ...updates };
+                return { ...entry, ...updates, ...stampUpdate() };
             }
             return entry;
         });

@@ -4,6 +4,7 @@ import { Debt } from "@/types/debt";
 import { Expense } from "@/types/expense";
 import { Income } from "@/types/income";
 import { SavingsGoal } from "@/types/savings";
+import { debtStartDate, ensureTimestamps } from "@/utils/timestamps";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const BILLS_KEY = "bills";
@@ -62,7 +63,8 @@ export async function loadBills(): Promise<Bill[]> {
         return billsData;
     }
 
-    return JSON.parse(raw) as Bill[];
+    const parsed = JSON.parse(raw) as Bill[];
+    return parsed.map((bill) => ensureTimestamps(bill));
 }
 
 export async function saveBills(bills: Bill[]): Promise<void> {
@@ -81,7 +83,8 @@ export async function loadExpenses(): Promise<Expense[]> {
         return expensesData;
     }
 
-    return JSON.parse(raw) as Expense[];
+    const parsed = JSON.parse(raw) as Expense[];
+    return parsed.map((expense) => ensureTimestamps(expense, expense.date));
 }
 
 export async function saveExpenses(expenses: Expense[]): Promise<void> {
@@ -98,7 +101,8 @@ export async function loadIncome(): Promise<Income[]> {
         return incomeData;
     }
 
-    return JSON.parse(raw) as Income[];
+    const parsed = JSON.parse(raw) as Income[];
+    return parsed.map((entry) => ensureTimestamps(entry, entry.date));
 }
 
 export async function saveIncome(income: Income[]): Promise<void> {
@@ -115,7 +119,15 @@ export async function loadDebts(): Promise<Debt[]> {
         return debtData;
     }
 
-    return JSON.parse(raw) as Debt[];
+    const parsed = JSON.parse(raw) as Debt[];
+    return parsed.map((debt) => {
+        const withTs = ensureTimestamps(debt);
+        return {
+            ...withTs,
+            totalPaid: debt.totalPaid ?? 0,
+            startDate: debtStartDate(withTs),
+        };
+    });
 }
 
 export async function saveDebts(debts: Debt[]): Promise<void> {
@@ -132,7 +144,8 @@ export async function loadSavings(): Promise<SavingsGoal[]> {
         return savingsData;
     }
 
-    return JSON.parse(raw) as SavingsGoal[];
+    const parsed = JSON.parse(raw) as SavingsGoal[];
+    return parsed.map((item) => ensureTimestamps(item));
 }
 
 export async function saveSavings(savings: SavingsGoal[]): Promise<void> {

@@ -1,4 +1,6 @@
-export interface Bill {
+import { Timestamps } from "@/utils/timestamps";
+
+export interface Bill extends Timestamps {
     id: string;
     name: string;
     amount: number;

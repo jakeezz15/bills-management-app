@@ -2,6 +2,7 @@ import { useDebt } from "@/app/contexts/DebtsContext";
 import { buttonStyle } from "@/styles/button-style";
 import { modalForm } from "@/styles/modal-form";
 import { Debt } from "@/types/debt";
+import { toIsoDate } from "@/utils/date";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { useEffect, useState } from "react";
 import { Modal, Pressable, Text, TextInput, View } from "react-native";
@@ -10,9 +11,12 @@ type DebtFormProps = {
     visible: boolean;
     onClose: () => void;
     debt?: Debt;
+    /** As-of date from the period picker (ISO) used when recording a payment. */
+    paymentDate?: string;
 };
 
 const LOAN_TYPES = [
+    "Device / Installment",
     "Credit Card",
     "Student Loan",
     "Mortgage",
@@ -20,17 +24,23 @@ const LOAN_TYPES = [
     "Personal Loan",
 ] as const;
 
+function todayIsoDate() {
+    return toIsoDate(new Date());
+}
+
 export default function DebtForm({
     visible,
     onClose,
     debt,
+    paymentDate,
 }: DebtFormProps) {
-    const { addDebt, updateDebt, deleteDebt } = useDebt();
+    const { addDebt, updateDebt, deleteDebt, recordPayment } = useDebt();
 
     const [name, setName] = useState("");
     const [balance, setBalance] = useState("");
     const [minimumPayment, setMinimumPayment] = useState("");
     const [dueDay, setDueDay] = useState("");
+    const [startDate, setStartDate] = useState(todayIsoDate());
     const [type, setType] = useState("");
 
     const [focusedInput, setFocusedInput] = useState<string | null>(null);
@@ -40,6 +50,8 @@ export default function DebtForm({
     const balanceHasError = showErrors && balance.trim() === "";
     const paymentHasError = showErrors && minimumPayment.trim() === "";
     const dueDayHasError = showErrors && dueDay.trim() === "";
+    const startDateHasError =
+        showErrors && !/^\d{4}-\d{2}-\d{2}$/.test(startDate.trim());
     const typeHasError = showErrors && type.trim() === "";
 
     useEffect(() => {
@@ -48,19 +60,28 @@ export default function DebtForm({
             setBalance(String(debt.balance));
             setMinimumPayment(String(debt.minimumPayment));
             setDueDay(String(debt.dueDay));
+            setStartDate(debt.startDate || todayIsoDate());
             setType(debt.type);
         } else {
             setName("");
             setBalance("");
             setMinimumPayment("");
             setDueDay("");
+            setStartDate(todayIsoDate());
             setType("");
         }
         setShowErrors(false);
     }, [debt, visible]);
 
     const handleSubmit = async () => {
-        if (!name || !balance || !minimumPayment || !dueDay || !type) {
+        if (
+            !name ||
+            !balance ||
+            !minimumPayment ||
+            !dueDay ||
+            !type ||
+            !/^\d{4}-\d{2}-\d{2}$/.test(startDate.trim())
+        ) {
             setShowErrors(true);
             return;
         }
@@ -77,6 +98,7 @@ export default function DebtForm({
                 balance: Number(balance),
                 minimumPayment: Number(minimumPayment),
                 dueDay: dueDayNumber,
+                startDate: startDate.trim(),
                 type,
             });
         } else {
@@ -86,13 +108,16 @@ export default function DebtForm({
                 balance: Number(balance),
                 minimumPayment: Number(minimumPayment),
                 dueDay: dueDayNumber,
+                startDate: startDate.trim(),
                 isPaid: false,
+                totalPaid: 0,
                 type,
             });
             setName("");
             setBalance("");
             setMinimumPayment("");
             setDueDay("");
+            setStartDate(todayIsoDate());
             setType("");
         }
 
@@ -106,7 +131,16 @@ export default function DebtForm({
         setBalance("");
         setMinimumPayment("");
         setDueDay("");
+        setStartDate(todayIsoDate());
         setType("");
+        onClose();
+    };
+
+    const handleRecordPayment = async () => {
+        if (!debt || debt.balance <= 0) {
+            return;
+        }
+        await recordPayment(debt.id, undefined, paymentDate);
         onClose();
     };
 
@@ -156,7 +190,7 @@ export default function DebtForm({
                         )}
                     </View>
 
-                    <Text style={modalForm.label}>Debt Name</Text>
+                    <Text style={modalForm.label}>Name</Text>
 
                     <TextInput
                         style={[
@@ -164,7 +198,7 @@ export default function DebtForm({
                             focusedInput === "name" && modalForm.inputFocused,
                             nameHasError && modalForm.inputError,
                         ]}
-                        placeholder="Debt name"
+                        placeholder="Ex. iPhone installment"
                         placeholderTextColor="#888"
                         value={name}
                         onChangeText={setName}
@@ -173,11 +207,11 @@ export default function DebtForm({
                     />
                     {nameHasError && (
                         <Text style={modalForm.errorText}>
-                            Debt name is required.
+                            Name is required.
                         </Text>
                     )}
 
-                    <Text style={modalForm.label}>Balance</Text>
+                    <Text style={modalForm.label}>Remaining balance</Text>
 
                     <TextInput
                         style={[
@@ -185,7 +219,7 @@ export default function DebtForm({
                             focusedInput === "balance" && modalForm.inputFocused,
                             balanceHasError && modalForm.inputError,
                         ]}
-                        placeholder="Balance"
+                        placeholder="Ex. 500"
                         placeholderTextColor="#888"
                         value={balance}
                         onChangeText={setBalance}
@@ -199,7 +233,7 @@ export default function DebtForm({
                         </Text>
                     )}
 
-                    <Text style={modalForm.label}>Minimum Payment</Text>
+                    <Text style={modalForm.label}>Monthly payment</Text>
 
                     <TextInput
                         style={[
@@ -207,7 +241,7 @@ export default function DebtForm({
                             focusedInput === "minimumPayment" && modalForm.inputFocused,
                             paymentHasError && modalForm.inputError,
                         ]}
-                        placeholder="Minimum payment"
+                        placeholder="Ex. 45"
                         placeholderTextColor="#888"
                         value={minimumPayment}
                         onChangeText={setMinimumPayment}
@@ -217,7 +251,7 @@ export default function DebtForm({
                     />
                     {paymentHasError && (
                         <Text style={modalForm.errorText}>
-                            Minimum payment is required.
+                            Monthly payment is required.
                         </Text>
                     )}
 
@@ -242,6 +276,29 @@ export default function DebtForm({
                             Due day is required (1-31).
                         </Text>
                     )}
+
+                    <Text style={modalForm.label}>Start date</Text>
+
+                    <TextInput
+                        style={[
+                            modalForm.input,
+                            focusedInput === "startDate" && modalForm.inputFocused,
+                            startDateHasError && modalForm.inputError,
+                        ]}
+                        placeholder="YYYY-MM-DD"
+                        placeholderTextColor="#888"
+                        value={startDate}
+                        onChangeText={setStartDate}
+                        onFocus={() => setFocusedInput("startDate")}
+                        onBlur={() => setFocusedInput(null)}
+                    />
+                    {startDateHasError && (
+                        <Text style={modalForm.errorText}>
+                            Use a start date like 2026-08-01.
+                        </Text>
+                    )}
+
+                    <Text style={modalForm.label}>Type</Text>
 
                     <View style={modalForm.typeRow}>
                         {LOAN_TYPES.map((loanType) => {
@@ -270,11 +327,37 @@ export default function DebtForm({
                     </View>
                     {typeHasError && (
                         <Text style={modalForm.errorText}>
-                            Loan type is required.
+                            Type is required.
                         </Text>
                     )}
 
-                    <View style={{ marginBottom: 18 }} />
+                    {debt && debt.balance > 0 && (
+                        <Pressable
+                            style={({ pressed }) => [
+                                buttonStyle.submitButton,
+                                { backgroundColor: "#15803D", marginBottom: 8 },
+                                pressed && buttonStyle.buttonPressed,
+                            ]}
+                            onPress={handleRecordPayment}
+                        >
+                            <Text style={buttonStyle.buttonText}>
+                                Record payment (${debt.minimumPayment.toFixed(2)})
+                            </Text>
+                        </Pressable>
+                    )}
+
+                    {debt && debt.balance <= 0 && (
+                        <Text
+                            style={[
+                                modalForm.errorText,
+                                { color: "#15803D", marginBottom: 12 },
+                            ]}
+                        >
+                            Paid off — balance is $0.
+                        </Text>
+                    )}
+
+                    <View style={{ marginBottom: 8 }} />
 
                     <Pressable
                         style={({ pressed }) => [

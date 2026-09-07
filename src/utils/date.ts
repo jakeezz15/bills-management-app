@@ -137,28 +137,46 @@ export function isIsoInRange(iso: string, range: DateRange): boolean {
 /**
  * True when a monthly due-day falls on any calendar day inside the range
  * (Option A for bills/debts that only store `dueDay`).
+ * Iterates by month (not day) so long "as of" ranges stay cheap.
  */
 export function dueDayFallsInRange(
     dueDay: number,
     range: DateRange
 ): boolean {
     const day = Math.min(Math.max(dueDay, 1), 31);
-    const cursor = startOfDay(range.start);
-    const last = startOfDay(range.end);
+    const cursor = startOfMonth(range.start);
+    const lastMonth = startOfMonth(range.end);
 
-    while (cursor.getTime() <= last.getTime()) {
+    while (cursor.getTime() <= lastMonth.getTime()) {
         const daysInMonth = new Date(
             cursor.getFullYear(),
             cursor.getMonth() + 1,
             0
         ).getDate();
-        if (cursor.getDate() === Math.min(day, daysInMonth)) {
+        const dueDate = startOfDay(
+            new Date(
+                cursor.getFullYear(),
+                cursor.getMonth(),
+                Math.min(day, daysInMonth)
+            )
+        );
+
+        if (isInRange(dueDate, range)) {
             return true;
         }
-        cursor.setDate(cursor.getDate() + 1);
+
+        cursor.setMonth(cursor.getMonth() + 1);
     }
 
     return false;
+}
+
+/** Cumulative window: beginning of history through `asOf` (inclusive). */
+export function rangeThrough(asOf: Date): DateRange {
+    return {
+        start: new Date(2000, 0, 1),
+        end: endOfDay(asOf),
+    };
 }
 
 /** How many distinct calendar months overlap the range (for savings allocation). */

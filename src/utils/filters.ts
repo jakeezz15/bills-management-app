@@ -1,6 +1,9 @@
 import { Bill } from "@/types/bill";
+import { Debt } from "@/types/debt";
 import { Expense } from "@/types/expense";
 import { PaidFilter } from "@/constants/categories";
+import { parseIsoDate, startOfDay, toIsoDate } from "@/utils/date";
+import { debtStartDate } from "@/utils/timestamps";
 
 export function filterByCategory<T extends { category?: string }>(
     items: T[],
@@ -30,6 +33,63 @@ export function filterExpensesByCategory(
     category: string | null
 ): Expense[] {
     return filterByCategory(expenses, category);
+}
+
+/**
+ * Debt visibility for the as-of date:
+ * - hidden before startDate (plan hasn't started)
+ * - visible from start through payoff day
+ * - hidden after paidOffDate
+ */
+export function isDebtVisibleAsOf(debt: Debt, asOf: Date): boolean {
+    const asOfIso = toIsoDate(asOf);
+    const start = debtStartDate(debt);
+
+    if (asOfIso < start) {
+        return false;
+    }
+
+    if (debt.balance > 0 && !debt.paidOffDate) {
+        return true;
+    }
+
+    if (debt.paidOffDate) {
+        return asOfIso <= debt.paidOffDate;
+    }
+
+    return false;
+}
+
+export function filterDebtsVisibleAsOf(debts: Debt[], asOf: Date): Debt[] {
+    return debts.filter((debt) => isDebtVisibleAsOf(debt, asOf));
+}
+
+/**
+ * Whether this month's installment is paid for the date you're viewing.
+ * Remaining balance can still be > 0 — "paid" means the payment was recorded,
+ * not that the whole loan is finished.
+ */
+export function isDebtInstallmentPaidAsOf(debt: Debt, asOf: Date): boolean {
+    if (debt.balance <= 0 || debt.paidOffDate) {
+        return true;
+    }
+
+    if (!debt.lastPaymentDate) {
+        return false;
+    }
+
+    const paidOn = parseIsoDate(debt.lastPaymentDate);
+    if (!paidOn) {
+        return false;
+    }
+
+    const asOfDay = startOfDay(asOf);
+
+    return (
+        paidOn.getFullYear() === asOfDay.getFullYear() &&
+        paidOn.getMonth() === asOfDay.getMonth() &&
+        paidOn.getTime() <= asOfDay.getTime()
+    );
 }
 
 /** Days until due this month; negative means overdue this month. */

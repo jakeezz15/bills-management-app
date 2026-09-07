@@ -62,7 +62,7 @@ export default function HomeScreen() {
         >
             <Text style={screenStyles.title}>Finance Summary</Text>
             <Text style={[screenStyles.screenDescription, { marginBottom: 12 }]}>
-                Performance for the selected period
+                Running balance as of the selected date
             </Text>
 
             <PeriodPicker
@@ -76,7 +76,7 @@ export default function HomeScreen() {
             <View style={screenStyles.summaryCard}>
                 <View style={screenStyles.leftoverSection}>
                     <Text style={screenStyles.leftoverLabel}>
-                        Available after commitments
+                        Balance after money in and out
                     </Text>
 
                     <Text
@@ -94,8 +94,8 @@ export default function HomeScreen() {
 
                     <Text style={screenStyles.leftoverMessage}>
                         {totals.leftover >= 0
-                            ? "Your planned finances are within budget for this period."
-                            : "Commitments are higher than income for this period."}
+                            ? "Income received so far covers what you have spent and paid."
+                            : "Outflows so far are higher than income received."}
                     </Text>
                 </View>
 

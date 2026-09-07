@@ -1,11 +1,12 @@
 import { loadBills, saveBills } from "@/services/storage";
 import { Bill } from "@/types/bill";
+import { stampCreate, stampUpdate } from "@/utils/timestamps";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 
 type BillsContextValue = {
     bills: Bill[];
     loading: boolean;
-    addBill: (bill: Bill) => Promise<void>;
+    addBill: (bill: Omit<Bill, "createdAt" | "updatedAt">) => Promise<void>;
     updateBill: (id: string, updates: Partial<Bill>) => Promise<void>;
     deleteBill: (id: string) => Promise<void>;
     reload: () => Promise<void>;
@@ -21,8 +22,9 @@ export function BillsProvider({ children }: { children: React.ReactNode }) {
         loadBills().then(setBills).finally(() => setLoading(false));
     }, []);
 
-    const addBill = useCallback(async (bill: Bill) => {
-        const updated = [...bills, bill];
+    const addBill = useCallback(async (bill: Omit<Bill, "createdAt" | "updatedAt">) => {
+        const stamped: Bill = { ...bill, ...stampCreate() };
+        const updated = [...bills, stamped];
         setBills(updated);
         await saveBills(updated);
     }, [bills]);
@@ -30,7 +32,7 @@ export function BillsProvider({ children }: { children: React.ReactNode }) {
     const updateBill = useCallback(async (id: string, updates: Partial<Bill>) => {
         const updated = bills.map((bill) => {
             if (bill.id === id) {
-                return { ...bill, ...updates };
+                return { ...bill, ...updates, ...stampUpdate() };
             }
             return bill;
         });

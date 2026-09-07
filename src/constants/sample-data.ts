@@ -4,6 +4,11 @@ import { Expense } from "@/types/expense";
 import { Income } from "@/types/income";
 import { SavingsGoal } from "@/types/savings";
 
+const ts = (isoDate: string) => ({
+    createdAt: `${isoDate}T12:00:00.000Z`,
+    updatedAt: `${isoDate}T12:00:00.000Z`,
+});
+
 /** Recurring / scheduled obligations (rent, utilities, subscriptions) */
 export const billsData: Bill[] = [
     {
@@ -14,6 +19,7 @@ export const billsData: Bill[] = [
         isPaid: false,
         category: "Utilities",
         isRecurring: true,
+        ...ts("2026-07-01"),
     },
     {
         id: "2",
@@ -23,6 +29,7 @@ export const billsData: Bill[] = [
         isPaid: false,
         category: "Utilities",
         isRecurring: true,
+        ...ts("2026-07-01"),
     },
     {
         id: "3",
@@ -32,6 +39,7 @@ export const billsData: Bill[] = [
         isPaid: false,
         category: "Housing",
         isRecurring: true,
+        ...ts("2026-07-01"),
     },
 ];
 
@@ -43,6 +51,7 @@ export const expensesData: Expense[] = [
         amount: 65.4,
         date: "2026-09-05",
         category: "Food",
+        ...ts("2026-09-05"),
     },
     {
         id: "2",
@@ -50,6 +59,7 @@ export const expensesData: Expense[] = [
         amount: 40,
         date: "2026-09-06",
         category: "Transport",
+        ...ts("2026-09-06"),
     },
     {
         id: "3",
@@ -57,6 +67,7 @@ export const expensesData: Expense[] = [
         amount: 5.5,
         date: "2026-09-07",
         category: "Food",
+        ...ts("2026-09-07"),
     },
 ];
 
@@ -67,6 +78,7 @@ export const incomeData: Income[] = [
         gross: 1100,
         net: 900,
         source: "Salary",
+        ...ts("2026-07-28"),
     },
     {
         id: "2",
@@ -74,6 +86,7 @@ export const incomeData: Income[] = [
         gross: 1200,
         net: 1000,
         source: "Salary",
+        ...ts("2026-08-28"),
     },
     {
         id: "3",
@@ -81,28 +94,35 @@ export const incomeData: Income[] = [
         gross: 1200,
         net: 1000,
         source: "Salary",
+        ...ts("2026-09-28"),
     },
 ];
 
 export const debtData: Debt[] = [
     {
         id: "1",
-        name: "Iphone 16 Pro Max",
+        name: "iPhone 16 Pro Max",
         balance: 500,
         dueDay: 15,
         minimumPayment: 45,
         isPaid: false,
-        remarks: "Can't pay right now",
-        type: "loan",
+        totalPaid: 0,
+        startDate: "2026-08-01",
+        remarks: "Installment plan",
+        type: "Device / Installment",
+        ...ts("2026-08-01"),
     },
     {
         id: "2",
-        name: "Macbook Air",
+        name: "MacBook Air",
         balance: 800,
         dueDay: 15,
         minimumPayment: 75,
         isPaid: false,
-        type: "loan",
+        totalPaid: 0,
+        startDate: "2026-08-01",
+        type: "Device / Installment",
+        ...ts("2026-08-01"),
     },
 ];
 
@@ -113,6 +133,7 @@ export const savingsData: SavingsGoal[] = [
         targetAmount: 5000,
         currentAmount: 1200,
         monthlyContribution: 200,
+        ...ts("2026-07-01"),
     },
     {
         id: "2",
@@ -120,5 +141,6 @@ export const savingsData: SavingsGoal[] = [
         targetAmount: 2000,
         currentAmount: 400,
         monthlyContribution: 100,
+        ...ts("2026-07-01"),
     },
 ];
