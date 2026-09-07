@@ -1,33 +1,33 @@
 import { loadExpenses, saveExpenses } from "@/services/storage";
-import { Expenses } from "@/types/expense";
+import { Expense } from "@/types/expense";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 
-
 type ExpensesContextValue = {
-    expenses: Expenses[];
+    expenses: Expense[];
     loading: boolean;
-    addExpense: (expense: Expenses) => Promise<void>;
-    updateExpense: (id: string, updates: Partial<Expenses>) => Promise<void>;
+    addExpense: (expense: Expense) => Promise<void>;
+    updateExpense: (id: string, updates: Partial<Expense>) => Promise<void>;
     deleteExpense: (id: string) => Promise<void>;
     reload: () => Promise<void>;
-}
+};
+
 const ExpensesContext = createContext<ExpensesContextValue | null>(null);
 
 export function ExpensesProvider({ children }: { children: React.ReactNode }) {
-    const [expenses, setExpenses] = useState<Expenses[]>([])
-    const [loading, setLoading] = useState<boolean>(true)
+    const [expenses, setExpenses] = useState<Expense[]>([]);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        loadExpenses().then(setExpenses).finally(() => setLoading(false))
+        loadExpenses().then(setExpenses).finally(() => setLoading(false));
     }, []);
 
-    const addExpense = useCallback(async (expense: Expenses) => {
-        const updated = [...expenses, expense]
+    const addExpense = useCallback(async (expense: Expense) => {
+        const updated = [...expenses, expense];
         setExpenses(updated);
         await saveExpenses(updated);
     }, [expenses]);
 
-    const updateExpense = useCallback(async (id: string, updates: Partial<Expenses>) => {
+    const updateExpense = useCallback(async (id: string, updates: Partial<Expense>) => {
         const updated = expenses.map((expense) => {
             if (expense.id === id) {
                 return { ...expense, ...updates };
@@ -39,10 +39,10 @@ export function ExpensesProvider({ children }: { children: React.ReactNode }) {
     }, [expenses]);
 
     const deleteExpense = useCallback(async (id: string) => {
-        const updated = expenses.filter((expense) => expense.id !== id)
+        const updated = expenses.filter((expense) => expense.id !== id);
         setExpenses(updated);
         await saveExpenses(updated);
-    }, [expenses])
+    }, [expenses]);
 
     const reload = useCallback(async () => {
         setLoading(true);
@@ -52,11 +52,21 @@ export function ExpensesProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     return (
-        <ExpensesContext.Provider value={{ expenses, loading, addExpense, reload, updateExpense, deleteExpense }}>
+        <ExpensesContext.Provider
+            value={{
+                expenses,
+                loading,
+                addExpense,
+                updateExpense,
+                deleteExpense,
+                reload,
+            }}
+        >
             {children}
         </ExpensesContext.Provider>
-    )
+    );
 }
+
 export function useExpenses() {
     const context = useContext(ExpensesContext);
     if (!context) {

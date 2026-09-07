@@ -14,7 +14,7 @@ export const modalForm = StyleSheet.create({
     },
     title: {
         fontSize: 20,
-        fontWeight: "600",
+        fontWeight: "800",
         marginBottom: 16,
     },
     input: {
@@ -97,5 +97,34 @@ export const modalForm = StyleSheet.create({
     typeChipTextSelected: {
         color: "#1D4ED8",
         fontWeight: "600",
+    },
+    // Suggested addition: input label
+    label: {
+        color: "#334155",
+        fontSize: 14,
+        fontWeight: "600",
+        marginBottom: 6,
+    },
+
+    // Suggested addition: aligns icon and button text
+    buttonContent: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 6,
+    },
+    // Suggested addition: modal close icon
+    closeButton: {
+        width: 36,
+        height: 36,
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: 18,
+    },
+
+    // Suggested addition: close-button feedback
+    closeButtonPressed: {
+        backgroundColor: "#E2E8F0",
+        opacity: 0.8,
     },
 });

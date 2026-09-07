@@ -3,12 +3,14 @@ import { FinanceRow } from "@/components/FinanceRow";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { buttonStyle } from "@/styles/button-style";
 import { screenStyles } from "@/styles/screen";
+import { Debt } from "@/types/debt";
 import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useDebt } from "../contexts/DebtsContext";
 
 export default function DebtsScreen() {
     const [isOpen, setIsOpen] = useState(false);
+    const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
     const { debts, loading } = useDebt();
 
     return (
@@ -35,7 +37,10 @@ export default function DebtsScreen() {
                             buttonStyle.normalButton,
                             pressed && buttonStyle.buttonPressed
                         ]}
-                        onPress={() => setIsOpen(true)}
+                        onPress={() => {
+                            setEditingDebt(null);
+                            setIsOpen(true);
+                        }}
                     >
                         <Text style={buttonStyle.buttonText}>
                             + Add debt
@@ -45,7 +50,11 @@ export default function DebtsScreen() {
 
                 <DebtForm
                     visible={isOpen}
-                    onClose={() => setIsOpen(false)}
+                    onClose={() => {
+                        setIsOpen(false);
+                        setEditingDebt(null);
+                    }}
+                    debt={editingDebt ?? undefined}
                 />
 
                 {debts.length > 0 && (
@@ -84,7 +93,10 @@ export default function DebtsScreen() {
                                 buttonStyle.normalButton,
                                 pressed && buttonStyle.buttonPressed
                             ]}
-                            onPress={() => setIsOpen(true)}
+                            onPress={() => {
+                                setEditingDebt(null);
+                                setIsOpen(true);
+                            }}
                         >
                             <Text style={buttonStyle.buttonText}>
                                 + Add first debt
@@ -99,6 +111,10 @@ export default function DebtsScreen() {
                         label={debt.name}
                         amount={debt.minimumPayment}
                         subtitle={`Balance: $${debt.balance} · ${debt.type}`}
+                        onPress={() => {
+                            setEditingDebt(debt);
+                            setIsOpen(true);
+                        }}
                     />
                 ))}
             </ScrollView>

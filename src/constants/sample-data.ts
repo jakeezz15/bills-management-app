@@ -1,9 +1,11 @@
+import { Bill } from "@/types/bill";
 import { Debt } from "@/types/debt";
-import { Expenses } from "@/types/expense";
+import { Expense } from "@/types/expense";
 import { Income } from "@/types/income";
 import { SavingsGoal } from "@/types/savings";
 
-export const expensesData: Expenses[] = [
+/** Recurring / scheduled obligations (rent, utilities, subscriptions) */
+export const billsData: Bill[] = [
     {
         id: "1",
         name: "Electricity",
@@ -12,7 +14,6 @@ export const expensesData: Expenses[] = [
         isPaid: false,
         category: "Utilities",
         isRecurring: true,
-
     },
     {
         id: "2",
@@ -30,9 +31,34 @@ export const expensesData: Expenses[] = [
         dueDay: 30,
         isPaid: false,
         category: "House",
-        isRecurring: true
+        isRecurring: true,
     },
-]
+];
+
+/** Everyday spending logs (coffee, groceries, gas) */
+export const expensesData: Expense[] = [
+    {
+        id: "1",
+        name: "Groceries",
+        amount: 65.4,
+        date: "2026-09-05",
+        category: "Food",
+    },
+    {
+        id: "2",
+        name: "Gas",
+        amount: 40,
+        date: "2026-09-06",
+        category: "Transport",
+    },
+    {
+        id: "3",
+        name: "Coffee",
+        amount: 5.5,
+        date: "2026-09-07",
+        category: "Food",
+    },
+];
 
 export const incomeData: Income[] = [
     {
@@ -47,9 +73,9 @@ export const incomeData: Income[] = [
         date: "08/28/26",
         gross: 1200,
         net: 1000,
-        source: "Salary"
-    }
-]
+        source: "Salary",
+    },
+];
 
 export const debtData: Debt[] = [
     {
@@ -69,9 +95,9 @@ export const debtData: Debt[] = [
         dueDay: 15,
         minimumPayment: 75,
         isPaid: false,
-        type: "loan"
-    }
-]
+        type: "loan",
+    },
+];
 
 export const savingsData: SavingsGoal[] = [
     {

@@ -1,87 +1,95 @@
-import { useSavings } from "@/app/contexts/SavingsContext";
+import { useBills } from "@/app/contexts/BillsContext";
 import { buttonStyle } from "@/styles/button-style";
 import { modalForm } from "@/styles/modal-form";
-import { SavingsGoal } from "@/types/savings";
+import { Bill } from "@/types/bill";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { useEffect, useState } from "react";
 import { Modal, Pressable, Text, TextInput, View } from "react-native";
 
-type SavingsFormProps = {
+type BillFormProps = {
     visible: boolean;
     onClose: () => void;
-    savingsInfo?: SavingsGoal
+    bill?: Bill;
 };
 
-export default function SavingsForm({
+export default function BillForm({
     visible,
     onClose,
-    savingsInfo
-}: SavingsFormProps) {
-    const { addSavings, updateSavings, deleteSavings } = useSavings();
+    bill,
+}: BillFormProps) {
+    const { addBill, updateBill, deleteBill } = useBills();
 
     const [name, setName] = useState("");
-    const [targetAmount, setTargetAmount] = useState("");
-    const [currentAmount, setCurrentAmount] = useState("");
-    const [monthlyContribution, setMonthlyContribution] = useState("");
+    const [amount, setAmount] = useState("");
+    const [dueDay, setDueDay] = useState("");
 
     const [focusedInput, setFocusedInput] = useState<string | null>(null);
     const [showErrors, setShowErrors] = useState(false);
 
     const nameHasError = showErrors && name.trim() === "";
-    const targetHasError = showErrors && targetAmount.trim() === "";
-    const currentHasError = showErrors && currentAmount.trim() === "";
-    const contributionHasError = showErrors && monthlyContribution.trim() === "";
+    const amountHasError = showErrors && amount.trim() === "";
+    const dueDayHasError =
+        showErrors &&
+        (dueDay.trim() === "" ||
+            Number(dueDay) < 1 ||
+            Number(dueDay) > 31);
 
     useEffect(() => {
-        if (savingsInfo) {
-            setName(savingsInfo.name);
-            setTargetAmount(savingsInfo.targetAmount.toString());
-            setCurrentAmount(savingsInfo.currentAmount.toString());
-            setMonthlyContribution(savingsInfo.monthlyContribution?.toString() || "");
+        if (bill) {
+            setName(bill.name);
+            setAmount(String(bill.amount));
+            setDueDay(String(bill.dueDay));
         } else {
             setName("");
-            setTargetAmount("");
-            setCurrentAmount("");
-            setMonthlyContribution("");
-
+            setAmount("");
+            setDueDay("");
         }
         setShowErrors(false);
-
-    }, [savingsInfo, visible])
+    }, [bill, visible]);
 
     const handleSubmit = async () => {
-        if (!name || !targetAmount || !currentAmount || !monthlyContribution) {
+        if (!name || !amount || !dueDay) {
             setShowErrors(true);
             return;
         }
-        if (savingsInfo) {
-            await updateSavings(savingsInfo.id, { name: name, targetAmount: Number(targetAmount), currentAmount: Number(currentAmount), monthlyContribution: Number(monthlyContribution) })
+
+        const dueDayNumber = Number(dueDay);
+        if (dueDayNumber < 1 || dueDayNumber > 31) {
+            setShowErrors(true);
+            return;
+        }
+
+        if (bill) {
+            await updateBill(bill.id, {
+                name,
+                amount: Number(amount),
+                dueDay: dueDayNumber,
+            });
         } else {
-            await addSavings({
+            await addBill({
                 id: Date.now().toString(),
                 name,
-                targetAmount: Number(targetAmount),
-                currentAmount: Number(currentAmount),
-                monthlyContribution: Number(monthlyContribution),
+                amount: Number(amount),
+                dueDay: dueDayNumber,
+                isPaid: false,
+                isRecurring: true,
             });
             setName("");
-            setTargetAmount("");
-            setCurrentAmount("");
-            setMonthlyContribution("");
-            setShowErrors(false);
+            setAmount("");
+            setDueDay("");
         }
-        onClose();
 
+        setShowErrors(false);
+        onClose();
     };
 
     const handleDelete = async (id: string) => {
-        await deleteSavings(id)
+        await deleteBill(id);
         setName("");
-        setTargetAmount("");
-        setCurrentAmount("");
-        setMonthlyContribution("");
+        setAmount("");
+        setDueDay("");
         onClose();
-    }
+    };
 
     return (
         <Modal
@@ -106,14 +114,14 @@ export default function SavingsForm({
                         }}
                     >
                         <Text style={modalForm.title}>
-                            {savingsInfo ? "Update" : "Add"} Savings
+                            {bill ? "Update" : "Add"} Bill
                         </Text>
 
-                        {savingsInfo && (
+                        {bill && (
                             <Pressable
-                                onPress={() => handleDelete(savingsInfo.id)}
+                                onPress={() => handleDelete(bill.id)}
                                 accessibilityRole="button"
-                                accessibilityLabel="Delete savings"
+                                accessibilityLabel="Delete bill"
                                 hitSlop={8}
                                 style={({ pressed }) => [
                                     modalForm.closeButton,
@@ -129,7 +137,7 @@ export default function SavingsForm({
                         )}
                     </View>
 
-                    <Text style={modalForm.label}>Savings Name</Text>
+                    <Text style={modalForm.label}>Bill Name</Text>
 
                     <TextInput
                         style={[
@@ -137,7 +145,7 @@ export default function SavingsForm({
                             focusedInput === "name" && modalForm.inputFocused,
                             nameHasError && modalForm.inputError,
                         ]}
-                        placeholder="Ex. Emergency Fund"
+                        placeholder="Ex. Rent"
                         placeholderTextColor="#888"
                         value={name}
                         onChangeText={setName}
@@ -146,75 +154,51 @@ export default function SavingsForm({
                     />
                     {nameHasError && (
                         <Text style={modalForm.errorText}>
-                            Savings name is required.
+                            Bill name is required.
                         </Text>
                     )}
 
-                    <Text style={modalForm.label}>Target Amount</Text>
+                    <Text style={modalForm.label}>Amount</Text>
 
                     <TextInput
                         style={[
                             modalForm.input,
-                            focusedInput === "targetAmount" && modalForm.inputFocused,
-                            targetHasError && modalForm.inputError,
+                            focusedInput === "amount" && modalForm.inputFocused,
+                            amountHasError && modalForm.inputError,
                         ]}
-                        placeholder="Ex. 1000"
+                        placeholder="Ex. 500"
                         placeholderTextColor="#888"
-                        value={targetAmount}
-                        onChangeText={setTargetAmount}
+                        value={amount}
+                        onChangeText={setAmount}
                         keyboardType="numeric"
-                        onFocus={() => setFocusedInput("targetAmount")}
+                        onFocus={() => setFocusedInput("amount")}
                         onBlur={() => setFocusedInput(null)}
                     />
-                    {targetHasError && (
+                    {amountHasError && (
                         <Text style={modalForm.errorText}>
-                            Target amount is required.
+                            Amount is required.
                         </Text>
                     )}
 
-                    <Text style={modalForm.label}>Current Amount</Text>
-
+                    <Text style={modalForm.label}>Due Day</Text>
 
                     <TextInput
                         style={[
                             modalForm.input,
-                            focusedInput === "currentAmount" && modalForm.inputFocused,
-                            currentHasError && modalForm.inputError,
+                            focusedInput === "dueDay" && modalForm.inputFocused,
+                            dueDayHasError && modalForm.inputError,
                         ]}
-                        placeholder="Ex. 1000"
+                        placeholder="Due day (1-31)"
                         placeholderTextColor="#888"
-                        value={currentAmount}
-                        onChangeText={setCurrentAmount}
+                        value={dueDay}
+                        onChangeText={setDueDay}
                         keyboardType="numeric"
-                        onFocus={() => setFocusedInput("currentAmount")}
+                        onFocus={() => setFocusedInput("dueDay")}
                         onBlur={() => setFocusedInput(null)}
                     />
-                    {currentHasError && (
+                    {dueDayHasError && (
                         <Text style={modalForm.errorText}>
-                            Current amount is required.
-                        </Text>
-                    )}
-
-                    <Text style={modalForm.label}>Monthly Contribution</Text>
-
-                    <TextInput
-                        style={[
-                            modalForm.input,
-                            focusedInput === "monthlyContribution" && modalForm.inputFocused,
-                            contributionHasError && modalForm.inputError,
-                        ]}
-                        placeholder="Ex. 200"
-
-                        placeholderTextColor="#888"
-                        value={monthlyContribution}
-                        onChangeText={setMonthlyContribution}
-                        keyboardType="numeric"
-                        onFocus={() => setFocusedInput("monthlyContribution")}
-                        onBlur={() => setFocusedInput(null)}
-                    />
-                    {contributionHasError && (
-                        <Text style={modalForm.errorText}>
-                            Monthly contribution is required.
+                            Due day is required (1-31).
                         </Text>
                     )}
 
@@ -228,7 +212,7 @@ export default function SavingsForm({
                         onPress={handleSubmit}
                     >
                         <Text style={buttonStyle.buttonText}>
-                            {savingsInfo ? "Update" : "Add"} Savings
+                            {bill ? "Update" : "Add"} Bill
                         </Text>
                     </Pressable>
 

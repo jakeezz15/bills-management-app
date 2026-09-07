@@ -103,4 +103,10 @@ export const buttonStyle = StyleSheet.create({
     disabledButtonText: {
         color: "#64748B",
     },
+    // Suggested addition: aligns icon and button text
+    buttonContent: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+    },
 });

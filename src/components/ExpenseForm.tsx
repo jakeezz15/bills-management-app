@@ -1,168 +1,205 @@
 import { useExpenses } from "@/app/contexts/ExpensesContext";
 import { buttonStyle } from "@/styles/button-style";
 import { modalForm } from "@/styles/modal-form";
-import { Expenses } from "@/types/expense";
+import { Expense } from "@/types/expense";
+import Ionicons from "@react-native-vector-icons/ionicons";
 import { useEffect, useState } from "react";
 import { Modal, Pressable, Text, TextInput, View } from "react-native";
 
 type ExpenseFormProps = {
     visible: boolean;
     onClose: () => void;
-    expense?: Expenses;
-
+    expense?: Expense;
 };
+
+function todayIsoDate() {
+    return new Date().toISOString().slice(0, 10);
+}
 
 export default function ExpenseForm({
     visible,
     onClose,
-    expense
+    expense,
 }: ExpenseFormProps) {
     const { addExpense, updateExpense, deleteExpense } = useExpenses();
 
     const [name, setName] = useState("");
     const [amount, setAmount] = useState("");
+    const [date, setDate] = useState(todayIsoDate());
 
-    // Suggested addition: tracks which input is selected
     const [focusedInput, setFocusedInput] = useState<string | null>(null);
-
-    // Suggested addition: controls validation messages
     const [showErrors, setShowErrors] = useState(false);
 
-    // Suggested addition: individual validation conditions
     const nameHasError = showErrors && name.trim() === "";
     const amountHasError = showErrors && amount.trim() === "";
+    const dateHasError =
+        showErrors && !/^\d{4}-\d{2}-\d{2}$/.test(date.trim());
 
     useEffect(() => {
         if (expense) {
             setName(expense.name);
             setAmount(String(expense.amount));
+            setDate(expense.date);
         } else {
             setName("");
             setAmount("");
+            setDate(todayIsoDate());
         }
         setShowErrors(false);
     }, [expense, visible]);
 
     const handleSubmit = async () => {
-        // Suggested addition: display errors after an invalid submission
-        if (!name || !amount) {
+        if (!name || !amount || !/^\d{4}-\d{2}-\d{2}$/.test(date.trim())) {
             setShowErrors(true);
             return;
         }
+
         if (expense) {
-            await updateExpense(expense.id, { name: name, amount: Number(amount) })
+            await updateExpense(expense.id, {
+                name,
+                amount: Number(amount),
+                date: date.trim(),
+            });
         } else {
             await addExpense({
                 id: Date.now().toString(),
                 name,
                 amount: Number(amount),
-                dueDay: 1,
-                isPaid: false,
-                isRecurring: false
+                date: date.trim(),
             });
             setName("");
             setAmount("");
+            setDate(todayIsoDate());
         }
 
         setShowErrors(false);
-
         onClose();
-
-
     };
+
     const handleDelete = async (id: string) => {
-        await deleteExpense(id)
+        await deleteExpense(id);
         setName("");
         setAmount("");
+        setDate(todayIsoDate());
         onClose();
-    }
+    };
 
     return (
         <Modal
             visible={visible}
             animationType="fade"
             transparent
-
-            // Suggested addition: Android back-button support
             onRequestClose={onClose}
         >
             <View style={modalForm.overlay}>
                 <View
                     style={[
                         modalForm.card,
-
-                        // Suggested additions: responsive width and shadow
                         modalForm.cardResponsive,
                         modalForm.cardShadow,
                     ]}
                 >
-                    <Text style={modalForm.title}>{expense ? "Update" : "Add"} Expense</Text>
+                    <View
+                        style={{
+                            flexDirection: "row",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                        }}
+                    >
+                        <Text style={modalForm.title}>
+                            {expense ? "Update" : "Add"} Expense
+                        </Text>
+
+                        {expense && (
+                            <Pressable
+                                onPress={() => handleDelete(expense.id)}
+                                accessibilityRole="button"
+                                accessibilityLabel="Delete expense"
+                                hitSlop={8}
+                                style={({ pressed }) => [
+                                    modalForm.closeButton,
+                                    pressed && modalForm.closeButtonPressed,
+                                ]}
+                            >
+                                <Ionicons
+                                    name="trash"
+                                    size={22}
+                                    color="#f74f4f"
+                                />
+                            </Pressable>
+                        )}
+                    </View>
+
+                    <Text style={modalForm.label}>Expense Name</Text>
 
                     <TextInput
                         style={[
                             modalForm.input,
-
-                            // Suggested addition: focused appearance
-                            focusedInput === "name" &&
-                            modalForm.inputFocused,
-
-                            // Suggested addition: error appearance
-                            nameHasError &&
-                            modalForm.inputError,
+                            focusedInput === "name" && modalForm.inputFocused,
+                            nameHasError && modalForm.inputError,
                         ]}
-                        placeholder="Expense name"
+                        placeholder="Ex. Coffee"
                         placeholderTextColor="#888"
                         value={name}
                         onChangeText={setName}
-
-                        // Suggested additions: detect focus
                         onFocus={() => setFocusedInput("name")}
                         onBlur={() => setFocusedInput(null)}
                     />
-
-                    {/* Suggested addition: name validation message */}
                     {nameHasError && (
                         <Text style={modalForm.errorText}>
                             Expense name is required.
                         </Text>
                     )}
 
+                    <Text style={modalForm.label}>Amount</Text>
+
                     <TextInput
                         style={[
                             modalForm.input,
-
-                            // Suggested addition: focused appearance
-                            focusedInput === "amount" &&
-                            modalForm.inputFocused,
-
-                            // Suggested addition: error appearance
-                            amountHasError &&
-                            modalForm.inputError,
-
+                            focusedInput === "amount" && modalForm.inputFocused,
+                            amountHasError && modalForm.inputError,
                         ]}
-                        placeholder="Amount"
+                        placeholder="Ex. 5.50"
                         placeholderTextColor="#888"
                         value={amount}
                         onChangeText={setAmount}
                         keyboardType="numeric"
-
-                        // Suggested additions: detect focus
                         onFocus={() => setFocusedInput("amount")}
                         onBlur={() => setFocusedInput(null)}
                     />
-
-                    {/* Suggested addition: amount validation message */}
                     {amountHasError && (
                         <Text style={modalForm.errorText}>
                             Amount is required.
                         </Text>
                     )}
-                    <View style={{ marginBottom: 18 }}></View>
+
+                    <Text style={modalForm.label}>Date spent</Text>
+
+                    <TextInput
+                        style={[
+                            modalForm.input,
+                            focusedInput === "date" && modalForm.inputFocused,
+                            dateHasError && modalForm.inputError,
+                        ]}
+                        placeholder="YYYY-MM-DD"
+                        placeholderTextColor="#888"
+                        value={date}
+                        onChangeText={setDate}
+                        onFocus={() => setFocusedInput("date")}
+                        onBlur={() => setFocusedInput(null)}
+                    />
+                    {dateHasError && (
+                        <Text style={modalForm.errorText}>
+                            Use a date like 2026-09-07.
+                        </Text>
+                    )}
+
+                    <View style={{ marginBottom: 18 }} />
 
                     <Pressable
                         style={({ pressed }) => [
                             buttonStyle.submitButton,
-                            pressed && buttonStyle.buttonPressed
+                            pressed && buttonStyle.buttonPressed,
                         ]}
                         onPress={handleSubmit}
                     >
@@ -175,27 +212,13 @@ export default function ExpenseForm({
                         onPress={onClose}
                         style={({ pressed }) => [
                             buttonStyle.cancelButton,
-                            pressed && buttonStyle.cancelButtonPressed
+                            pressed && buttonStyle.cancelButtonPressed,
                         ]}
                     >
                         <Text style={buttonStyle.buttonText}>
                             Cancel
                         </Text>
                     </Pressable>
-                    {expense && <Pressable
-                        onPress={() => {
-                            onClose();
-                            handleDelete(expense.id);
-                        }}
-                        style={({ pressed }) => [
-                            buttonStyle.deleteButton,
-                            pressed && buttonStyle.cancelButtonPressed
-                        ]}
-                    >
-                        <Text style={buttonStyle.buttonText}>
-                            Delete Expense
-                        </Text>
-                    </Pressable>}
                 </View>
             </View>
         </Modal>

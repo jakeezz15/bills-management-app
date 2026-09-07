@@ -1,18 +1,18 @@
+import BillForm from "@/components/BillForm";
 import { FinanceRow } from "@/components/FinanceRow";
 import { LoadingScreen } from "@/components/LoadingScreen";
-import SavingsForm from "@/components/SavingsForm";
 import { buttonStyle } from "@/styles/button-style";
 import { screenStyles } from "@/styles/screen";
-import { SavingsGoal } from "@/types/savings";
+import { Bill } from "@/types/bill";
 import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
-import { useSavings } from "../contexts/SavingsContext";
+import { useBills } from "../contexts/BillsContext";
 
-export default function SavingsScreen() {
+export default function BillsScreen() {
+    const { bills, loading } = useBills();
+
     const [isOpen, setIsOpen] = useState(false);
-    const { savings, loading } = useSavings();
-    const [editSavingsInfo, setEditSavingsInfo] = useState<SavingsGoal | null>(null);
-
+    const [editingBill, setEditingBill] = useState<Bill | null>(null);
 
     return (
         <>
@@ -25,96 +25,100 @@ export default function SavingsScreen() {
                 <View style={screenStyles.header}>
                     <View>
                         <Text style={screenStyles.title}>
-                            Savings
+                            Bills
                         </Text>
 
                         <Text style={screenStyles.screenDescription}>
-                            Track goals and monthly contributions
+                            Recurring payments and due dates
                         </Text>
                     </View>
 
                     <Pressable
                         style={({ pressed }) => [
                             buttonStyle.normalButton,
-                            pressed && buttonStyle.buttonPressed
+                            pressed && buttonStyle.buttonPressed,
                         ]}
                         onPress={() => {
-                            setEditSavingsInfo(null);
+                            setEditingBill(null);
                             setIsOpen(true);
                         }}
                     >
                         <Text style={buttonStyle.buttonText}>
-                            + Add savings
+                            + Add bill
                         </Text>
                     </Pressable>
                 </View>
 
-                <SavingsForm
+                <BillForm
                     visible={isOpen}
                     onClose={() => {
                         setIsOpen(false);
-                        setEditSavingsInfo(null);
+                        setEditingBill(null);
                     }}
-                    savingsInfo={editSavingsInfo ?? undefined}
+                    bill={editingBill ?? undefined}
                 />
 
-                {savings.length > 0 && (
+                {bills.length > 0 && (
                     <View style={screenStyles.listHeader}>
                         <Text style={screenStyles.listTitle}>
-                            All savings
+                            All bills
                         </Text>
 
                         <View style={screenStyles.countBadge}>
                             <Text style={screenStyles.countBadgeText}>
-                                {savings.length}
+                                {bills.length}
                             </Text>
                         </View>
                     </View>
                 )}
 
-                {savings.length === 0 && !loading && (
+                {bills.length === 0 && !loading && (
                     <View style={screenStyles.emptyState}>
                         <View style={screenStyles.emptyStateIcon}>
                             <Text style={screenStyles.emptyStateIconText}>
-                                S
+                                B
                             </Text>
                         </View>
 
                         <Text style={screenStyles.emptyStateTitle}>
-                            No savings yet
+                            No bills yet
                         </Text>
 
                         <Text style={screenStyles.emptyStateText}>
-                            Add your first savings goal to begin tracking
-                            progress toward your targets.
+                            Add rent, utilities, or subscriptions to track
+                            recurring payments.
                         </Text>
 
                         <Pressable
                             style={({ pressed }) => [
                                 buttonStyle.normalButton,
-                                pressed && buttonStyle.buttonPressed
+                                pressed && buttonStyle.buttonPressed,
                             ]}
                             onPress={() => {
-                                setEditSavingsInfo(null);
+                                setEditingBill(null);
                                 setIsOpen(true);
                             }}
                         >
                             <Text style={buttonStyle.buttonText}>
-                                + Add first savings
+                                + Add first bill
                             </Text>
                         </Pressable>
                     </View>
                 )}
 
-                {savings.map((goal) => (
+                {bills.map((bill) => (
                     <FinanceRow
-                        key={goal.id}
-                        label={goal.name}
-                        amount={goal.monthlyContribution || 0}
-                        subtitle={`$${goal.currentAmount} / $${goal.targetAmount}`}
+                        key={bill.id}
+                        label={bill.name}
+                        amount={bill.amount}
+                        subtitle={
+                            bill.isPaid
+                                ? `Due day ${bill.dueDay} · Paid`
+                                : `Due day ${bill.dueDay} · Unpaid`
+                        }
                         onPress={() => {
+                            setEditingBill(bill);
                             setIsOpen(true);
-                            setEditSavingsInfo(goal);
                         }}
                     />
                 ))}

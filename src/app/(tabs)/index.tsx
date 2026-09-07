@@ -1,25 +1,31 @@
 import { clearAllData } from "@/services/storage";
 import { screenStyles } from "@/styles/screen";
-import { getLeftOver, getTotalDebtPayments, getTotalExpenses, getTotalIncome, getTotalSavings } from "@/utils/finance";
+import {
+    getLeftOver,
+    getTotalBills,
+    getTotalDebtPayments,
+    getTotalExpenses,
+    getTotalIncome,
+    getTotalSavings,
+} from "@/utils/finance";
 import { Alert, Pressable, ScrollView, Text, View } from "react-native";
+import { useBills } from "../contexts/BillsContext";
 import { useDebt } from "../contexts/DebtsContext";
 import { useExpenses } from "../contexts/ExpensesContext";
 import { useSavings } from "../contexts/SavingsContext";
 
-
-
 export default function HomeScreen() {
-
     const { expenses, reload: reloadExpenses } = useExpenses();
+    const { bills, reload: reloadBills } = useBills();
     const { debts, reload: reloadDebts } = useDebt();
     const { savings, reload: reloadSavings } = useSavings();
 
-
     const totalIncome = getTotalIncome();
-    const totalExpenses = getTotalExpenses(expenses)
+    const totalExpenses = getTotalExpenses(expenses);
+    const totalBills = getTotalBills(bills);
     const totalDebtPayments = getTotalDebtPayments(debts);
-    const totalSavings = getTotalSavings(savings)
-    const leftover = getLeftOver(expenses, debts, savings)
+    const totalSavings = getTotalSavings(savings);
+    const leftover = getLeftOver(expenses, bills, debts, savings);
 
     const handleReset = () => {
         Alert.alert(
@@ -34,6 +40,7 @@ export default function HomeScreen() {
                         await clearAllData();
                         await Promise.all([
                             reloadExpenses(),
+                            reloadBills(),
                             reloadDebts(),
                             reloadSavings(),
                         ]);
@@ -43,9 +50,7 @@ export default function HomeScreen() {
         );
     };
 
-
     return (
-
         <ScrollView
             style={screenStyles.section}
             contentContainerStyle={screenStyles.content}
@@ -53,7 +58,6 @@ export default function HomeScreen() {
             <View style={screenStyles.summaryCard}>
                 <Text style={screenStyles.title}>Finance Summary</Text>
 
-                {/* Suggested addition: make leftover the primary information */}
                 <View style={screenStyles.leftoverSection}>
                     <Text style={screenStyles.leftoverLabel}>
                         Available after commitments
@@ -65,14 +69,13 @@ export default function HomeScreen() {
                             {
                                 color: leftover >= 0
                                     ? "#15803D"
-                                    : "#DC2626"
+                                    : "#DC2626",
                             },
                         ]}
                     >
                         ${leftover.toFixed(2)}
                     </Text>
 
-                    {/* Suggested addition: short status explanation */}
                     <Text style={screenStyles.leftoverMessage}>
                         {leftover >= 0
                             ? "Your planned finances are within budget."
@@ -80,7 +83,6 @@ export default function HomeScreen() {
                     </Text>
                 </View>
 
-                {/* Suggested addition: supporting financial details */}
                 <View style={screenStyles.summaryDetails}>
                     <View style={screenStyles.summaryRow}>
                         <Text style={screenStyles.summaryLabel}>
@@ -101,6 +103,18 @@ export default function HomeScreen() {
 
                         <Text style={screenStyles.expenseSummaryAmount}>
                             ${totalExpenses.toFixed(2)}
+                        </Text>
+                    </View>
+
+                    <View style={screenStyles.summaryDivider} />
+
+                    <View style={screenStyles.summaryRow}>
+                        <Text style={screenStyles.summaryLabel}>
+                            Bills
+                        </Text>
+
+                        <Text style={screenStyles.expenseSummaryAmount}>
+                            ${totalBills.toFixed(2)}
                         </Text>
                     </View>
 
@@ -134,8 +148,6 @@ export default function HomeScreen() {
                 onPress={handleReset}
                 style={({ pressed }) => [
                     { marginTop: 24 },
-
-                    // Suggested addition: pressed feedback
                     pressed && screenStyles.resetButtonPressed,
                 ]}
             >
@@ -144,7 +156,5 @@ export default function HomeScreen() {
                 </Text>
             </Pressable>
         </ScrollView>
-
     );
 }
-

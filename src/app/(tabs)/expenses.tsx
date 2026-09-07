@@ -3,7 +3,7 @@ import { FinanceRow } from "@/components/FinanceRow";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { buttonStyle } from "@/styles/button-style";
 import { screenStyles } from "@/styles/screen";
-import { Expenses } from "@/types/expense";
+import { Expense } from "@/types/expense";
 import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useExpenses } from "../contexts/ExpensesContext";
@@ -12,7 +12,7 @@ export default function ExpensesScreen() {
     const { expenses, loading } = useExpenses();
 
     const [isOpen, setIsOpen] = useState(false);
-    const [editingExpense, setEditingExpense] = useState<Expenses | null>(null);
+    const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
     return (
         <>
@@ -29,18 +29,18 @@ export default function ExpensesScreen() {
                         </Text>
 
                         <Text style={screenStyles.screenDescription}>
-                            Manage bills and everyday spending
+                            Everyday spending by date
                         </Text>
                     </View>
 
                     <Pressable
                         style={({ pressed }) => [
                             buttonStyle.normalButton,
-                            pressed && buttonStyle.buttonPressed
+                            pressed && buttonStyle.buttonPressed,
                         ]}
                         onPress={() => {
-                            setIsOpen(true)
-                            setEditingExpense(null)
+                            setEditingExpense(null);
+                            setIsOpen(true);
                         }}
                     >
                         <Text style={buttonStyle.buttonText}>
@@ -85,19 +85,18 @@ export default function ExpensesScreen() {
                         </Text>
 
                         <Text style={screenStyles.emptyStateText}>
-                            Add your first bill or everyday expense to begin
-                            tracking your spending.
+                            Log coffee, groceries, or other everyday spending
+                            with the date you spent it.
                         </Text>
 
                         <Pressable
-
                             style={({ pressed }) => [
                                 buttonStyle.normalButton,
-                                pressed && buttonStyle.buttonPressed
+                                pressed && buttonStyle.buttonPressed,
                             ]}
                             onPress={() => {
-                                setIsOpen(true);
                                 setEditingExpense(null);
+                                setIsOpen(true);
                             }}
                         >
                             <Text style={buttonStyle.buttonText}>
@@ -109,28 +108,15 @@ export default function ExpensesScreen() {
 
                 {expenses.map((expense) => (
                     <FinanceRow
+                        key={expense.id}
+                        label={expense.name}
+                        amount={expense.amount}
+                        subtitle={expense.date}
                         onPress={() => {
                             setEditingExpense(expense);
                             setIsOpen(true);
                         }}
-                        key={expense.id}
-                        label={expense.name}
-                        amount={expense.amount}
-                        subtitle={
-                            expense.isRecurring
-                                ? (
-                                    expense.isPaid
-                                        ? "Recurring · Paid"
-                                        : "Recurring · Unpaid"
-                                )
-                                : (
-                                    expense.isPaid
-                                        ? "One-time · Paid"
-                                        : "One-time · Unpaid"
-                                )
-                        }
                     />
-
                 ))}
             </ScrollView>
         </>

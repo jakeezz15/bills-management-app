@@ -1,9 +1,7 @@
-export interface Expenses {
+export interface Expense {
     id: string;
     name: string;
     amount: number;
-    dueDay: number;
-    isPaid: boolean;
+    date: string; // ISO YYYY-MM-DD — when the money was spent
     category?: string;
-    isRecurring: boolean;
 }
