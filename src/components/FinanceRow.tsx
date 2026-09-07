@@ -1,32 +1,56 @@
+import Ionicons from "@react-native-vector-icons/ionicons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-// Suggested future change: wait until you approve an API change
 type FinanceRowProps = {
     label: string;
     amount: number;
     subtitle?: string;
     isPaid?: boolean;
-    isRecurring?: boolean;
+    dueTone?: "overdue" | "due-soon" | "default";
     onPress?: () => void;
-
-}
+    onTogglePaid?: () => void;
+};
 
 export function FinanceRow({
     label,
     amount,
     subtitle,
-    onPress
+    isPaid,
+    dueTone = "default",
+    onPress,
+    onTogglePaid,
 }: FinanceRowProps) {
+    const subtitleColor =
+        dueTone === "overdue"
+            ? "#DC2626"
+            : dueTone === "due-soon"
+                ? "#B45309"
+                : "#64748B";
+
     return (
-        <Pressable onPress={onPress}>
-            <View style={styles.row}>
-                {/* Suggested addition: controls the left-side width */}
+        <View style={[styles.row, isPaid && styles.rowPaid]}>
+            {onTogglePaid ? (
+                <Pressable
+                    onPress={onTogglePaid}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                        isPaid ? "Mark as unpaid" : "Mark as paid"
+                    }
+                    style={styles.paidToggle}
+                >
+                    <Ionicons
+                        name={isPaid ? "checkmark-circle" : "ellipse-outline"}
+                        size={26}
+                        color={isPaid ? "#15803D" : "#94A3B8"}
+                    />
+                </Pressable>
+            ) : null}
+
+            <Pressable style={styles.mainPress} onPress={onPress}>
                 <View style={styles.details}>
                     <Text
-                        style={styles.label}
-
-                        // Suggested addition: prevents long labels from
-                        // pushing the amount outside the row
+                        style={[styles.label, isPaid && styles.labelPaid]}
                         numberOfLines={1}
                         ellipsizeMode="tail"
                     >
@@ -35,9 +59,7 @@ export function FinanceRow({
 
                     {subtitle ? (
                         <Text
-                            style={styles.subtitle}
-
-                            // Suggested addition: protects the row layout
+                            style={[styles.subtitle, { color: subtitleColor }]}
                             numberOfLines={1}
                         >
                             {subtitle}
@@ -46,27 +68,20 @@ export function FinanceRow({
                 </View>
 
                 <Text
-                    style={styles.amount}
-
-                    // Suggested addition: protects the amount layout
+                    style={[styles.amount, isPaid && styles.amountPaid]}
                     numberOfLines={1}
                 >
-                    {/* Suggested change: consistent decimal formatting */}
                     ${amount.toFixed(2)}
                 </Text>
-            </View>
-        </Pressable>
-
+            </Pressable>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
     row: {
         flexDirection: "row",
-        justifyContent: "space-between",
         alignItems: "center",
-
-        // Suggested design adjustments
         backgroundColor: "#FFFFFF",
         borderWidth: 1,
         borderColor: "#E2E8F0",
@@ -76,7 +91,22 @@ const styles = StyleSheet.create({
         marginBottom: 10,
     },
 
-    // Suggested addition: allows the label to shrink safely
+    rowPaid: {
+        backgroundColor: "#F8FAFC",
+        borderColor: "#DCFCE7",
+    },
+
+    paidToggle: {
+        marginRight: 10,
+    },
+
+    mainPress: {
+        flex: 1,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+    },
+
     details: {
         flex: 1,
         marginRight: 16,
@@ -85,23 +115,27 @@ const styles = StyleSheet.create({
     label: {
         fontSize: 16,
         fontWeight: "600",
-
-        // Suggested design adjustment
         color: "#0F172A",
+    },
+
+    labelPaid: {
+        color: "#64748B",
+        textDecorationLine: "line-through",
     },
 
     subtitle: {
         fontSize: 12,
-        color: "#64748B",
         marginTop: 4,
     },
 
     amount: {
         fontSize: 16,
         fontWeight: "700",
-
-        // Suggested design additions
         color: "#0F172A",
         textAlign: "right",
-    }
+    },
+
+    amountPaid: {
+        color: "#94A3B8",
+    },
 });

@@ -1,4 +1,6 @@
 import { useBills } from "@/app/contexts/BillsContext";
+import { FilterChips } from "@/components/FilterChips";
+import { BILL_CATEGORIES } from "@/constants/categories";
 import { buttonStyle } from "@/styles/button-style";
 import { modalForm } from "@/styles/modal-form";
 import { Bill } from "@/types/bill";
@@ -22,6 +24,8 @@ export default function BillForm({
     const [name, setName] = useState("");
     const [amount, setAmount] = useState("");
     const [dueDay, setDueDay] = useState("");
+    const [category, setCategory] = useState<string | null>(null);
+    const [isPaid, setIsPaid] = useState(false);
 
     const [focusedInput, setFocusedInput] = useState<string | null>(null);
     const [showErrors, setShowErrors] = useState(false);
@@ -39,10 +43,14 @@ export default function BillForm({
             setName(bill.name);
             setAmount(String(bill.amount));
             setDueDay(String(bill.dueDay));
+            setCategory(bill.category ?? null);
+            setIsPaid(bill.isPaid);
         } else {
             setName("");
             setAmount("");
             setDueDay("");
+            setCategory(null);
+            setIsPaid(false);
         }
         setShowErrors(false);
     }, [bill, visible]);
@@ -59,24 +67,27 @@ export default function BillForm({
             return;
         }
 
+        const payload = {
+            name,
+            amount: Number(amount),
+            dueDay: dueDayNumber,
+            category: category ?? undefined,
+            isPaid,
+        };
+
         if (bill) {
-            await updateBill(bill.id, {
-                name,
-                amount: Number(amount),
-                dueDay: dueDayNumber,
-            });
+            await updateBill(bill.id, payload);
         } else {
             await addBill({
                 id: Date.now().toString(),
-                name,
-                amount: Number(amount),
-                dueDay: dueDayNumber,
-                isPaid: false,
+                ...payload,
                 isRecurring: true,
             });
             setName("");
             setAmount("");
             setDueDay("");
+            setCategory(null);
+            setIsPaid(false);
         }
 
         setShowErrors(false);
@@ -88,6 +99,8 @@ export default function BillForm({
         setName("");
         setAmount("");
         setDueDay("");
+        setCategory(null);
+        setIsPaid(false);
         onClose();
     };
 
@@ -202,7 +215,34 @@ export default function BillForm({
                         </Text>
                     )}
 
-                    <View style={{ marginBottom: 18 }} />
+                    <Text style={modalForm.label}>Category</Text>
+                    <FilterChips
+                        options={BILL_CATEGORIES}
+                        selected={category}
+                        onSelect={setCategory}
+                        allowClear
+                    />
+
+                    <Pressable
+                        onPress={() => setIsPaid((prev) => !prev)}
+                        style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 8,
+                            marginBottom: 12,
+                        }}
+                    >
+                        <Ionicons
+                            name={isPaid ? "checkmark-circle" : "ellipse-outline"}
+                            size={24}
+                            color={isPaid ? "#15803D" : "#94A3B8"}
+                        />
+                        <Text style={modalForm.label}>
+                            {isPaid ? "Marked as paid" : "Mark as paid"}
+                        </Text>
+                    </Pressable>
+
+                    <View style={{ marginBottom: 8 }} />
 
                     <Pressable
                         style={({ pressed }) => [

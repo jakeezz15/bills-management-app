@@ -30,7 +30,7 @@ export const billsData: Bill[] = [
         amount: 500,
         dueDay: 30,
         isPaid: false,
-        category: "House",
+        category: "Housing",
         isRecurring: true,
     },
 ];
@@ -63,14 +63,21 @@ export const expensesData: Expense[] = [
 export const incomeData: Income[] = [
     {
         id: "1",
-        date: "07/28/26",
+        date: "2026-07-28",
         gross: 1100,
         net: 900,
         source: "Salary",
     },
     {
         id: "2",
-        date: "08/28/26",
+        date: "2026-08-28",
+        gross: 1200,
+        net: 1000,
+        source: "Salary",
+    },
+    {
+        id: "3",
+        date: "2026-09-28",
         gross: 1200,
         net: 1000,
         source: "Salary",

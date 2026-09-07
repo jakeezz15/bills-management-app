@@ -1,7 +1,8 @@
-import { billsData, debtData, expensesData, savingsData } from "@/constants/sample-data";
+import { billsData, debtData, expensesData, incomeData, savingsData } from "@/constants/sample-data";
 import { Bill } from "@/types/bill";
 import { Debt } from "@/types/debt";
 import { Expense } from "@/types/expense";
+import { Income } from "@/types/income";
 import { SavingsGoal } from "@/types/savings";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -9,6 +10,7 @@ const BILLS_KEY = "bills";
 const EXPENSES_KEY = "expenses";
 const DEBTS_KEY = "debts";
 const SAVINGS_KEY = "savings";
+const INCOME_KEY = "income";
 
 /**
  * Phase 2.5 migration: old installs stored bill-shaped data under "expenses".
@@ -86,6 +88,23 @@ export async function saveExpenses(expenses: Expense[]): Promise<void> {
     await AsyncStorage.setItem(EXPENSES_KEY, JSON.stringify(expenses));
 }
 
+// Income
+
+export async function loadIncome(): Promise<Income[]> {
+    const raw = await AsyncStorage.getItem(INCOME_KEY);
+
+    if (raw === null) {
+        await AsyncStorage.setItem(INCOME_KEY, JSON.stringify(incomeData));
+        return incomeData;
+    }
+
+    return JSON.parse(raw) as Income[];
+}
+
+export async function saveIncome(income: Income[]): Promise<void> {
+    await AsyncStorage.setItem(INCOME_KEY, JSON.stringify(income));
+}
+
 // Debts
 
 export async function loadDebts(): Promise<Debt[]> {
@@ -124,6 +143,7 @@ export async function clearAllData(): Promise<void> {
     await AsyncStorage.multiRemove([
         BILLS_KEY,
         EXPENSES_KEY,
+        INCOME_KEY,
         DEBTS_KEY,
         SAVINGS_KEY,
     ]);
@@ -133,6 +153,7 @@ export async function resetToSampleData(): Promise<void> {
     await clearAllData();
     await saveBills(billsData);
     await saveExpenses(expensesData);
+    await saveIncome(incomeData);
     await saveDebts(debtData);
     await saveSavings(savingsData);
 }

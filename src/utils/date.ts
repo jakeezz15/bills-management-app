@@ -1,0 +1,210 @@
+export type PeriodUnit = "day" | "week" | "month" | "year";
+
+export type DateRange = {
+    start: Date;
+    end: Date;
+};
+
+/** Parse ISO `YYYY-MM-DD` as a local calendar date (no UTC shift). */
+export function parseIsoDate(iso: string): Date | null {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso.trim());
+    if (!match) {
+        return null;
+    }
+
+    const year = Number(match[1]);
+    const month = Number(match[2]) - 1;
+    const day = Number(match[3]);
+    const date = new Date(year, month, day);
+
+    if (
+        date.getFullYear() !== year ||
+        date.getMonth() !== month ||
+        date.getDate() !== day
+    ) {
+        return null;
+    }
+
+    return startOfDay(date);
+}
+
+export function toIsoDate(date: Date): string {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+}
+
+export function startOfDay(date: Date): Date {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+export function endOfDay(date: Date): Date {
+    return new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate(),
+        23,
+        59,
+        59,
+        999
+    );
+}
+
+/** Week starts on Monday. */
+export function startOfWeek(date: Date): Date {
+    const d = startOfDay(date);
+    const day = d.getDay(); // 0 Sun … 6 Sat
+    const offset = day === 0 ? -6 : 1 - day;
+    d.setDate(d.getDate() + offset);
+    return d;
+}
+
+export function endOfWeek(date: Date): Date {
+    const start = startOfWeek(date);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    return endOfDay(end);
+}
+
+export function startOfMonth(date: Date): Date {
+    return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+export function endOfMonth(date: Date): Date {
+    return endOfDay(new Date(date.getFullYear(), date.getMonth() + 1, 0));
+}
+
+export function startOfYear(date: Date): Date {
+    return new Date(date.getFullYear(), 0, 1);
+}
+
+export function endOfYear(date: Date): Date {
+    return endOfDay(new Date(date.getFullYear(), 11, 31));
+}
+
+export function getRangeForPeriod(anchor: Date, unit: PeriodUnit): DateRange {
+    switch (unit) {
+        case "day":
+            return { start: startOfDay(anchor), end: endOfDay(anchor) };
+        case "week":
+            return { start: startOfWeek(anchor), end: endOfWeek(anchor) };
+        case "month":
+            return { start: startOfMonth(anchor), end: endOfMonth(anchor) };
+        case "year":
+            return { start: startOfYear(anchor), end: endOfYear(anchor) };
+    }
+}
+
+export function shiftAnchor(
+    anchor: Date,
+    unit: PeriodUnit,
+    delta: -1 | 1
+): Date {
+    const next = new Date(anchor);
+
+    switch (unit) {
+        case "day":
+            next.setDate(next.getDate() + delta);
+            break;
+        case "week":
+            next.setDate(next.getDate() + delta * 7);
+            break;
+        case "month":
+            next.setMonth(next.getMonth() + delta);
+            break;
+        case "year":
+            next.setFullYear(next.getFullYear() + delta);
+            break;
+    }
+
+    return startOfDay(next);
+}
+
+export function isInRange(date: Date, range: DateRange): boolean {
+    const t = date.getTime();
+    return t >= range.start.getTime() && t <= range.end.getTime();
+}
+
+export function isIsoInRange(iso: string, range: DateRange): boolean {
+    const parsed = parseIsoDate(iso);
+    if (!parsed) {
+        return false;
+    }
+    return isInRange(parsed, range);
+}
+
+/**
+ * True when a monthly due-day falls on any calendar day inside the range
+ * (Option A for bills/debts that only store `dueDay`).
+ */
+export function dueDayFallsInRange(
+    dueDay: number,
+    range: DateRange
+): boolean {
+    const day = Math.min(Math.max(dueDay, 1), 31);
+    const cursor = startOfDay(range.start);
+    const last = startOfDay(range.end);
+
+    while (cursor.getTime() <= last.getTime()) {
+        const daysInMonth = new Date(
+            cursor.getFullYear(),
+            cursor.getMonth() + 1,
+            0
+        ).getDate();
+        if (cursor.getDate() === Math.min(day, daysInMonth)) {
+            return true;
+        }
+        cursor.setDate(cursor.getDate() + 1);
+    }
+
+    return false;
+}
+
+/** How many distinct calendar months overlap the range (for savings allocation). */
+export function countMonthsOverlapping(range: DateRange): number {
+    const start = startOfMonth(range.start);
+    const end = startOfMonth(range.end);
+    let count = 0;
+    const cursor = new Date(start);
+
+    while (cursor.getTime() <= end.getTime()) {
+        count += 1;
+        cursor.setMonth(cursor.getMonth() + 1);
+    }
+
+    return Math.max(count, 1);
+}
+
+export function formatPeriodLabel(anchor: Date, unit: PeriodUnit): string {
+    const months = [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ];
+
+    switch (unit) {
+        case "day":
+            return `${months[anchor.getMonth()]} ${anchor.getDate()}, ${anchor.getFullYear()}`;
+        case "week": {
+            const { start, end } = getRangeForPeriod(anchor, "week");
+            const sameMonth = start.getMonth() === end.getMonth();
+            if (sameMonth) {
+                return `${months[start.getMonth()]} ${start.getDate()}–${end.getDate()}, ${start.getFullYear()}`;
+            }
+            return `${months[start.getMonth()]} ${start.getDate()} – ${months[end.getMonth()]} ${end.getDate()}, ${end.getFullYear()}`;
+        }
+        case "month":
+            return `${months[anchor.getMonth()]} ${anchor.getFullYear()}`;
+        case "year":
+            return String(anchor.getFullYear());
+    }
+}
+
+export const PERIOD_UNITS: PeriodUnit[] = ["day", "week", "month", "year"];
+
+export const PERIOD_UNIT_LABELS: Record<PeriodUnit, string> = {
+    day: "Day",
+    week: "Week",
+    month: "Month",
+    year: "Year",
+};

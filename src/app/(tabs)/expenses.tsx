@@ -1,10 +1,13 @@
 import ExpenseForm from "@/components/ExpenseForm";
+import { FilterChips } from "@/components/FilterChips";
 import { FinanceRow } from "@/components/FinanceRow";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { EXPENSE_CATEGORIES } from "@/constants/categories";
 import { buttonStyle } from "@/styles/button-style";
 import { screenStyles } from "@/styles/screen";
 import { Expense } from "@/types/expense";
-import { useState } from "react";
+import { filterExpensesByCategory } from "@/utils/filters";
+import { useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useExpenses } from "../contexts/ExpensesContext";
 
@@ -13,6 +16,12 @@ export default function ExpensesScreen() {
 
     const [isOpen, setIsOpen] = useState(false);
     const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+    const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+
+    const filteredExpenses = useMemo(
+        () => filterExpensesByCategory(expenses, categoryFilter),
+        [expenses, categoryFilter]
+    );
 
     return (
         <>
@@ -59,17 +68,25 @@ export default function ExpensesScreen() {
                 />
 
                 {expenses.length > 0 && (
-                    <View style={screenStyles.listHeader}>
-                        <Text style={screenStyles.listTitle}>
-                            All expenses
-                        </Text>
+                    <>
+                        <FilterChips
+                            options={EXPENSE_CATEGORIES}
+                            selected={categoryFilter}
+                            onSelect={setCategoryFilter}
+                        />
 
-                        <View style={screenStyles.countBadge}>
-                            <Text style={screenStyles.countBadgeText}>
-                                {expenses.length}
+                        <View style={screenStyles.listHeader}>
+                            <Text style={screenStyles.listTitle}>
+                                All expenses
                             </Text>
+
+                            <View style={screenStyles.countBadge}>
+                                <Text style={screenStyles.countBadgeText}>
+                                    {filteredExpenses.length}
+                                </Text>
+                            </View>
                         </View>
-                    </View>
+                    </>
                 )}
 
                 {expenses.length === 0 && !loading && (
@@ -106,12 +123,27 @@ export default function ExpensesScreen() {
                     </View>
                 )}
 
-                {expenses.map((expense) => (
+                {expenses.length > 0 && filteredExpenses.length === 0 && (
+                    <View style={screenStyles.emptyState}>
+                        <Text style={screenStyles.emptyStateTitle}>
+                            No matching expenses
+                        </Text>
+                        <Text style={screenStyles.emptyStateText}>
+                            Try a different category filter.
+                        </Text>
+                    </View>
+                )}
+
+                {filteredExpenses.map((expense) => (
                     <FinanceRow
                         key={expense.id}
                         label={expense.name}
                         amount={expense.amount}
-                        subtitle={expense.date}
+                        subtitle={
+                            expense.category
+                                ? `${expense.date} · ${expense.category}`
+                                : expense.date
+                        }
                         onPress={() => {
                             setEditingExpense(expense);
                             setIsOpen(true);

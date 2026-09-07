@@ -1,82 +1,83 @@
-import { useExpenses } from "@/app/contexts/ExpensesContext";
-import { FilterChips } from "@/components/FilterChips";
-import { EXPENSE_CATEGORIES } from "@/constants/categories";
+import { useIncome } from "@/app/contexts/IncomeContext";
 import { buttonStyle } from "@/styles/button-style";
 import { modalForm } from "@/styles/modal-form";
-import { Expense } from "@/types/expense";
+import { Income } from "@/types/income";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { useEffect, useState } from "react";
 import { Modal, Pressable, Text, TextInput, View } from "react-native";
 
-type ExpenseFormProps = {
+type IncomeFormProps = {
     visible: boolean;
     onClose: () => void;
-    expense?: Expense;
+    entry?: Income;
 };
 
 function todayIsoDate() {
     return new Date().toISOString().slice(0, 10);
 }
 
-export default function ExpenseForm({
+export default function IncomeForm({
     visible,
     onClose,
-    expense,
-}: ExpenseFormProps) {
-    const { addExpense, updateExpense, deleteExpense } = useExpenses();
+    entry,
+}: IncomeFormProps) {
+    const { addIncome, updateIncome, deleteIncome } = useIncome();
 
-    const [name, setName] = useState("");
-    const [amount, setAmount] = useState("");
+    const [source, setSource] = useState("");
+    const [net, setNet] = useState("");
+    const [gross, setGross] = useState("");
     const [date, setDate] = useState(todayIsoDate());
-    const [category, setCategory] = useState<string | null>(null);
 
     const [focusedInput, setFocusedInput] = useState<string | null>(null);
     const [showErrors, setShowErrors] = useState(false);
 
-    const nameHasError = showErrors && name.trim() === "";
-    const amountHasError = showErrors && amount.trim() === "";
+    const sourceHasError = showErrors && source.trim() === "";
+    const netHasError = showErrors && net.trim() === "";
     const dateHasError =
         showErrors && !/^\d{4}-\d{2}-\d{2}$/.test(date.trim());
 
     useEffect(() => {
-        if (expense) {
-            setName(expense.name);
-            setAmount(String(expense.amount));
-            setDate(expense.date);
-            setCategory(expense.category ?? null);
+        if (entry) {
+            setSource(entry.source);
+            setNet(String(entry.net));
+            setGross(String(entry.gross));
+            setDate(entry.date);
         } else {
-            setName("");
-            setAmount("");
+            setSource("");
+            setNet("");
+            setGross("");
             setDate(todayIsoDate());
-            setCategory(null);
         }
         setShowErrors(false);
-    }, [expense, visible]);
+    }, [entry, visible]);
 
     const handleSubmit = async () => {
-        if (!name || !amount || !/^\d{4}-\d{2}-\d{2}$/.test(date.trim())) {
+        if (!source || !net || !/^\d{4}-\d{2}-\d{2}$/.test(date.trim())) {
             setShowErrors(true);
             return;
         }
 
+        const netNumber = Number(net);
+        const grossNumber = gross.trim() === "" ? netNumber : Number(gross);
+
         const payload = {
-            name,
-            amount: Number(amount),
+            source: source.trim(),
+            net: netNumber,
+            gross: grossNumber,
             date: date.trim(),
-            category: category ?? undefined,
         };
 
-        if (expense) {
-            await updateExpense(expense.id, payload);
+        if (entry) {
+            await updateIncome(entry.id, payload);
         } else {
-            await addExpense({
+            await addIncome({
                 id: Date.now().toString(),
                 ...payload,
             });
-            setName("");
-            setAmount("");
+            setSource("");
+            setNet("");
+            setGross("");
             setDate(todayIsoDate());
-            setCategory(null);
         }
 
         setShowErrors(false);
@@ -84,11 +85,11 @@ export default function ExpenseForm({
     };
 
     const handleDelete = async (id: string) => {
-        await deleteExpense(id);
-        setName("");
-        setAmount("");
+        await deleteIncome(id);
+        setSource("");
+        setNet("");
+        setGross("");
         setDate(todayIsoDate());
-        setCategory(null);
         onClose();
     };
 
@@ -115,14 +116,14 @@ export default function ExpenseForm({
                         }}
                     >
                         <Text style={modalForm.title}>
-                            {expense ? "Update" : "Add"} Expense
+                            {entry ? "Update" : "Add"} Income
                         </Text>
 
-                        {expense && (
+                        {entry && (
                             <Pressable
-                                onPress={() => handleDelete(expense.id)}
+                                onPress={() => handleDelete(entry.id)}
                                 accessibilityRole="button"
-                                accessibilityLabel="Delete expense"
+                                accessibilityLabel="Delete income"
                                 hitSlop={8}
                                 style={({ pressed }) => [
                                     modalForm.closeButton,
@@ -138,50 +139,66 @@ export default function ExpenseForm({
                         )}
                     </View>
 
-                    <Text style={modalForm.label}>Expense Name</Text>
+                    <Text style={modalForm.label}>Source</Text>
 
                     <TextInput
                         style={[
                             modalForm.input,
-                            focusedInput === "name" && modalForm.inputFocused,
-                            nameHasError && modalForm.inputError,
+                            focusedInput === "source" && modalForm.inputFocused,
+                            sourceHasError && modalForm.inputError,
                         ]}
-                        placeholder="Ex. Coffee"
+                        placeholder="Ex. Salary"
                         placeholderTextColor="#888"
-                        value={name}
-                        onChangeText={setName}
-                        onFocus={() => setFocusedInput("name")}
+                        value={source}
+                        onChangeText={setSource}
+                        onFocus={() => setFocusedInput("source")}
                         onBlur={() => setFocusedInput(null)}
                     />
-                    {nameHasError && (
+                    {sourceHasError && (
                         <Text style={modalForm.errorText}>
-                            Expense name is required.
+                            Source is required.
                         </Text>
                     )}
 
-                    <Text style={modalForm.label}>Amount</Text>
+                    <Text style={modalForm.label}>Net (take-home)</Text>
 
                     <TextInput
                         style={[
                             modalForm.input,
-                            focusedInput === "amount" && modalForm.inputFocused,
-                            amountHasError && modalForm.inputError,
+                            focusedInput === "net" && modalForm.inputFocused,
+                            netHasError && modalForm.inputError,
                         ]}
-                        placeholder="Ex. 5.50"
+                        placeholder="Ex. 1000"
                         placeholderTextColor="#888"
-                        value={amount}
-                        onChangeText={setAmount}
+                        value={net}
+                        onChangeText={setNet}
                         keyboardType="numeric"
-                        onFocus={() => setFocusedInput("amount")}
+                        onFocus={() => setFocusedInput("net")}
                         onBlur={() => setFocusedInput(null)}
                     />
-                    {amountHasError && (
+                    {netHasError && (
                         <Text style={modalForm.errorText}>
-                            Amount is required.
+                            Net amount is required.
                         </Text>
                     )}
 
-                    <Text style={modalForm.label}>Date spent</Text>
+                    <Text style={modalForm.label}>Gross (optional)</Text>
+
+                    <TextInput
+                        style={[
+                            modalForm.input,
+                            focusedInput === "gross" && modalForm.inputFocused,
+                        ]}
+                        placeholder="Defaults to net if empty"
+                        placeholderTextColor="#888"
+                        value={gross}
+                        onChangeText={setGross}
+                        keyboardType="numeric"
+                        onFocus={() => setFocusedInput("gross")}
+                        onBlur={() => setFocusedInput(null)}
+                    />
+
+                    <Text style={modalForm.label}>Pay date</Text>
 
                     <TextInput
                         style={[
@@ -202,15 +219,7 @@ export default function ExpenseForm({
                         </Text>
                     )}
 
-                    <Text style={modalForm.label}>Category</Text>
-                    <FilterChips
-                        options={EXPENSE_CATEGORIES}
-                        selected={category}
-                        onSelect={setCategory}
-                        allowClear
-                    />
-
-                    <View style={{ marginBottom: 8 }} />
+                    <View style={{ marginBottom: 18 }} />
 
                     <Pressable
                         style={({ pressed }) => [
@@ -220,7 +229,7 @@ export default function ExpenseForm({
                         onPress={handleSubmit}
                     >
                         <Text style={buttonStyle.buttonText}>
-                            {expense ? "Update" : "Add"} Expense
+                            {entry ? "Update" : "Add"} Income
                         </Text>
                     </Pressable>
 

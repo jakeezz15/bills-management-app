@@ -1,31 +1,35 @@
+import { PeriodPicker } from "@/components/PeriodPicker";
 import { clearAllData } from "@/services/storage";
 import { screenStyles } from "@/styles/screen";
-import {
-    getLeftOver,
-    getTotalBills,
-    getTotalDebtPayments,
-    getTotalExpenses,
-    getTotalIncome,
-    getTotalSavings,
-} from "@/utils/finance";
+import { getTotalsForRange } from "@/utils/finance";
+import { useMemo } from "react";
 import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { useBills } from "../contexts/BillsContext";
+import { useDateRange } from "../contexts/DateRangeContext";
 import { useDebt } from "../contexts/DebtsContext";
 import { useExpenses } from "../contexts/ExpensesContext";
+import { useIncome } from "../contexts/IncomeContext";
 import { useSavings } from "../contexts/SavingsContext";
 
 export default function HomeScreen() {
+    const { income, reload: reloadIncome } = useIncome();
     const { expenses, reload: reloadExpenses } = useExpenses();
     const { bills, reload: reloadBills } = useBills();
     const { debts, reload: reloadDebts } = useDebt();
     const { savings, reload: reloadSavings } = useSavings();
+    const {
+        periodUnit,
+        range,
+        label,
+        setPeriodUnit,
+        shiftPeriod,
+        resetToToday,
+    } = useDateRange();
 
-    const totalIncome = getTotalIncome();
-    const totalExpenses = getTotalExpenses(expenses);
-    const totalBills = getTotalBills(bills);
-    const totalDebtPayments = getTotalDebtPayments(debts);
-    const totalSavings = getTotalSavings(savings);
-    const leftover = getLeftOver(expenses, bills, debts, savings);
+    const totals = useMemo(
+        () => getTotalsForRange(range, expenses, bills, debts, savings, income),
+        [range, expenses, bills, debts, savings, income]
+    );
 
     const handleReset = () => {
         Alert.alert(
@@ -39,6 +43,7 @@ export default function HomeScreen() {
                     onPress: async () => {
                         await clearAllData();
                         await Promise.all([
+                            reloadIncome(),
                             reloadExpenses(),
                             reloadBills(),
                             reloadDebts(),
@@ -55,9 +60,20 @@ export default function HomeScreen() {
             style={screenStyles.section}
             contentContainerStyle={screenStyles.content}
         >
-            <View style={screenStyles.summaryCard}>
-                <Text style={screenStyles.title}>Finance Summary</Text>
+            <Text style={screenStyles.title}>Finance Summary</Text>
+            <Text style={[screenStyles.screenDescription, { marginBottom: 12 }]}>
+                Performance for the selected period
+            </Text>
 
+            <PeriodPicker
+                periodUnit={periodUnit}
+                label={label}
+                onChangeUnit={setPeriodUnit}
+                onShift={shiftPeriod}
+                onResetToToday={resetToToday}
+            />
+
+            <View style={screenStyles.summaryCard}>
                 <View style={screenStyles.leftoverSection}>
                     <Text style={screenStyles.leftoverLabel}>
                         Available after commitments
@@ -67,19 +83,19 @@ export default function HomeScreen() {
                         style={[
                             screenStyles.leftover,
                             {
-                                color: leftover >= 0
+                                color: totals.leftover >= 0
                                     ? "#15803D"
                                     : "#DC2626",
                             },
                         ]}
                     >
-                        ${leftover.toFixed(2)}
+                        ${totals.leftover.toFixed(2)}
                     </Text>
 
                     <Text style={screenStyles.leftoverMessage}>
-                        {leftover >= 0
-                            ? "Your planned finances are within budget."
-                            : "Your commitments are higher than your income."}
+                        {totals.leftover >= 0
+                            ? "Your planned finances are within budget for this period."
+                            : "Commitments are higher than income for this period."}
                     </Text>
                 </View>
 
@@ -90,7 +106,7 @@ export default function HomeScreen() {
                         </Text>
 
                         <Text style={screenStyles.incomeSummaryAmount}>
-                            ${totalIncome.toFixed(2)}
+                            ${totals.income.toFixed(2)}
                         </Text>
                     </View>
 
@@ -102,7 +118,7 @@ export default function HomeScreen() {
                         </Text>
 
                         <Text style={screenStyles.expenseSummaryAmount}>
-                            ${totalExpenses.toFixed(2)}
+                            ${totals.expenses.toFixed(2)}
                         </Text>
                     </View>
 
@@ -114,7 +130,7 @@ export default function HomeScreen() {
                         </Text>
 
                         <Text style={screenStyles.expenseSummaryAmount}>
-                            ${totalBills.toFixed(2)}
+                            ${totals.bills.toFixed(2)}
                         </Text>
                     </View>
 
@@ -126,7 +142,7 @@ export default function HomeScreen() {
                         </Text>
 
                         <Text style={screenStyles.summaryValue}>
-                            ${totalDebtPayments.toFixed(2)}
+                            ${totals.debtPayments.toFixed(2)}
                         </Text>
                     </View>
 
@@ -138,7 +154,7 @@ export default function HomeScreen() {
                         </Text>
 
                         <Text style={screenStyles.savingsSummaryAmount}>
-                            ${totalSavings.toFixed(2)}
+                            ${totals.savings.toFixed(2)}
                         </Text>
                     </View>
                 </View>
