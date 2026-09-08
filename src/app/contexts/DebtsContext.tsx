@@ -1,11 +1,24 @@
-import { loadDebts, saveDebts } from "@/services/storage";
+import {
+    loadDebtPayments,
+    loadDebts,
+    saveDebtPayments,
+    saveDebts,
+} from "@/services/storage";
 import { Debt } from "@/types/debt";
+import { DebtPayment } from "@/types/debt-payment";
 import { toIsoDate } from "@/utils/date";
 import { stampCreate, stampUpdate } from "@/utils/timestamps";
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import {
+    createContext,
+    useCallback,
+    useContext,
+    useEffect,
+    useState,
+} from "react";
 
 type DebtsContextValue = {
     debts: Debt[];
+    payments: DebtPayment[];
     loading: boolean;
     addDebt: (debt: Omit<Debt, "createdAt" | "updatedAt">) => Promise<void>;
     updateDebt: (id: string, updates: Partial<Debt>) => Promise<void>;
@@ -29,7 +42,6 @@ function withPaidOffState(
         return {
             balance: 0,
             paidOffDate: debt.paidOffDate ?? paymentDate,
-            isPaid: true,
         };
     }
 
@@ -41,88 +53,133 @@ function withPaidOffState(
 
 export function DebtsProvider({ children }: { children: React.ReactNode }) {
     const [debts, setDebts] = useState<Debt[]>([]);
+    const [payments, setPayments] = useState<DebtPayment[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        loadDebts().then(setDebts).finally(() => setLoading(false));
+        Promise.all([loadDebts(), loadDebtPayments()])
+            .then(([nextDebts, nextPayments]) => {
+                setDebts(nextDebts);
+                setPayments(nextPayments);
+            })
+            .finally(() => setLoading(false));
     }, []);
 
-    const addDebt = useCallback(async (debt: Omit<Debt, "createdAt" | "updatedAt">) => {
-        const stamps = stampCreate();
-        const stamped: Debt = {
-            ...debt,
-            ...stamps,
-            startDate: debt.startDate || toIsoDate(new Date()),
-        };
-        const updated = [...debts, stamped];
-        setDebts(updated);
-        await saveDebts(updated);
-    }, [debts]);
+    const addDebt = useCallback(
+        async (debt: Omit<Debt, "createdAt" | "updatedAt">) => {
+            const stamped: Debt = {
+                ...debt,
+                ...stampCreate(),
+                startDate: debt.startDate || toIsoDate(new Date()),
+            };
+            const updated = [...debts, stamped];
+            setDebts(updated);
+            await saveDebts(updated);
+        },
+        [debts]
+    );
 
-    const updateDebt = useCallback(async (id: string, updates: Partial<Debt>) => {
-        const updated = debts.map((debt) => {
-            if (debt.id !== id) {
-                return debt;
-            }
+    const updateDebt = useCallback(
+        async (id: string, updates: Partial<Debt>) => {
+            const updated = debts.map((debt) => {
+                if (debt.id !== id) {
+                    return debt;
+                }
 
-            const merged = { ...debt, ...updates, ...stampUpdate() };
-            if (typeof updates.balance === "number") {
-                const paymentDate = toIsoDate(new Date());
-                return {
-                    ...merged,
-                    ...withPaidOffState(merged, updates.balance, paymentDate),
-                };
-            }
-            return merged;
-        });
-        setDebts(updated);
-        await saveDebts(updated);
-    }, [debts]);
+                const merged = { ...debt, ...updates, ...stampUpdate() };
+                if (typeof updates.balance === "number") {
+                    const paymentDate = toIsoDate(new Date());
+                    return {
+                        ...merged,
+                        ...withPaidOffState(
+                            merged,
+                            updates.balance,
+                            paymentDate
+                        ),
+                    };
+                }
+                return merged;
+            });
+            setDebts(updated);
+            await saveDebts(updated);
+        },
+        [debts]
+    );
 
-    const deleteDebt = useCallback(async (id: string) => {
-        const updated = debts.filter((debt) => debt.id !== id);
-        setDebts(updated);
-        await saveDebts(updated);
-    }, [debts]);
+    const deleteDebt = useCallback(
+        async (id: string) => {
+            const updatedDebts = debts.filter((debt) => debt.id !== id);
+            const updatedPayments = payments.filter(
+                (payment) => payment.debtId !== id
+            );
+            setDebts(updatedDebts);
+            setPayments(updatedPayments);
+            await Promise.all([
+                saveDebts(updatedDebts),
+                saveDebtPayments(updatedPayments),
+            ]);
+        },
+        [debts, payments]
+    );
 
-    const recordPayment = useCallback(async (
-        id: string,
-        amount?: number,
-        paymentDate?: string
-    ) => {
-        const paidOn = paymentDate ?? toIsoDate(new Date());
-
-        const updated = debts.map((debt) => {
-            if (debt.id !== id) {
-                return debt;
-            }
-
-            if (debt.balance <= 0) {
-                return debt;
+    const recordPayment = useCallback(
+        async (id: string, amount?: number, paymentDate?: string) => {
+            const paidOn = paymentDate ?? toIsoDate(new Date());
+            const debt = debts.find((item) => item.id === id);
+            if (!debt || debt.balance <= 0) {
+                return;
             }
 
             const requested = amount ?? debt.minimumPayment;
-            const payment = Math.min(Math.max(requested, 0), debt.balance);
-            const nextBalance = Math.round((debt.balance - payment) * 100) / 100;
+            const paymentAmount = Math.min(
+                Math.max(requested, 0),
+                debt.balance
+            );
+            if (paymentAmount <= 0) {
+                return;
+            }
 
-            return {
-                ...debt,
-                totalPaid: (debt.totalPaid ?? 0) + payment,
-                isPaid: true,
-                lastPaymentDate: paidOn,
-                ...stampUpdate(),
-                ...withPaidOffState(debt, nextBalance, paidOn),
+            const nextBalance =
+                Math.round((debt.balance - paymentAmount) * 100) / 100;
+
+            const payment: DebtPayment = {
+                id: `${Date.now()}-${id}`,
+                debtId: id,
+                amount: paymentAmount,
+                date: paidOn,
+                ...stampCreate(),
             };
-        });
 
-        setDebts(updated);
-        await saveDebts(updated);
-    }, [debts]);
+            const updatedPayments = [...payments, payment];
+            const updatedDebts = debts.map((item) => {
+                if (item.id !== id) {
+                    return item;
+                }
+                return {
+                    ...item,
+                    ...stampUpdate(),
+                    ...withPaidOffState(item, nextBalance, paidOn),
+                };
+            });
+
+            setPayments(updatedPayments);
+            setDebts(updatedDebts);
+            await Promise.all([
+                saveDebtPayments(updatedPayments),
+                saveDebts(updatedDebts),
+            ]);
+        },
+        [debts, payments]
+    );
 
     const reload = useCallback(async () => {
         setLoading(true);
-        const data = await loadDebts();
-        setDebts(data);
+        const [nextDebts, nextPayments] = await Promise.all([
+            loadDebts(),
+            loadDebtPayments(),
+        ]);
+        setDebts(nextDebts);
+        setPayments(nextPayments);
         setLoading(false);
     }, []);
 
@@ -130,6 +187,7 @@ export function DebtsProvider({ children }: { children: React.ReactNode }) {
         <DebtsContext.Provider
             value={{
                 debts,
+                payments,
                 loading,
                 addDebt,
                 updateDebt,

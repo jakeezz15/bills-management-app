@@ -1,0 +1,208 @@
+import { shadows, theme, type } from "@/theme";
+import { StyleSheet } from "react-native";
+
+export const dashboard = StyleSheet.create({
+    screen: {
+        flex: 1,
+        backgroundColor: theme.color.canvas,
+    },
+    list: {
+        flex: 1,
+    },
+    listContent: {
+        paddingHorizontal: theme.space.screenX,
+        paddingTop: theme.space.md,
+        paddingBottom: 40,
+    },
+    standaloneHeader: {
+        marginBottom: theme.space.md,
+    },
+    hero: {
+        backgroundColor: theme.color.hero,
+        borderRadius: theme.radius.xl,
+        paddingHorizontal: 18,
+        paddingTop: theme.space.lg,
+        paddingBottom: 18,
+        marginBottom: theme.space.xl,
+    },
+    heroTop: {
+        flexDirection: "row",
+        alignItems: "flex-start",
+    },
+    heroKicker: type.kicker,
+    heroValue: {
+        color: theme.color.onHero,
+        fontSize: theme.font.hero,
+        fontWeight: theme.font.weight.bold,
+        letterSpacing: -0.6,
+        marginTop: theme.space.xs,
+    },
+    heroCaption: {
+        color: theme.color.onHeroCaption,
+        fontSize: theme.font.caption,
+        marginTop: theme.space.xs,
+    },
+    heroAdd: {
+        width: theme.size.heroAdd,
+        height: theme.size.heroAdd,
+        borderRadius: theme.size.heroAdd / 2,
+        backgroundColor: theme.color.surface,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    heroBarTrack: {
+        height: theme.size.bar,
+        borderRadius: theme.radius.pill,
+        backgroundColor: theme.color.heroTrack,
+        marginTop: theme.space.lg,
+        overflow: "hidden",
+    },
+    heroBarFill: {
+        height: theme.size.bar,
+        borderRadius: theme.radius.pill,
+        backgroundColor: theme.color.successBright,
+    },
+    heroPace: {
+        color: theme.color.onHeroMuted,
+        fontSize: theme.font.kicker,
+        marginTop: 10,
+    },
+    periodRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: theme.space.sm,
+        marginTop: 10,
+    },
+    periodLabel: {
+        color: theme.color.faint,
+        fontSize: theme.font.caption,
+        fontWeight: theme.font.weight.semibold,
+        flex: 1,
+        textAlign: "center",
+    },
+    sectionLabel: {
+        ...type.sectionLabel,
+        marginBottom: 10,
+        marginTop: theme.space.xs,
+    },
+    card: {
+        backgroundColor: theme.color.surface,
+        borderRadius: theme.radius.lg,
+        paddingHorizontal: theme.space.lg,
+        paddingVertical: theme.space.lg,
+        marginBottom: theme.space.md,
+        ...shadows.card,
+    },
+    cardTop: {
+        flexDirection: "row",
+        alignItems: "flex-start",
+        marginBottom: theme.space.md,
+    },
+    cardTitle: type.cardTitle,
+    cardSubtitle: {
+        ...type.cardSubtitle,
+        marginTop: theme.space.xs,
+    },
+    cardRight: {
+        color: theme.color.ink,
+        fontSize: theme.font.value,
+        fontWeight: theme.font.weight.bold,
+    },
+    barTrack: {
+        height: theme.size.bar,
+        borderRadius: theme.radius.pill,
+        backgroundColor: theme.color.track,
+        overflow: "hidden",
+    },
+    barFill: {
+        height: theme.size.bar,
+        borderRadius: theme.radius.pill,
+        backgroundColor: theme.color.accent,
+    },
+    barFillDone: {
+        backgroundColor: theme.color.success,
+    },
+    cardMeta: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        marginTop: theme.space.md,
+        gap: theme.space.sm,
+    },
+    cardAmounts: {
+        color: theme.color.ink,
+        fontSize: 15,
+        fontWeight: theme.font.weight.bold,
+        flex: 1,
+    },
+    cardAmountsMuted: {
+        color: theme.color.soft,
+        fontWeight: theme.font.weight.regular,
+    },
+    chip: {
+        backgroundColor: theme.color.accentSoft,
+        paddingHorizontal: theme.space.md,
+        paddingVertical: theme.space.sm,
+        borderRadius: theme.radius.pill,
+    },
+    chipText: {
+        color: theme.color.accentText,
+        fontSize: theme.font.caption,
+        fontWeight: theme.font.weight.bold,
+    },
+    emptyCard: {
+        backgroundColor: theme.color.surface,
+        borderRadius: theme.radius.lg,
+        padding: 22,
+        borderWidth: 1,
+        borderColor: theme.color.border,
+        borderStyle: "dashed",
+    },
+    emptyTitle: {
+        color: theme.color.ink,
+        fontSize: 18,
+        fontWeight: theme.font.weight.bold,
+    },
+    emptyText: {
+        color: theme.color.muted,
+        fontSize: theme.font.body,
+        lineHeight: 20,
+        marginTop: theme.space.sm,
+        marginBottom: theme.space.lg,
+    },
+    emptyButton: {
+        backgroundColor: theme.color.primary,
+        minHeight: theme.size.tap,
+        borderRadius: theme.radius.md,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    emptyButtonText: type.button,
+    tabHeader: {
+        paddingHorizontal: theme.space.screenX,
+        paddingTop: theme.space.screenTop,
+        paddingBottom: theme.space.sm,
+        backgroundColor: theme.color.surface,
+        borderBottomWidth: 1,
+        borderBottomColor: theme.color.border,
+    },
+    summaryRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        paddingVertical: 13,
+    },
+    summaryLabel: {
+        color: theme.color.muted,
+        fontSize: theme.font.body,
+    },
+    summaryValue: {
+        color: theme.color.ink,
+        fontSize: theme.font.body,
+        fontWeight: theme.font.weight.semibold,
+    },
+    summaryDivider: {
+        height: 1,
+        backgroundColor: theme.color.border,
+    },
+});

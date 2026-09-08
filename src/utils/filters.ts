@@ -1,7 +1,9 @@
-import { Bill } from "@/types/bill";
-import { Debt } from "@/types/debt";
-import { Expense } from "@/types/expense";
 import { PaidFilter } from "@/constants/categories";
+import { Bill } from "@/types/bill";
+import { BillPayment } from "@/types/bill-payment";
+import { Debt } from "@/types/debt";
+import { DebtPayment } from "@/types/debt-payment";
+import { Expense } from "@/types/expense";
 import { parseIsoDate, startOfDay, toIsoDate } from "@/utils/date";
 import { debtStartDate } from "@/utils/timestamps";
 
@@ -15,17 +17,35 @@ export function filterByCategory<T extends { category?: string }>(
     return items.filter((item) => item.category === category);
 }
 
+export function filterBySearch<T extends { name?: string; source?: string }>(
+    items: T[],
+    query: string
+): T[] {
+    const q = query.trim().toLowerCase();
+    if (!q) {
+        return items;
+    }
+    return items.filter((item) => {
+        const name = item.name?.toLowerCase() ?? "";
+        const source = item.source?.toLowerCase() ?? "";
+        return name.includes(q) || source.includes(q);
+    });
+}
+
 export function filterBillsByPaidStatus(
     bills: Bill[],
-    paidFilter: PaidFilter
+    paidFilter: PaidFilter,
+    payments: BillPayment[],
+    asOf: Date
 ): Bill[] {
-    if (paidFilter === "Paid") {
-        return bills.filter((bill) => bill.isPaid);
+    if (paidFilter === "All") {
+        return bills;
     }
-    if (paidFilter === "Unpaid") {
-        return bills.filter((bill) => !bill.isPaid);
-    }
-    return bills;
+
+    return bills.filter((bill) => {
+        const paid = isBillPaidAsOf(bill, payments, asOf);
+        return paidFilter === "Paid" ? paid : !paid;
+    });
 }
 
 export function filterExpensesByCategory(
@@ -64,13 +84,44 @@ export function filterDebtsVisibleAsOf(debts: Debt[], asOf: Date): Debt[] {
     return debts.filter((debt) => isDebtVisibleAsOf(debt, asOf));
 }
 
+export function getDebtTotalPaid(
+    debtId: string,
+    payments: DebtPayment[]
+): number {
+    return payments
+        .filter((payment) => payment.debtId === debtId)
+        .reduce((sum, payment) => sum + payment.amount, 0);
+}
+
 /**
  * Whether this month's installment is paid for the date you're viewing.
- * Remaining balance can still be > 0 — "paid" means the payment was recorded,
- * not that the whole loan is finished.
  */
-export function isDebtInstallmentPaidAsOf(debt: Debt, asOf: Date): boolean {
+export function isDebtInstallmentPaidAsOf(
+    debt: Debt,
+    asOf: Date,
+    payments: DebtPayment[] = []
+): boolean {
     if (debt.balance <= 0 || debt.paidOffDate) {
+        return true;
+    }
+
+    const asOfDay = startOfDay(asOf);
+    const monthPayments = payments.filter((payment) => {
+        if (payment.debtId !== debt.id) {
+            return false;
+        }
+        const paidOn = parseIsoDate(payment.date);
+        if (!paidOn) {
+            return false;
+        }
+        return (
+            paidOn.getFullYear() === asOfDay.getFullYear() &&
+            paidOn.getMonth() === asOfDay.getMonth() &&
+            paidOn.getTime() <= asOfDay.getTime()
+        );
+    });
+
+    if (monthPayments.length > 0) {
         return true;
     }
 
@@ -83,13 +134,40 @@ export function isDebtInstallmentPaidAsOf(debt: Debt, asOf: Date): boolean {
         return false;
     }
 
-    const asOfDay = startOfDay(asOf);
-
     return (
         paidOn.getFullYear() === asOfDay.getFullYear() &&
         paidOn.getMonth() === asOfDay.getMonth() &&
         paidOn.getTime() <= asOfDay.getTime()
     );
+}
+
+export function isBillPaidAsOf(
+    bill: Bill,
+    payments: BillPayment[],
+    asOf: Date
+): boolean {
+    const asOfDay = startOfDay(asOf);
+    const hasPayment = payments.some((payment) => {
+        if (payment.billId !== bill.id) {
+            return false;
+        }
+        const paidOn = parseIsoDate(payment.date);
+        if (!paidOn) {
+            return false;
+        }
+        return (
+            paidOn.getFullYear() === asOfDay.getFullYear() &&
+            paidOn.getMonth() === asOfDay.getMonth() &&
+            paidOn.getTime() <= asOfDay.getTime()
+        );
+    });
+
+    if (hasPayment) {
+        return true;
+    }
+
+    const billHasHistory = payments.some((p) => p.billId === bill.id);
+    return !billHasHistory && bill.isPaid;
 }
 
 /** Days until due this month; negative means overdue this month. */
@@ -102,10 +180,11 @@ export type BillDueStatus = "paid" | "overdue" | "due-soon" | "upcoming";
 
 export function getBillDueStatus(
     bill: Bill,
+    payments: BillPayment[] = [],
     soonWithinDays = 3,
     today = new Date()
 ): BillDueStatus {
-    if (bill.isPaid) {
+    if (isBillPaidAsOf(bill, payments, today)) {
         return "paid";
     }
 
@@ -119,8 +198,11 @@ export function getBillDueStatus(
     return "upcoming";
 }
 
-export function formatBillSubtitle(bill: Bill): string {
-    const status = getBillDueStatus(bill);
+export function formatBillSubtitle(
+    bill: Bill,
+    payments: BillPayment[] = []
+): string {
+    const status = getBillDueStatus(bill, payments);
     const categoryPart = bill.category ? `${bill.category} · ` : "";
 
     switch (status) {

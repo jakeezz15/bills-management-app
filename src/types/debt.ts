@@ -5,12 +5,6 @@ export interface Debt extends Timestamps {
     name: string;
     balance: number;
     dueDay: number;
-    /** True when the latest installment payment has been recorded this cycle. */
-    isPaid: boolean;
-    /** Cumulative amount paid toward this debt (drives Home leftover). */
-    totalPaid: number;
-    /** ISO date of the most recent installment payment. */
-    lastPaymentDate?: string;
     /**
      * When this installment plan begins (YYYY-MM-DD).
      * Hidden when viewing dates before this.
@@ -25,4 +19,11 @@ export interface Debt extends Timestamps {
     remarks?: string;
     minimumPayment: number;
     type: string;
+
+    /** @deprecated Prefer DebtPayment rows. Kept for old backups / migration. */
+    isPaid?: boolean;
+    /** @deprecated Prefer DebtPayment rows. */
+    totalPaid?: number;
+    /** @deprecated Prefer DebtPayment rows. */
+    lastPaymentDate?: string;
 }

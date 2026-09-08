@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "bills-management-app",
+    "name": "Finance Manager",
     "slug": "bills-management-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -33,7 +33,9 @@
           "imageWidth": 76
         }
       ],
-      "@react-native-vector-icons/ionicons"
+      "@react-native-vector-icons/ionicons",
+      "expo-sharing",
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true,

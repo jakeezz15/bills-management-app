@@ -1,12 +1,11 @@
 import { useBills } from "@/app/contexts/BillsContext";
 import { FilterChips } from "@/components/FilterChips";
+import { FormDialog } from "@/components/FormDialog";
 import { BILL_CATEGORIES } from "@/constants/categories";
-import { buttonStyle } from "@/styles/button-style";
 import { modalForm } from "@/styles/modal-form";
 import { Bill } from "@/types/bill";
-import Ionicons from "@react-native-vector-icons/ionicons";
 import { useEffect, useState } from "react";
-import { Modal, Pressable, Text, TextInput, View } from "react-native";
+import { Switch, Text, TextInput, View } from "react-native";
 
 type BillFormProps = {
     visible: boolean;
@@ -26,7 +25,6 @@ export default function BillForm({
     const [dueDay, setDueDay] = useState("");
     const [category, setCategory] = useState<string | null>(null);
     const [isPaid, setIsPaid] = useState(false);
-
     const [focusedInput, setFocusedInput] = useState<string | null>(null);
     const [showErrors, setShowErrors] = useState(false);
 
@@ -34,9 +32,7 @@ export default function BillForm({
     const amountHasError = showErrors && amount.trim() === "";
     const dueDayHasError =
         showErrors &&
-        (dueDay.trim() === "" ||
-            Number(dueDay) < 1 ||
-            Number(dueDay) > 31);
+        (dueDay.trim() === "" || Number(dueDay) < 1 || Number(dueDay) > 31);
 
     useEffect(() => {
         if (bill) {
@@ -94,181 +90,126 @@ export default function BillForm({
         onClose();
     };
 
-    const handleDelete = async (id: string) => {
-        await deleteBill(id);
-        setName("");
-        setAmount("");
-        setDueDay("");
-        setCategory(null);
-        setIsPaid(false);
-        onClose();
-    };
-
     return (
-        <Modal
+        <FormDialog
             visible={visible}
-            animationType="fade"
-            transparent
-            onRequestClose={onClose}
+            onClose={onClose}
+            kicker="Recurring bill"
+            title={bill ? "Edit bill" : "New bill"}
+            saveLabel={bill ? "Save bill" : "Add bill"}
+            onSave={() => {
+                void handleSubmit();
+            }}
+            deleteLabel={bill ? "Delete bill" : undefined}
+            deleteMessage="This removes this bill from the device."
+            onDelete={
+                bill
+                    ? async () => {
+                          await deleteBill(bill.id);
+                          onClose();
+                      }
+                    : undefined
+            }
         >
-            <View style={modalForm.overlay}>
+            <View style={modalForm.dialogField}>
+                <Text style={modalForm.dialogLabel}>Amount</Text>
                 <View
                     style={[
-                        modalForm.card,
-                        modalForm.cardResponsive,
-                        modalForm.cardShadow,
+                        modalForm.dialogAmountWrap,
+                        focusedInput === "amount" &&
+                            modalForm.dialogInputFocused,
+                        amountHasError && modalForm.dialogInputError,
                     ]}
                 >
-                    <View
-                        style={{
-                            flexDirection: "row",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                        }}
-                    >
-                        <Text style={modalForm.title}>
-                            {bill ? "Update" : "Add"} Bill
-                        </Text>
-
-                        {bill && (
-                            <Pressable
-                                onPress={() => handleDelete(bill.id)}
-                                accessibilityRole="button"
-                                accessibilityLabel="Delete bill"
-                                hitSlop={8}
-                                style={({ pressed }) => [
-                                    modalForm.closeButton,
-                                    pressed && modalForm.closeButtonPressed,
-                                ]}
-                            >
-                                <Ionicons
-                                    name="trash"
-                                    size={22}
-                                    color="#f74f4f"
-                                />
-                            </Pressable>
-                        )}
-                    </View>
-
-                    <Text style={modalForm.label}>Bill Name</Text>
-
+                    <Text style={modalForm.dialogAmountPrefix}>$</Text>
                     <TextInput
-                        style={[
-                            modalForm.input,
-                            focusedInput === "name" && modalForm.inputFocused,
-                            nameHasError && modalForm.inputError,
-                        ]}
-                        placeholder="Ex. Rent"
-                        placeholderTextColor="#888"
-                        value={name}
-                        onChangeText={setName}
-                        onFocus={() => setFocusedInput("name")}
-                        onBlur={() => setFocusedInput(null)}
-                    />
-                    {nameHasError && (
-                        <Text style={modalForm.errorText}>
-                            Bill name is required.
-                        </Text>
-                    )}
-
-                    <Text style={modalForm.label}>Amount</Text>
-
-                    <TextInput
-                        style={[
-                            modalForm.input,
-                            focusedInput === "amount" && modalForm.inputFocused,
-                            amountHasError && modalForm.inputError,
-                        ]}
-                        placeholder="Ex. 500"
-                        placeholderTextColor="#888"
+                        style={modalForm.dialogAmountInput}
+                        placeholder="0.00"
+                        placeholderTextColor="#CBD5E1"
                         value={amount}
                         onChangeText={setAmount}
-                        keyboardType="numeric"
+                        keyboardType="decimal-pad"
                         onFocus={() => setFocusedInput("amount")}
                         onBlur={() => setFocusedInput(null)}
                     />
-                    {amountHasError && (
-                        <Text style={modalForm.errorText}>
-                            Amount is required.
-                        </Text>
-                    )}
-
-                    <Text style={modalForm.label}>Due Day</Text>
-
-                    <TextInput
-                        style={[
-                            modalForm.input,
-                            focusedInput === "dueDay" && modalForm.inputFocused,
-                            dueDayHasError && modalForm.inputError,
-                        ]}
-                        placeholder="Due day (1-31)"
-                        placeholderTextColor="#888"
-                        value={dueDay}
-                        onChangeText={setDueDay}
-                        keyboardType="numeric"
-                        onFocus={() => setFocusedInput("dueDay")}
-                        onBlur={() => setFocusedInput(null)}
-                    />
-                    {dueDayHasError && (
-                        <Text style={modalForm.errorText}>
-                            Due day is required (1-31).
-                        </Text>
-                    )}
-
-                    <Text style={modalForm.label}>Category</Text>
-                    <FilterChips
-                        options={BILL_CATEGORIES}
-                        selected={category}
-                        onSelect={setCategory}
-                        allowClear
-                    />
-
-                    <Pressable
-                        onPress={() => setIsPaid((prev) => !prev)}
-                        style={{
-                            flexDirection: "row",
-                            alignItems: "center",
-                            gap: 8,
-                            marginBottom: 12,
-                        }}
-                    >
-                        <Ionicons
-                            name={isPaid ? "checkmark-circle" : "ellipse-outline"}
-                            size={24}
-                            color={isPaid ? "#15803D" : "#94A3B8"}
-                        />
-                        <Text style={modalForm.label}>
-                            {isPaid ? "Marked as paid" : "Mark as paid"}
-                        </Text>
-                    </Pressable>
-
-                    <View style={{ marginBottom: 8 }} />
-
-                    <Pressable
-                        style={({ pressed }) => [
-                            buttonStyle.submitButton,
-                            pressed && buttonStyle.buttonPressed,
-                        ]}
-                        onPress={handleSubmit}
-                    >
-                        <Text style={buttonStyle.buttonText}>
-                            {bill ? "Update" : "Add"} Bill
-                        </Text>
-                    </Pressable>
-
-                    <Pressable
-                        onPress={onClose}
-                        style={({ pressed }) => [
-                            buttonStyle.cancelButton,
-                            pressed && buttonStyle.cancelButtonPressed,
-                        ]}
-                    >
-                        <Text style={buttonStyle.buttonText}>
-                            Cancel
-                        </Text>
-                    </Pressable>
                 </View>
+                {amountHasError && (
+                    <Text style={modalForm.errorText}>Amount is required.</Text>
+                )}
             </View>
-        </Modal>
+
+            <View style={modalForm.dialogField}>
+                <Text style={modalForm.dialogLabel}>Name</Text>
+                <TextInput
+                    style={[
+                        modalForm.dialogInput,
+                        focusedInput === "name" && modalForm.dialogInputFocused,
+                        nameHasError && modalForm.dialogInputError,
+                    ]}
+                    placeholder="Rent, internet, Netflix…"
+                    placeholderTextColor="#94A3B8"
+                    value={name}
+                    onChangeText={setName}
+                    onFocus={() => setFocusedInput("name")}
+                    onBlur={() => setFocusedInput(null)}
+                />
+                {nameHasError && (
+                    <Text style={modalForm.errorText}>
+                        Bill name is required.
+                    </Text>
+                )}
+            </View>
+
+            <View style={modalForm.dialogField}>
+                <Text style={modalForm.dialogLabel}>Due day each month</Text>
+                <TextInput
+                    style={[
+                        modalForm.dialogInput,
+                        focusedInput === "dueDay" &&
+                            modalForm.dialogInputFocused,
+                        dueDayHasError && modalForm.dialogInputError,
+                    ]}
+                    placeholder="1–31"
+                    placeholderTextColor="#94A3B8"
+                    value={dueDay}
+                    onChangeText={setDueDay}
+                    keyboardType="number-pad"
+                    onFocus={() => setFocusedInput("dueDay")}
+                    onBlur={() => setFocusedInput(null)}
+                />
+                {dueDayHasError && (
+                    <Text style={modalForm.errorText}>
+                        Enter a day between 1 and 31.
+                    </Text>
+                )}
+            </View>
+
+            <View style={modalForm.dialogField}>
+                <Text style={modalForm.dialogLabel}>Category</Text>
+                <FilterChips
+                    options={BILL_CATEGORIES}
+                    selected={category}
+                    onSelect={setCategory}
+                    allowClear
+                />
+            </View>
+
+            <View style={modalForm.dialogSwitchRow}>
+                <View style={modalForm.dialogSwitchCopy}>
+                    <Text style={modalForm.dialogSwitchTitle}>
+                        Paid this month
+                    </Text>
+                    <Text style={modalForm.dialogSwitchCaption}>
+                        Turn on after you send this payment
+                    </Text>
+                </View>
+                <Switch
+                    value={isPaid}
+                    onValueChange={setIsPaid}
+                    trackColor={{ false: "#CBD5E1", true: "#86EFAC" }}
+                    thumbColor={isPaid ? "#15803D" : "#F8FAFC"}
+                />
+            </View>
+        </FormDialog>
     );
 }

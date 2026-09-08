@@ -1,3 +1,4 @@
+import { theme } from "@/theme";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { Tabs } from "expo-router";
 import { BillsProvider } from "../contexts/BillsContext";
@@ -15,7 +16,21 @@ export default function TabLayout() {
                     <DebtsProvider>
                         <BillsProvider>
                             <ExpensesProvider>
-                                <Tabs screenOptions={{ tabBarActiveTintColor: "#208AEF" }}>
+                                <Tabs
+                                    screenOptions={{
+                                        tabBarActiveTintColor: theme.color.ink,
+                                        tabBarInactiveTintColor: theme.color.soft,
+                                        headerShown: false,
+                                        tabBarStyle: {
+                                            backgroundColor: theme.color.surface,
+                                            borderTopColor: theme.color.border,
+                                        },
+                                        tabBarLabelStyle: {
+                                            fontSize: 11,
+                                            fontWeight: "600",
+                                        },
+                                    }}
+                                >
                                     <Tabs.Screen
                                         name="index"
                                         options={{
@@ -31,12 +46,12 @@ export default function TabLayout() {
                                     />
 
                                     <Tabs.Screen
-                                        name="income"
+                                        name="activity"
                                         options={{
-                                            title: "Income",
+                                            title: "Activity",
                                             tabBarIcon: ({ color, size }) => (
                                                 <Ionicons
-                                                    name="wallet-outline"
+                                                    name="swap-vertical-outline"
                                                     size={size}
                                                     color={color}
                                                 />
@@ -44,60 +59,54 @@ export default function TabLayout() {
                                         }}
                                     />
 
+                                    <Tabs.Screen
+                                        name="plans"
+                                        options={{
+                                            title: "Plans",
+                                            tabBarIcon: ({ color, size }) => (
+                                                <Ionicons
+                                                    name="albums-outline"
+                                                    size={size}
+                                                    color={color}
+                                                />
+                                            ),
+                                        }}
+                                    />
+
+                                    <Tabs.Screen
+                                        name="settings"
+                                        options={{
+                                            title: "Settings",
+                                            tabBarIcon: ({ color, size }) => (
+                                                <Ionicons
+                                                    name="settings-outline"
+                                                    size={size}
+                                                    color={color}
+                                                />
+                                            ),
+                                        }}
+                                    />
+
+                                    {/* Kept as routes for deep links; hidden from tab bar */}
+                                    <Tabs.Screen
+                                        name="income"
+                                        options={{ href: null }}
+                                    />
                                     <Tabs.Screen
                                         name="expenses"
-                                        options={{
-                                            title: "Expenses",
-                                            tabBarIcon: ({ color, size }) => (
-                                                <Ionicons
-                                                    name="receipt-outline"
-                                                    size={size}
-                                                    color={color}
-                                                />
-                                            ),
-                                        }}
+                                        options={{ href: null }}
                                     />
-
                                     <Tabs.Screen
                                         name="bills"
-                                        options={{
-                                            title: "Bills",
-                                            tabBarIcon: ({ color, size }) => (
-                                                <Ionicons
-                                                    name="calendar-outline"
-                                                    size={size}
-                                                    color={color}
-                                                />
-                                            ),
-                                        }}
+                                        options={{ href: null }}
                                     />
-
                                     <Tabs.Screen
                                         name="savings"
-                                        options={{
-                                            title: "Savings",
-                                            tabBarIcon: ({ color, size }) => (
-                                                <Ionicons
-                                                    name="cash-outline"
-                                                    size={size}
-                                                    color={color}
-                                                />
-                                            ),
-                                        }}
+                                        options={{ href: null }}
                                     />
-
                                     <Tabs.Screen
                                         name="debts"
-                                        options={{
-                                            title: "Debts",
-                                            tabBarIcon: ({ color, size }) => (
-                                                <Ionicons
-                                                    name="card-outline"
-                                                    size={size}
-                                                    color={color}
-                                                />
-                                            ),
-                                        }}
+                                        options={{ href: null }}
                                     />
                                 </Tabs>
                             </ExpensesProvider>

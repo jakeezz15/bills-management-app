@@ -35,6 +35,11 @@ export function toIsoDate(date: Date): string {
     return `${y}-${m}-${d}`;
 }
 
+/** Local calendar today as `YYYY-MM-DD` (avoids UTC shift from toISOString). */
+export function todayIsoDate(): string {
+    return toIsoDate(new Date());
+}
+
 export function startOfDay(date: Date): Date {
     return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
@@ -192,6 +197,18 @@ export function countMonthsOverlapping(range: DateRange): number {
     }
 
     return Math.max(count, 1);
+}
+
+export function formatDisplayDate(iso: string): string {
+    const parsed = parseIsoDate(iso);
+    if (!parsed) {
+        return iso;
+    }
+    return parsed.toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+    });
 }
 
 export function formatPeriodLabel(anchor: Date, unit: PeriodUnit): string {

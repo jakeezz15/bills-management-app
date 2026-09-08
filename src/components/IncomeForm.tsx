@@ -1,20 +1,17 @@
 import { useIncome } from "@/app/contexts/IncomeContext";
-import { buttonStyle } from "@/styles/button-style";
+import { DateField } from "@/components/DateField";
+import { FormDialog } from "@/components/FormDialog";
 import { modalForm } from "@/styles/modal-form";
 import { Income } from "@/types/income";
-import Ionicons from "@react-native-vector-icons/ionicons";
+import { parseIsoDate, todayIsoDate } from "@/utils/date";
 import { useEffect, useState } from "react";
-import { Modal, Pressable, Text, TextInput, View } from "react-native";
+import { Text, TextInput, View } from "react-native";
 
 type IncomeFormProps = {
     visible: boolean;
     onClose: () => void;
     entry?: Income;
 };
-
-function todayIsoDate() {
-    return new Date().toISOString().slice(0, 10);
-}
 
 export default function IncomeForm({
     visible,
@@ -27,14 +24,12 @@ export default function IncomeForm({
     const [net, setNet] = useState("");
     const [gross, setGross] = useState("");
     const [date, setDate] = useState(todayIsoDate());
-
     const [focusedInput, setFocusedInput] = useState<string | null>(null);
     const [showErrors, setShowErrors] = useState(false);
 
     const sourceHasError = showErrors && source.trim() === "";
     const netHasError = showErrors && net.trim() === "";
-    const dateHasError =
-        showErrors && !/^\d{4}-\d{2}-\d{2}$/.test(date.trim());
+    const dateHasError = showErrors && parseIsoDate(date) === null;
 
     useEffect(() => {
         if (entry) {
@@ -52,14 +47,13 @@ export default function IncomeForm({
     }, [entry, visible]);
 
     const handleSubmit = async () => {
-        if (!source || !net || !/^\d{4}-\d{2}-\d{2}$/.test(date.trim())) {
+        if (!source || !net || parseIsoDate(date) === null) {
             setShowErrors(true);
             return;
         }
 
         const netNumber = Number(net);
         const grossNumber = gross.trim() === "" ? netNumber : Number(gross);
-
         const payload = {
             source: source.trim(),
             net: netNumber,
@@ -84,168 +78,109 @@ export default function IncomeForm({
         onClose();
     };
 
-    const handleDelete = async (id: string) => {
-        await deleteIncome(id);
-        setSource("");
-        setNet("");
-        setGross("");
-        setDate(todayIsoDate());
-        onClose();
-    };
-
     return (
-        <Modal
+        <FormDialog
             visible={visible}
-            animationType="fade"
-            transparent
-            onRequestClose={onClose}
+            onClose={onClose}
+            kicker="Money in"
+            title={entry ? "Edit income" : "New income"}
+            saveLabel={entry ? "Save income" : "Add income"}
+            onSave={() => {
+                void handleSubmit();
+            }}
+            deleteLabel={entry ? "Delete income" : undefined}
+            deleteMessage="This removes this income entry from the device."
+            onDelete={
+                entry
+                    ? async () => {
+                          await deleteIncome(entry.id);
+                          onClose();
+                      }
+                    : undefined
+            }
         >
-            <View style={modalForm.overlay}>
+            <View style={modalForm.dialogField}>
+                <Text style={modalForm.dialogLabel}>Net (take-home)</Text>
                 <View
                     style={[
-                        modalForm.card,
-                        modalForm.cardResponsive,
-                        modalForm.cardShadow,
+                        modalForm.dialogAmountWrap,
+                        focusedInput === "net" && modalForm.dialogInputFocused,
+                        netHasError && modalForm.dialogInputError,
                     ]}
                 >
-                    <View
-                        style={{
-                            flexDirection: "row",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                        }}
-                    >
-                        <Text style={modalForm.title}>
-                            {entry ? "Update" : "Add"} Income
-                        </Text>
-
-                        {entry && (
-                            <Pressable
-                                onPress={() => handleDelete(entry.id)}
-                                accessibilityRole="button"
-                                accessibilityLabel="Delete income"
-                                hitSlop={8}
-                                style={({ pressed }) => [
-                                    modalForm.closeButton,
-                                    pressed && modalForm.closeButtonPressed,
-                                ]}
-                            >
-                                <Ionicons
-                                    name="trash"
-                                    size={22}
-                                    color="#f74f4f"
-                                />
-                            </Pressable>
-                        )}
-                    </View>
-
-                    <Text style={modalForm.label}>Source</Text>
-
+                    <Text style={modalForm.dialogAmountPrefix}>$</Text>
                     <TextInput
-                        style={[
-                            modalForm.input,
-                            focusedInput === "source" && modalForm.inputFocused,
-                            sourceHasError && modalForm.inputError,
-                        ]}
-                        placeholder="Ex. Salary"
-                        placeholderTextColor="#888"
-                        value={source}
-                        onChangeText={setSource}
-                        onFocus={() => setFocusedInput("source")}
-                        onBlur={() => setFocusedInput(null)}
-                    />
-                    {sourceHasError && (
-                        <Text style={modalForm.errorText}>
-                            Source is required.
-                        </Text>
-                    )}
-
-                    <Text style={modalForm.label}>Net (take-home)</Text>
-
-                    <TextInput
-                        style={[
-                            modalForm.input,
-                            focusedInput === "net" && modalForm.inputFocused,
-                            netHasError && modalForm.inputError,
-                        ]}
-                        placeholder="Ex. 1000"
-                        placeholderTextColor="#888"
+                        style={modalForm.dialogAmountInput}
+                        placeholder="0.00"
+                        placeholderTextColor="#CBD5E1"
                         value={net}
                         onChangeText={setNet}
-                        keyboardType="numeric"
+                        keyboardType="decimal-pad"
                         onFocus={() => setFocusedInput("net")}
                         onBlur={() => setFocusedInput(null)}
                     />
-                    {netHasError && (
-                        <Text style={modalForm.errorText}>
-                            Net amount is required.
-                        </Text>
-                    )}
+                </View>
+                {netHasError && (
+                    <Text style={modalForm.errorText}>
+                        Net amount is required.
+                    </Text>
+                )}
+            </View>
 
-                    <Text style={modalForm.label}>Gross (optional)</Text>
+            <View style={modalForm.dialogField}>
+                <Text style={modalForm.dialogLabel}>Source</Text>
+                <TextInput
+                    style={[
+                        modalForm.dialogInput,
+                        focusedInput === "source" &&
+                            modalForm.dialogInputFocused,
+                        sourceHasError && modalForm.dialogInputError,
+                    ]}
+                    placeholder="Salary, freelance…"
+                    placeholderTextColor="#94A3B8"
+                    value={source}
+                    onChangeText={setSource}
+                    onFocus={() => setFocusedInput("source")}
+                    onBlur={() => setFocusedInput(null)}
+                />
+                {sourceHasError && (
+                    <Text style={modalForm.errorText}>Source is required.</Text>
+                )}
+            </View>
 
+            <View style={modalForm.dialogField}>
+                <Text style={modalForm.dialogLabel}>Gross (optional)</Text>
+                <View
+                    style={[
+                        modalForm.dialogAmountWrap,
+                        focusedInput === "gross" &&
+                            modalForm.dialogInputFocused,
+                    ]}
+                >
+                    <Text style={modalForm.dialogAmountPrefix}>$</Text>
                     <TextInput
-                        style={[
-                            modalForm.input,
-                            focusedInput === "gross" && modalForm.inputFocused,
-                        ]}
-                        placeholder="Defaults to net if empty"
-                        placeholderTextColor="#888"
+                        style={[modalForm.dialogAmountInput, { fontSize: 20 }]}
+                        placeholder="Defaults to net"
+                        placeholderTextColor="#CBD5E1"
                         value={gross}
                         onChangeText={setGross}
-                        keyboardType="numeric"
+                        keyboardType="decimal-pad"
                         onFocus={() => setFocusedInput("gross")}
                         onBlur={() => setFocusedInput(null)}
                     />
-
-                    <Text style={modalForm.label}>Pay date</Text>
-
-                    <TextInput
-                        style={[
-                            modalForm.input,
-                            focusedInput === "date" && modalForm.inputFocused,
-                            dateHasError && modalForm.inputError,
-                        ]}
-                        placeholder="YYYY-MM-DD"
-                        placeholderTextColor="#888"
-                        value={date}
-                        onChangeText={setDate}
-                        onFocus={() => setFocusedInput("date")}
-                        onBlur={() => setFocusedInput(null)}
-                    />
-                    {dateHasError && (
-                        <Text style={modalForm.errorText}>
-                            Use a date like 2026-09-07.
-                        </Text>
-                    )}
-
-                    <View style={{ marginBottom: 18 }} />
-
-                    <Pressable
-                        style={({ pressed }) => [
-                            buttonStyle.submitButton,
-                            pressed && buttonStyle.buttonPressed,
-                        ]}
-                        onPress={handleSubmit}
-                    >
-                        <Text style={buttonStyle.buttonText}>
-                            {entry ? "Update" : "Add"} Income
-                        </Text>
-                    </Pressable>
-
-                    <Pressable
-                        onPress={onClose}
-                        style={({ pressed }) => [
-                            buttonStyle.cancelButton,
-                            pressed && buttonStyle.cancelButtonPressed,
-                        ]}
-                    >
-                        <Text style={buttonStyle.buttonText}>
-                            Cancel
-                        </Text>
-                    </Pressable>
                 </View>
             </View>
-        </Modal>
+
+            <View style={modalForm.dialogField}>
+                <DateField
+                    layout="dialog"
+                    label="Pay date"
+                    value={date}
+                    onChange={setDate}
+                    hasError={dateHasError}
+                    errorMessage="Choose a valid pay date."
+                />
+            </View>
+        </FormDialog>
     );
 }

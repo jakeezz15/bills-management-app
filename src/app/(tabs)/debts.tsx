@@ -1,9 +1,11 @@
+import { DashboardEmpty } from "@/components/DashboardEmpty";
+import { DashboardHero } from "@/components/DashboardHero";
 import DebtForm from "@/components/DebtForm";
-import { FinanceRow } from "@/components/FinanceRow";
+import { HeroPeriodNav } from "@/components/HeroPeriodNav";
+import { PageHeader } from "@/components/ui";
 import { LoadingScreen } from "@/components/LoadingScreen";
-import { PeriodPicker } from "@/components/PeriodPicker";
-import { buttonStyle } from "@/styles/button-style";
-import { screenStyles } from "@/styles/screen";
+import { PlanItemCard } from "@/components/PlanItemCard";
+import { dashboard } from "@/styles/dashboard";
 import { Debt } from "@/types/debt";
 import { toIsoDate } from "@/utils/date";
 import {
@@ -11,86 +13,180 @@ import {
     isDebtInstallmentPaidAsOf,
 } from "@/utils/filters";
 import { useMemo, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 import { useDateRange } from "../contexts/DateRangeContext";
 import { useDebt } from "../contexts/DebtsContext";
 
-function debtSubtitle(debt: Debt, asOf: Date) {
-    if (debt.balance <= 0 || debt.paidOffDate) {
-        return `Paid off ${debt.paidOffDate ?? ""} · ${debt.type}`.trim();
-    }
+type DebtsScreenProps = {
+    embedded?: boolean;
+};
 
-    const installmentPaid = isDebtInstallmentPaidAsOf(debt, asOf);
-    const paid = debt.totalPaid ?? 0;
-    const status = installmentPaid ? "Paid this month" : "Unpaid this month";
-    const paidPart = paid > 0 ? ` · Total paid $${paid.toFixed(0)}` : "";
-    const start = debt.startDate ? ` · Starts ${debt.startDate}` : "";
-    return `Balance $${debt.balance.toFixed(0)} · ${status}${paidPart}${start}`;
+function isFullyPaidOff(debt: Debt) {
+    return debt.balance <= 0 || Boolean(debt.paidOffDate);
 }
 
-export default function DebtsScreen() {
+function monthsLeft(debt: Debt) {
+    if (debt.balance <= 0 || debt.minimumPayment <= 0) {
+        return null;
+    }
+    return Math.ceil(debt.balance / debt.minimumPayment);
+}
+
+function debtSubtitle(debt: Debt, paidThisPeriod: boolean) {
+    if (isFullyPaidOff(debt)) {
+        return debt.paidOffDate ? `Paid off ${debt.paidOffDate}` : "Paid off";
+    }
+    const months = monthsLeft(debt);
+    if (paidThisPeriod) {
+        return months
+            ? `Paid this period · about ${months} months left`
+            : "Paid this period";
+    }
+    if (months === 1) {
+        return `Due day ${debt.dueDay} · about 1 month left`;
+    }
+    if (months) {
+        return `Due day ${debt.dueDay} · about ${months} months left`;
+    }
+    return `Due day ${debt.dueDay}`;
+}
+
+export default function DebtsScreen({ embedded = false }: DebtsScreenProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
-    const { debts, loading, recordPayment } = useDebt();
-    const {
-        periodUnit,
-        range,
-        label,
-        setPeriodUnit,
-        shiftPeriod,
-        resetToToday,
-    } = useDateRange();
+    const { debts, payments, loading, recordPayment } = useDebt();
+    const { range, label, shiftPeriod, resetToToday } = useDateRange();
 
     const visibleDebts = useMemo(
         () => filterDebtsVisibleAsOf(debts, range.end),
         [debts, range.end]
     );
 
+    const unpaid = visibleDebts.filter(
+        (debt) =>
+            !isFullyPaidOff(debt) &&
+            !isDebtInstallmentPaidAsOf(debt, range.end, payments)
+    );
+    const paidThisMonth = visibleDebts.filter(
+        (debt) =>
+            !isFullyPaidOff(debt) &&
+            isDebtInstallmentPaidAsOf(debt, range.end, payments)
+    );
+    const paidOff = visibleDebts.filter((debt) => isFullyPaidOff(debt));
+
+    const remaining = visibleDebts.reduce(
+        (sum, debt) => sum + Math.max(debt.balance, 0),
+        0
+    );
+    const active = unpaid.length + paidThisMonth.length;
+    const paidShare =
+        active > 0 ? Math.round((paidThisMonth.length / active) * 100) : 0;
+    const monthlyDue = unpaid.reduce(
+        (sum, debt) => sum + debt.minimumPayment,
+        0
+    );
     const hiddenPaidOffCount = debts.length - visibleDebts.length;
     const asOfIso = toIsoDate(range.end);
 
+    const openAdd = () => {
+        setEditingDebt(null);
+        setIsOpen(true);
+    };
+
+    const renderDebt = (debt: Debt) => {
+        const fullyPaidOff = isFullyPaidOff(debt);
+        const installmentPaid = isDebtInstallmentPaidAsOf(
+            debt,
+            range.end,
+            payments
+        );
+        const done = fullyPaidOff || installmentPaid;
+
+        return (
+            <PlanItemCard
+                key={debt.id}
+                title={debt.name}
+                subtitle={debtSubtitle(debt, installmentPaid)}
+                rightLabel={`$${Math.max(debt.balance, 0).toFixed(0)}`}
+                percent={done ? 100 : 0}
+                done={done}
+                amounts={
+                    fullyPaidOff
+                        ? "Remaining $0"
+                        : `Min $${debt.minimumPayment.toFixed(0)}`
+                }
+                chipLabel={
+                    !fullyPaidOff && !installmentPaid
+                        ? `Record $${debt.minimumPayment.toFixed(0)}`
+                        : undefined
+                }
+                onPress={() => {
+                    setEditingDebt(debt);
+                    setIsOpen(true);
+                }}
+                onChip={
+                    !fullyPaidOff && !installmentPaid
+                        ? () => {
+                              void recordPayment(
+                                  debt.id,
+                                  undefined,
+                                  asOfIso
+                              );
+                          }
+                        : undefined
+                }
+            />
+        );
+    };
+
+    const heroCaption =
+        unpaid.length > 0
+            ? `${unpaid.length} unpaid · $${monthlyDue.toFixed(0)} due this period`
+            : paidThisMonth.length > 0
+              ? "All current installments paid"
+              : hiddenPaidOffCount > 0
+                ? `${hiddenPaidOffCount} paid-off hidden from this date`
+                : "No active installments on this date";
+
     return (
-        <>
+        <View style={dashboard.screen}>
             {loading && <LoadingScreen />}
 
             <ScrollView
-                style={screenStyles.section}
-                contentContainerStyle={screenStyles.content}
+                style={dashboard.list}
+                contentContainerStyle={[
+                    dashboard.listContent,
+                    !embedded && { paddingTop: 48 },
+                ]}
             >
-                <View style={screenStyles.header}>
-                    <View>
-                        <Text style={screenStyles.title}>
-                            Debts
-                        </Text>
+                {!embedded ? (
+                    <PageHeader
+                        title="Debts"
+                        subtitle="Remaining balances and this period’s payments"
+                    />
+                ) : null}
 
-                        <Text style={screenStyles.screenDescription}>
-                            Installments — paid-off items stay in history
-                        </Text>
-                    </View>
-
-                    <Pressable
-                        style={({ pressed }) => [
-                            buttonStyle.normalButton,
-                            pressed && buttonStyle.buttonPressed,
-                        ]}
-                        onPress={() => {
-                            setEditingDebt(null);
-                            setIsOpen(true);
-                        }}
-                    >
-                        <Text style={buttonStyle.buttonText}>
-                            + Add debt
-                        </Text>
-                    </Pressable>
-                </View>
-
-                <PeriodPicker
-                    periodUnit={periodUnit}
-                    label={label}
-                    onChangeUnit={setPeriodUnit}
-                    onShift={shiftPeriod}
-                    onResetToToday={resetToToday}
-                />
+                {debts.length > 0 ? (
+                    <DashboardHero
+                        kicker="Remaining"
+                        value={`$${remaining.toFixed(0)}`}
+                        caption={heroCaption}
+                        percent={
+                            active > 0
+                                ? paidShare
+                                : fullyPaidHeroPercent(visibleDebts)
+                        }
+                        pace={
+                            <HeroPeriodNav
+                                label={label}
+                                onShift={shiftPeriod}
+                                onResetToToday={resetToToday}
+                            />
+                        }
+                        onAdd={openAdd}
+                        addAccessibilityLabel="Add debt"
+                    />
+                ) : null}
 
                 <DebtForm
                     visible={isOpen}
@@ -102,112 +198,47 @@ export default function DebtsScreen() {
                     paymentDate={asOfIso}
                 />
 
-                {visibleDebts.length > 0 && (
-                    <View style={screenStyles.listHeader}>
-                        <Text style={screenStyles.listTitle}>
-                            Debts as of this date
-                        </Text>
-
-                        <View style={screenStyles.countBadge}>
-                            <Text style={screenStyles.countBadgeText}>
-                                {visibleDebts.length}
-                            </Text>
-                        </View>
-                    </View>
-                )}
-
-                {hiddenPaidOffCount > 0 && (
-                    <Text
-                        style={[
-                            screenStyles.screenDescription,
-                            { marginBottom: 12 },
-                        ]}
-                    >
-                        {hiddenPaidOffCount} paid-off debt
-                        {hiddenPaidOffCount === 1 ? "" : "s"} hidden — go back
-                        in the date picker to see them.
-                    </Text>
-                )}
-
                 {debts.length === 0 && !loading && (
-                    <View style={screenStyles.emptyState}>
-                        <View style={screenStyles.emptyStateIcon}>
-                            <Text style={screenStyles.emptyStateIconText}>
-                                D
-                            </Text>
-                        </View>
-
-                        <Text style={screenStyles.emptyStateTitle}>
-                            No debts yet
-                        </Text>
-
-                        <Text style={screenStyles.emptyStateText}>
-                            Add a phone, laptop, or loan installment. Each
-                            payment lowers the remaining balance.
-                        </Text>
-
-                        <Pressable
-                            style={({ pressed }) => [
-                                buttonStyle.normalButton,
-                                pressed && buttonStyle.buttonPressed,
-                            ]}
-                            onPress={() => {
-                                setEditingDebt(null);
-                                setIsOpen(true);
-                            }}
-                        >
-                            <Text style={buttonStyle.buttonText}>
-                                + Add first debt
-                            </Text>
-                        </Pressable>
-                    </View>
+                    <DashboardEmpty
+                        title="No debts yet"
+                        text="Add a phone, laptop, or loan. Each payment lowers the remaining balance."
+                        actionLabel="Add first debt"
+                        onAction={openAdd}
+                    />
                 )}
 
                 {debts.length > 0 && visibleDebts.length === 0 && !loading && (
-                    <View style={screenStyles.emptyState}>
-                        <Text style={screenStyles.emptyStateTitle}>
-                            No debts for this date
-                        </Text>
-                        <Text style={screenStyles.emptyStateText}>
-                            Paid-off installments are hidden after their payoff
-                            day. Move the date back to review history.
-                        </Text>
-                    </View>
+                    <DashboardEmpty
+                        title="Nothing for this date"
+                        text="Paid-off plans hide after payoff day. Step the date back to see history."
+                        actionLabel="Jump to today"
+                        onAction={resetToToday}
+                    />
                 )}
 
-                {visibleDebts.map((debt) => {
-                    const fullyPaidOff =
-                        debt.balance <= 0 || Boolean(debt.paidOffDate);
-                    const installmentPaid = isDebtInstallmentPaidAsOf(
-                        debt,
-                        range.end
-                    );
+                {unpaid.length > 0 && (
+                    <Text style={dashboard.sectionLabel}>Needs payment</Text>
+                )}
+                {unpaid.map(renderDebt)}
 
-                    return (
-                        <FinanceRow
-                            key={debt.id}
-                            label={debt.name}
-                            amount={debt.minimumPayment}
-                            subtitle={debtSubtitle(debt, range.end)}
-                            isPaid={installmentPaid}
-                            onTogglePaid={
-                                fullyPaidOff
-                                    ? undefined
-                                    : () =>
-                                        recordPayment(
-                                            debt.id,
-                                            undefined,
-                                            asOfIso
-                                        )
-                            }
-                            onPress={() => {
-                                setEditingDebt(debt);
-                                setIsOpen(true);
-                            }}
-                        />
-                    );
-                })}
+                {paidThisMonth.length > 0 && (
+                    <Text style={dashboard.sectionLabel}>Paid this period</Text>
+                )}
+                {paidThisMonth.map(renderDebt)}
+
+                {paidOff.length > 0 && (
+                    <Text style={dashboard.sectionLabel}>Paid off</Text>
+                )}
+                {paidOff.map(renderDebt)}
             </ScrollView>
-        </>
+        </View>
     );
+}
+
+function fullyPaidHeroPercent(visibleDebts: Debt[]) {
+    if (visibleDebts.length === 0) {
+        return 0;
+    }
+    const paidOffCount = visibleDebts.filter(isFullyPaidOff).length;
+    return Math.round((paidOffCount / visibleDebts.length) * 100);
 }

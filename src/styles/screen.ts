@@ -1,47 +1,45 @@
+import { theme, type } from "@/theme";
 import { StyleSheet } from "react-native";
 
 export const screenStyles = StyleSheet.create({
+    title: type.pageTitle,
+    screenDescription: type.subtitle,
     sectionTitle: {
-        fontSize: 18,
-        fontWeight: "600",
-        marginTop: 16,
-        marginBottom: 8,
+        ...type.sectionLabel,
+        marginTop: theme.space.lg,
+        marginBottom: theme.space.sm,
     },
-
     summaryCard: {
-        backgroundColor: "#f0f4f8",
-        padding: 16,
-        borderRadius: 12,
-        marginBottom: 24
-    },
-    title: {
-        fontSize: 20,
-        fontWeight: "600",
-
+        backgroundColor: theme.color.surface,
+        padding: theme.space.lg,
+        borderRadius: theme.radius.lg,
+        marginBottom: theme.space.lg,
     },
     leftover: {
         fontSize: 18,
-        fontWeight: "700",
-        marginTop: 8,
-
+        fontWeight: theme.font.weight.bold,
+        marginTop: theme.space.sm,
+        color: theme.color.ink,
     },
     content: {
-        paddingBottom: 32
+        paddingBottom: 32,
     },
     section: {
         flex: 1,
-        padding: 16,
-        paddingTop: 48
+        padding: theme.space.screenX,
+        paddingTop: theme.space.screenTop,
+        backgroundColor: theme.color.canvas,
     },
     expenseTextInput: {
-        backgroundColor: "#fff",
+        backgroundColor: theme.color.surface,
         borderWidth: 1,
-        borderColor: "#ccc",
-        padding: 12,
-        borderRadius: 8,
-        marginBottom: 12,
+        borderColor: theme.color.border,
+        padding: theme.space.md,
+        borderRadius: theme.radius.md,
+        marginBottom: theme.space.md,
+        color: theme.color.ink,
+        fontSize: 16,
     },
-
     header: {
         flexDirection: "row",
         justifyContent: "space-between",
@@ -51,162 +49,96 @@ export const screenStyles = StyleSheet.create({
     loading: {
         flex: 1,
         justifyContent: "center",
-        alignItems: 'center',
+        alignItems: "center",
+        backgroundColor: theme.color.canvas,
     },
     loadingText: {
-        fontSize: 20,
+        ...type.subtitle,
+        fontSize: theme.font.page,
+        marginTop: 0,
     },
-
-    // List-tab page description (under title)
-    screenDescription: {
-        color: "#64748B",
-        fontSize: 13,
-        lineHeight: 18,
-        marginTop: 3,
-    },
-
-    // List heading + count
     listHeader: {
         flexDirection: "row",
         alignItems: "center",
-        marginTop: 8,
-        marginBottom: 12,
+        marginTop: theme.space.sm,
+        marginBottom: theme.space.md,
     },
-
-    listTitle: {
-        color: "#0F172A",
-        fontSize: 16,
-        fontWeight: "600",
-    },
-
+    listTitle: type.cardTitle,
     countBadge: {
         minWidth: 24,
         height: 24,
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "#E2E8F0",
+        backgroundColor: theme.color.track,
         borderRadius: 12,
         paddingHorizontal: 7,
-        marginLeft: 8,
+        marginLeft: theme.space.sm,
     },
-
     countBadgeText: {
-        color: "#475569",
-        fontSize: 12,
-        fontWeight: "600",
+        color: theme.color.muted,
+        fontSize: theme.font.kicker,
+        fontWeight: theme.font.weight.semibold,
     },
-
-    // Empty list state
     emptyState: {
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "#F8FAFC",
+        backgroundColor: theme.color.surface,
         borderWidth: 1,
-        borderColor: "#E2E8F0",
-        borderRadius: 14,
-        paddingHorizontal: 24,
+        borderColor: theme.color.border,
+        borderRadius: theme.radius.lg,
+        paddingHorizontal: theme.space.xxl,
         paddingVertical: 40,
-        marginTop: 12,
+        marginTop: theme.space.md,
     },
-
     emptyStateIcon: {
         width: 48,
         height: 48,
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "#DBEAFE",
+        backgroundColor: theme.color.accentSoft,
         borderRadius: 24,
         marginBottom: 14,
     },
-
     emptyStateIconText: {
-        color: "#2563EB",
+        color: theme.color.accent,
         fontSize: 22,
-        fontWeight: "700",
+        fontWeight: theme.font.weight.bold,
     },
-
-    emptyStateTitle: {
-        color: "#0F172A",
-        fontSize: 17,
-        fontWeight: "600",
-        marginBottom: 6,
-    },
-
+    emptyStateTitle: type.cardTitle,
     emptyStateText: {
         maxWidth: 280,
-        color: "#64748B",
-        fontSize: 14,
+        color: theme.color.muted,
+        fontSize: theme.font.body,
         lineHeight: 20,
         textAlign: "center",
         marginBottom: 18,
     },
-
-    // Suggested addition: summary card
-    expenseSummary: {
-        backgroundColor: "#EFF6FF",
-        borderWidth: 1,
-        borderColor: "#DBEAFE",
-        borderRadius: 12,
-        padding: 16,
-        marginBottom: 20,
-    },
-
-    // Suggested addition: summary label
-    expenseSummaryLabel: {
-        color: "#64748B",
-        fontSize: 13,
-        fontWeight: "500",
-        marginBottom: 4,
-    },
-
-    // Suggested addition: prominent total
-    // Reference for your existing style; only adjust if you approve
-    expenseSummaryAmount: {
-        color: "#B45309",
-        fontSize: 14,
-        fontWeight: "600",
-    },
-
-    // Suggested addition: supporting information
-    expenseSummaryCaption: {
-        color: "#64748B",
-        fontSize: 12,
-        marginTop: 4,
-    },
-    // Suggested addition: highlights the most important result
     leftoverSection: {
-        backgroundColor: "#F8FAFC",
-        borderRadius: 12,
-        padding: 16,
-        marginTop: 16,
-        marginBottom: 20,
+        backgroundColor: theme.color.surfaceMuted,
+        borderRadius: theme.radius.md,
+        padding: theme.space.lg,
+        marginTop: theme.space.lg,
+        marginBottom: theme.space.xl,
     },
-
-    // Suggested addition: description above leftover amount
     leftoverLabel: {
-        color: "#64748B",
-        fontSize: 13,
-        fontWeight: "500",
-        marginBottom: 4,
+        color: theme.color.muted,
+        fontSize: theme.font.caption,
+        fontWeight: theme.font.weight.regular,
+        marginBottom: theme.space.xs,
     },
-
-    // Suggested addition: explanation below leftover amount
     leftoverMessage: {
-        color: "#64748B",
-        fontSize: 12,
+        color: theme.color.muted,
+        fontSize: theme.font.kicker,
         lineHeight: 18,
-        marginTop: 4,
+        marginTop: theme.space.xs,
     },
-
-    // Suggested addition: contains the supporting totals
     summaryDetails: {
         borderWidth: 1,
-        borderColor: "#E2E8F0",
-        borderRadius: 12,
+        borderColor: theme.color.border,
+        borderRadius: theme.radius.md,
         overflow: "hidden",
+        backgroundColor: theme.color.surface,
     },
-
-    // Suggested addition: aligns each label and amount
     summaryRow: {
         flexDirection: "row",
         justifyContent: "space-between",
@@ -214,52 +146,42 @@ export const screenStyles = StyleSheet.create({
         paddingHorizontal: 14,
         paddingVertical: 13,
     },
-
-    // Suggested addition: secondary summary labels
     summaryLabel: {
-        color: "#475569",
-        fontSize: 14,
+        color: theme.color.muted,
+        fontSize: theme.font.body,
     },
-
-    // Suggested addition: default amount appearance
     summaryValue: {
-        color: "#0F172A",
-        fontSize: 14,
-        fontWeight: "600",
+        color: theme.color.ink,
+        fontSize: theme.font.body,
+        fontWeight: theme.font.weight.semibold,
     },
-
-    // Suggested addition: positive income color
     incomeSummaryAmount: {
-        color: "#15803D",
-        fontSize: 14,
-        fontWeight: "600",
+        color: theme.color.successText,
+        fontSize: theme.font.body,
+        fontWeight: theme.font.weight.semibold,
     },
-
-    // Suggested addition: savings accent
+    expenseSummaryAmount: {
+        color: theme.color.warning,
+        fontSize: theme.font.body,
+        fontWeight: theme.font.weight.semibold,
+    },
     savingsSummaryAmount: {
-        color: "#2563EB",
-        fontSize: 14,
-        fontWeight: "600",
+        color: theme.color.accent,
+        fontSize: theme.font.body,
+        fontWeight: theme.font.weight.semibold,
     },
-
-    // Suggested addition: separation between summary rows
     summaryDivider: {
         height: 1,
-        backgroundColor: "#E2E8F0",
+        backgroundColor: theme.color.border,
         marginHorizontal: 14,
     },
-
-    // Suggested addition: safer destructive-action presentation
     resetButtonText: {
-        color: "#DC2626",
-        fontSize: 14,
-        fontWeight: "500",
+        color: theme.color.danger,
+        fontSize: theme.font.body,
+        fontWeight: theme.font.weight.regular,
         textAlign: "center",
     },
-
-    // Suggested addition: reset interaction feedback
     resetButtonPressed: {
         opacity: 0.65,
     },
-
 });
