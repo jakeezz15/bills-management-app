@@ -23,6 +23,7 @@ type DateRangeContextValue = {
     setPeriodUnit: (unit: PeriodUnit) => void;
     shiftPeriod: (delta: -1 | 1) => void;
     resetToToday: () => void;
+    selectDay: (iso: string) => void;
 };
 
 const DateRangeContext = createContext<DateRangeContextValue | null>(null);
@@ -62,6 +63,11 @@ export function DateRangeProvider({ children }: { children: React.ReactNode }) {
         setPeriodUnitState("month");
     }, []);
 
+    const selectDay = useCallback((iso: string) => {
+        setAnchorIso(iso);
+        setPeriodUnitState("day");
+    }, []);
+
     const value = useMemo(
         () => ({
             periodUnit,
@@ -71,6 +77,7 @@ export function DateRangeProvider({ children }: { children: React.ReactNode }) {
             setPeriodUnit,
             shiftPeriod,
             resetToToday,
+            selectDay,
         }),
         [
             periodUnit,
@@ -80,6 +87,7 @@ export function DateRangeProvider({ children }: { children: React.ReactNode }) {
             setPeriodUnit,
             shiftPeriod,
             resetToToday,
+            selectDay,
         ]
     );
 

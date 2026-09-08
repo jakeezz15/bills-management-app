@@ -1,23 +1,23 @@
-import { DashboardHero } from "@/components/DashboardHero";
-import { HeroPeriodNav } from "@/components/HeroPeriodNav";
-import { PageHeader } from "@/components/ui";
+import { MonthGrid } from "@/components/MonthGrid";
 import { SegmentControl } from "@/components/SegmentControl";
 import { dashboard } from "@/styles/dashboard";
-import { theme } from "@/theme";
+import { theme, type } from "@/theme";
 import {
     hasCompletedFirstRun,
     markFirstRunComplete,
     seedEmptyData,
 } from "@/services/storage";
-import { getTotalsForRange } from "@/utils/finance";
 import {
     PERIOD_UNITS,
     PERIOD_UNIT_LABELS,
+    parseIsoDate,
+    startOfMonth,
 } from "@/utils/date";
+import { getTotalsForRange } from "@/utils/finance";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { router } from "expo-router";
 import { useEffect, useMemo } from "react";
-import { Alert, Pressable, ScrollView, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useBills } from "../contexts/BillsContext";
 import { useDateRange } from "../contexts/DateRangeContext";
 import { useDebt } from "../contexts/DebtsContext";
@@ -44,6 +44,8 @@ export default function HomeScreen() {
         setPeriodUnit,
         shiftPeriod,
         resetToToday,
+        selectDay,
+        anchorIso,
     } = useDateRange();
 
     const totals = useMemo(
@@ -72,17 +74,62 @@ export default function HomeScreen() {
         ]
     );
 
-    const outflows =
-        totals.expenses +
-        totals.bills +
-        totals.debtPayments +
-        totals.savings;
-    const coverage =
-        outflows > 0
-            ? Math.min(100, Math.round((totals.income / outflows) * 100))
-            : totals.income > 0
-              ? 100
-              : 0;
+    const lines: {
+        label: string;
+        value: number;
+        sign: "+" | "−";
+        href: "/(tabs)/activity" | "/(tabs)/plans";
+    }[] = [
+        {
+            label: "Income",
+            value: totals.income,
+            sign: "+" as const,
+            href: "/(tabs)/activity",
+        },
+        {
+            label: "Spending",
+            value: totals.expenses,
+            sign: "−" as const,
+            href: "/(tabs)/activity",
+        },
+        {
+            label: "Bills",
+            value: totals.bills,
+            sign: "−" as const,
+            href: "/(tabs)/plans",
+        },
+        {
+            label: "Debt payments",
+            value: totals.debtPayments,
+            sign: "−" as const,
+            href: "/(tabs)/plans",
+        },
+        {
+            label: "Savings",
+            value: totals.savings,
+            sign: "−" as const,
+            href: "/(tabs)/plans",
+        },
+    ];
+
+    const maxLine = Math.max(...lines.map((line) => line.value), 1);
+
+    const markedIso = useMemo(() => {
+        const dates = [
+            ...income.map((item) => item.date),
+            ...expenses.map((item) => item.date),
+            ...billPayments.map((item) => item.date),
+            ...debtPayments.map((item) => item.date),
+            ...savingsContributions.map((item) => item.date),
+        ];
+        return new Set(dates);
+    }, [
+        income,
+        expenses,
+        billPayments,
+        debtPayments,
+        savingsContributions,
+    ]);
 
     const reloadAll = async () => {
         await Promise.all([
@@ -139,153 +186,306 @@ export default function HomeScreen() {
         }
     };
 
+    const okay = totals.leftover >= 0;
+
     return (
         <View style={dashboard.screen}>
-            <ScrollView
-                style={dashboard.list}
-                contentContainerStyle={[
-                    dashboard.listContent,
-                    { paddingTop: theme.space.screenTop },
-                ]}
-            >
-                <PageHeader
-                    title="Finance Manager"
-                    subtitle="Running balance as of the selected date"
-                />
+            <ScrollView style={dashboard.list} contentContainerStyle={styles.scroll}>
+                <View style={styles.masthead}>
+                    <Text style={styles.mastKicker}>Finance Manager</Text>
+                    <Text style={styles.mastValue}>
+                        {okay ? "You’re okay" : "Short this period"}
+                    </Text>
+                    <Text style={styles.mastAmount}>
+                        ${totals.leftover.toFixed(0)}
+                    </Text>
+                    <Text style={styles.mastCaption}>
+                        {okay
+                            ? "Income covers spending, bills, debts, and savings so far"
+                            : "Outflows are higher than income received so far"}
+                    </Text>
 
-                <View style={{ marginBottom: 12 }}>
+                    <View style={styles.mastNav}>
+                        <Pressable
+                            onPress={() => shiftPeriod(-1)}
+                            hitSlop={8}
+                            accessibilityLabel="Previous period"
+                        >
+                            <Ionicons
+                                name="chevron-back"
+                                size={18}
+                                color={theme.color.onHeroMuted}
+                            />
+                        </Pressable>
+                        <Pressable onPress={resetToToday} style={{ flex: 1 }}>
+                            <Text style={styles.mastPeriod}>{label}</Text>
+                        </Pressable>
+                        <Pressable
+                            onPress={() => shiftPeriod(1)}
+                            hitSlop={8}
+                            accessibilityLabel="Next period"
+                        >
+                            <Ionicons
+                                name="chevron-forward"
+                                size={18}
+                                color={theme.color.onHeroMuted}
+                            />
+                        </Pressable>
+                    </View>
+                </View>
+
+                <View style={styles.body}>
                     <SegmentControl
                         options={UNIT_OPTIONS}
                         selected={PERIOD_UNIT_LABELS[periodUnit]}
                         onSelect={selectUnit}
                         compact
                     />
-                </View>
 
-                <DashboardHero
-                    kicker="Leftover"
-                    value={`$${totals.leftover.toFixed(0)}`}
-                    caption={
-                        totals.leftover >= 0
-                            ? "Income so far covers what you have spent and paid"
-                            : "Outflows so far are higher than income received"
-                    }
-                    percent={coverage}
-                    pace={
-                        <HeroPeriodNav
-                            label={label}
-                            onShift={shiftPeriod}
-                            onResetToToday={resetToToday}
-                        />
-                    }
-                />
-
-                <View style={dashboard.card}>
-                    <SummaryLine label="Income" value={totals.income} tone="in" />
-                    <View style={dashboard.summaryDivider} />
-                    <SummaryLine label="Expenses" value={totals.expenses} tone="out" />
-                    <View style={dashboard.summaryDivider} />
-                    <SummaryLine label="Bills" value={totals.bills} tone="out" />
-                    <View style={dashboard.summaryDivider} />
-                    <SummaryLine
-                        label="Debt payments"
-                        value={totals.debtPayments}
-                        tone="out"
+                    <MonthGrid
+                        month={startOfMonth(
+                            parseIsoDate(anchorIso) ?? range.start
+                        )}
+                        selectedIso={
+                            periodUnit === "day" ? anchorIso : undefined
+                        }
+                        markedIso={markedIso}
+                        onSelectDay={selectDay}
                     />
-                    <View style={dashboard.summaryDivider} />
-                    <SummaryLine label="Savings" value={totals.savings} tone="accent" />
+
+                    <View style={styles.statement}>
+                        <Text style={dashboard.sectionLabel}>This period</Text>
+                        {lines.map((line) => (
+                            <Pressable
+                                key={line.label}
+                                onPress={() => router.push(line.href)}
+                                style={({ pressed }) => [
+                                    styles.line,
+                                    pressed && { opacity: 0.85 },
+                                ]}
+                            >
+                                <View style={styles.lineTop}>
+                                    <Text style={styles.lineLabel}>{line.label}</Text>
+                                    <Text
+                                        style={[
+                                            styles.lineValue,
+                                            line.sign === "+"
+                                                ? styles.lineIn
+                                                : styles.lineOut,
+                                        ]}
+                                    >
+                                        {line.sign}${line.value.toFixed(0)}
+                                    </Text>
+                                </View>
+                                <View style={dashboard.barTrack}>
+                                    <View
+                                        style={[
+                                            dashboard.barFill,
+                                            line.sign === "+" && dashboard.barFillDone,
+                                            {
+                                                width: `${Math.min(
+                                                    100,
+                                                    (line.value / maxLine) * 100
+                                                )}%`,
+                                            },
+                                        ]}
+                                    />
+                                </View>
+                            </Pressable>
+                        ))}
+
+                        <View style={styles.totalRow}>
+                            <Text style={styles.totalLabel}>Leftover</Text>
+                            <Text
+                                style={[
+                                    styles.totalValue,
+                                    {
+                                        color: okay
+                                            ? theme.color.successText
+                                            : theme.color.danger,
+                                    },
+                                ]}
+                            >
+                                ${totals.leftover.toFixed(0)}
+                            </Text>
+                        </View>
+                    </View>
+
+                    <Pressable
+                        onPress={() => router.push("/(tabs)/activity")}
+                        style={({ pressed }) => [
+                            styles.cta,
+                            pressed && { opacity: 0.94 },
+                        ]}
+                    >
+                        <View>
+                            <Text style={dashboard.cardTitle}>Log activity</Text>
+                            <Text style={dashboard.cardSubtitle}>
+                                Income and everyday spending
+                            </Text>
+                        </View>
+                        <Ionicons
+                            name="arrow-forward"
+                            size={18}
+                            color={theme.color.ink}
+                        />
+                    </Pressable>
+
+                    <Pressable
+                        onPress={() => router.push("/(tabs)/plans")}
+                        style={({ pressed }) => [
+                            styles.cta,
+                            pressed && { opacity: 0.94 },
+                        ]}
+                    >
+                        <View>
+                            <Text style={dashboard.cardTitle}>Review plans</Text>
+                            <Text style={dashboard.cardSubtitle}>
+                                Bills, savings, and debts
+                            </Text>
+                        </View>
+                        <Ionicons
+                            name="arrow-forward"
+                            size={18}
+                            color={theme.color.ink}
+                        />
+                    </Pressable>
+
+                    <Pressable
+                        onPress={() => router.push("/(tabs)/settings")}
+                        style={styles.settingsLink}
+                    >
+                        <Text style={styles.settingsText}>Settings</Text>
+                    </Pressable>
                 </View>
-
-                <Text style={dashboard.sectionLabel}>Quick actions</Text>
-
-                <ActionRow
-                    icon="swap-vertical-outline"
-                    title="Activity"
-                    subtitle="Log income or spending"
-                    onPress={() => router.push("/(tabs)/activity")}
-                />
-                <ActionRow
-                    icon="albums-outline"
-                    title="Plans"
-                    subtitle="Bills, savings, and debts"
-                    onPress={() => router.push("/(tabs)/plans")}
-                />
-                <ActionRow
-                    icon="settings-outline"
-                    title="Settings"
-                    subtitle="Backup, privacy, and about"
-                    onPress={() => router.push("/(tabs)/settings")}
-                />
             </ScrollView>
         </View>
     );
 }
 
-function SummaryLine({
-    label,
-    value,
-    tone,
-}: {
-    label: string;
-    value: number;
-    tone: "in" | "out" | "accent";
-}) {
-    const color =
-        tone === "in"
-            ? theme.color.successText
-            : tone === "out"
-              ? theme.color.warning
-              : theme.color.accent;
-
-    return (
-        <View style={dashboard.summaryRow}>
-            <Text style={dashboard.summaryLabel}>{label}</Text>
-            <Text style={[dashboard.summaryValue, { color }]}>
-                ${value.toFixed(2)}
-            </Text>
-        </View>
-    );
-}
-
-function ActionRow({
-    icon,
-    title,
-    subtitle,
-    onPress,
-}: {
-    icon: "swap-vertical-outline" | "albums-outline" | "settings-outline";
-    title: string;
-    subtitle: string;
-    onPress: () => void;
-}) {
-    return (
-        <Pressable
-            onPress={onPress}
-            style={({ pressed }) => [dashboard.card, pressed && { opacity: 0.94 }]}
-        >
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-                <View
-                    style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: 10,
-                        backgroundColor: theme.color.accentSoft,
-                        alignItems: "center",
-                        justifyContent: "center",
-                    }}
-                >
-                    <Ionicons name={icon} size={20} color={theme.color.accent} />
-                </View>
-                <View style={{ flex: 1 }}>
-                    <Text style={dashboard.cardTitle}>{title}</Text>
-                    <Text style={dashboard.cardSubtitle}>{subtitle}</Text>
-                </View>
-                <Ionicons
-                    name="chevron-forward"
-                    size={18}
-                    color={theme.color.soft}
-                />
-            </View>
-        </Pressable>
-    );
-}
+const styles = StyleSheet.create({
+    scroll: {
+        paddingBottom: 40,
+    },
+    masthead: {
+        backgroundColor: theme.color.hero,
+        paddingHorizontal: theme.space.xl,
+        paddingTop: theme.space.screenTop,
+        paddingBottom: theme.space.xxl,
+    },
+    mastKicker: {
+        ...type.kicker,
+        marginBottom: theme.space.sm,
+    },
+    mastValue: {
+        color: theme.color.onHero,
+        fontSize: 22,
+        fontWeight: theme.font.weight.bold,
+        letterSpacing: -0.3,
+    },
+    mastAmount: {
+        color: theme.color.onHero,
+        fontSize: 44,
+        fontWeight: theme.font.weight.bold,
+        letterSpacing: -1,
+        marginTop: theme.space.xs,
+    },
+    mastCaption: {
+        color: theme.color.onHeroCaption,
+        fontSize: theme.font.caption,
+        lineHeight: 18,
+        marginTop: theme.space.sm,
+        maxWidth: 280,
+    },
+    mastNav: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: theme.space.sm,
+        marginTop: theme.space.xl,
+        paddingTop: theme.space.md,
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: theme.color.heroTrack,
+    },
+    mastPeriod: {
+        color: theme.color.faint,
+        fontSize: theme.font.caption,
+        fontWeight: theme.font.weight.semibold,
+        textAlign: "center",
+    },
+    body: {
+        paddingHorizontal: theme.space.screenX,
+        paddingTop: theme.space.lg,
+    },
+    statement: {
+        backgroundColor: theme.color.surface,
+        borderRadius: theme.radius.lg,
+        paddingHorizontal: theme.space.lg,
+        paddingTop: theme.space.lg,
+        paddingBottom: theme.space.md,
+        marginTop: theme.space.lg,
+        marginBottom: theme.space.md,
+    },
+    line: {
+        marginBottom: theme.space.md,
+    },
+    lineTop: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "baseline",
+        marginBottom: 6,
+    },
+    lineLabel: {
+        color: theme.color.ink,
+        fontSize: theme.font.body,
+        fontWeight: theme.font.weight.semibold,
+    },
+    lineValue: {
+        fontSize: theme.font.body,
+        fontWeight: theme.font.weight.bold,
+    },
+    lineIn: {
+        color: theme.color.successText,
+    },
+    lineOut: {
+        color: theme.color.ink,
+    },
+    totalRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        borderTopWidth: 1,
+        borderTopColor: theme.color.border,
+        paddingTop: theme.space.md,
+        marginTop: theme.space.xs,
+        marginBottom: theme.space.sm,
+    },
+    totalLabel: {
+        ...type.sectionLabel,
+        marginTop: 0,
+        marginBottom: 0,
+    },
+    totalValue: {
+        fontSize: 22,
+        fontWeight: theme.font.weight.bold,
+        letterSpacing: -0.3,
+    },
+    cta: {
+        backgroundColor: theme.color.surface,
+        borderRadius: theme.radius.lg,
+        paddingHorizontal: theme.space.lg,
+        paddingVertical: theme.space.lg,
+        marginBottom: theme.space.md,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+    },
+    settingsLink: {
+        alignItems: "center",
+        paddingVertical: theme.space.md,
+    },
+    settingsText: {
+        color: theme.color.muted,
+        fontSize: theme.font.caption,
+        fontWeight: theme.font.weight.semibold,
+    },
+});
