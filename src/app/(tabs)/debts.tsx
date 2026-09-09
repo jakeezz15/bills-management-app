@@ -1,13 +1,14 @@
-import { CompactPlanRow } from "@/components/CompactPlanRow";
+import { CompactPlanRow, PlanGroup } from "@/components/CompactPlanRow";
 import { DashboardEmpty } from "@/components/DashboardEmpty";
 import {
     DashboardHero,
     DashboardHeroCompact,
 } from "@/components/DashboardHero";
 import DebtForm from "@/components/DebtForm";
+import { FloatingAddButton } from "@/components/FloatingAddButton";
 import { HeroPeriodNav } from "@/components/HeroPeriodNav";
-import { PageHeader } from "@/components/ui";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { PageHeader } from "@/components/ui";
 import { useStickyHero } from "@/hooks/useStickyHero";
 import { dashboard } from "@/styles/dashboard";
 import { Debt } from "@/types/debt";
@@ -88,6 +89,7 @@ function hasPaymentThisPeriod(
 function debtMeta(
     debt: Debt,
     installmentPaid: boolean,
+    asOf: Date,
     dueRef: Date
 ): { label: string; tone: "overdue" | "due-soon" | "default" } {
     if (isFullyPaidOff(debt)) {
@@ -96,7 +98,7 @@ function debtMeta(
     if (installmentPaid) {
         return { label: "Paid", tone: "default" };
     }
-    const offset = getBillDueOffset(debt.dueDay, dueRef);
+    const offset = getBillDueOffset(debt.dueDay, asOf, dueRef);
     if (offset < 0) {
         return { label: "Overdue", tone: "overdue" };
     }
@@ -224,7 +226,7 @@ export default function DebtsScreen({ embedded = false }: DebtsScreenProps) {
         );
         const canUndo = hasPaymentThisPeriod(debt.id, payments, asOf);
         const done = fullyPaidOff || installmentPaid;
-        const meta = debtMeta(debt, installmentPaid, dueRef);
+        const meta = debtMeta(debt, installmentPaid, asOf, dueRef);
 
         return (
             <CompactPlanRow
@@ -234,6 +236,12 @@ export default function DebtsScreen({ embedded = false }: DebtsScreenProps) {
                 amountLabel={formatMoney(Math.max(debt.balance, 0), {
                     compact: true,
                 })}
+                amountHint="balance"
+                actionAmountLabel={
+                    !done
+                        ? formatMoney(debt.minimumPayment, { compact: true })
+                        : undefined
+                }
                 done={done}
                 metaTone={meta.tone}
                 onPress={() => {
@@ -243,24 +251,24 @@ export default function DebtsScreen({ embedded = false }: DebtsScreenProps) {
                 onToggle={
                     canUndo
                         ? () => {
-                              void undoPayment(debt.id, asOfIso);
-                          }
+                            void undoPayment(debt.id, asOfIso);
+                        }
                         : !fullyPaidOff && !installmentPaid
-                          ? () => {
+                            ? () => {
                                 void recordPayment(
                                     debt.id,
                                     undefined,
                                     asOfIso
                                 );
                             }
-                          : undefined
+                            : undefined
                 }
                 toggleAccessibilityLabel={
                     canUndo
                         ? "Undo payment"
                         : !fullyPaidOff
-                          ? "Record payment"
-                          : undefined
+                            ? `Record ${formatMoney(debt.minimumPayment, { compact: true })}`
+                            : undefined
                 }
             />
         );
@@ -270,10 +278,10 @@ export default function DebtsScreen({ embedded = false }: DebtsScreenProps) {
         unpaid.length > 0
             ? `${unpaid.length} unpaid · ${formatMoney(monthlyDue, { compact: true })} due this period`
             : paidThisMonth.length > 0
-              ? "All current installments paid"
-              : hiddenPaidOffCount > 0
-                ? `${hiddenPaidOffCount} paid-off hidden from this date`
-                : "No active installments on this date";
+                ? "All current installments paid"
+                : hiddenPaidOffCount > 0
+                    ? `${hiddenPaidOffCount} paid-off hidden from this date`
+                    : "No active installments on this date";
 
     return (
         <View style={dashboard.screen}>
@@ -285,8 +293,6 @@ export default function DebtsScreen({ embedded = false }: DebtsScreenProps) {
                         kicker="Remaining"
                         value={heroValue}
                         pace={periodNav(true)}
-                        onAdd={openAdd}
-                        addAccessibilityLabel="Add debt"
                     />
                 </View>
             ) : null}
@@ -317,8 +323,6 @@ export default function DebtsScreen({ embedded = false }: DebtsScreenProps) {
                                 : fullyPaidHeroPercent(visibleDebts)
                         }
                         pace={periodNav(false)}
-                        onAdd={openAdd}
-                        addAccessibilityLabel="Add debt"
                     />
                 ) : null}
 
@@ -334,6 +338,7 @@ export default function DebtsScreen({ embedded = false }: DebtsScreenProps) {
 
                 {debts.length === 0 && !loading && (
                     <DashboardEmpty
+                        icon="card-outline"
                         title="No debts yet"
                         text="Add a phone, laptop, or loan. Each payment lowers the remaining balance."
                         actionLabel="Add first debt"
@@ -343,6 +348,7 @@ export default function DebtsScreen({ embedded = false }: DebtsScreenProps) {
 
                 {debts.length > 0 && visibleDebts.length === 0 && !loading && (
                     <DashboardEmpty
+                        icon="calendar-outline"
                         title="Nothing for this date"
                         text="Paid-off plans hide after payoff day. Step the date back to see history."
                         actionLabel="Jump to today"
@@ -353,10 +359,16 @@ export default function DebtsScreen({ embedded = false }: DebtsScreenProps) {
                 {dueDayGroups.map((group) => (
                     <View key={group.dueDay}>
                         <Text style={dashboard.sectionLabel}>{group.label}</Text>
-                        {group.debts.map(renderDebt)}
+                        <PlanGroup>
+                            {group.debts.map(renderDebt)}
+                        </PlanGroup>
                     </View>
                 ))}
             </ScrollView>
+            <FloatingAddButton
+                onPress={openAdd}
+                accessibilityLabel="Add debt"
+            />
         </View>
     );
 }

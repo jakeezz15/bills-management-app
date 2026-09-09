@@ -1,17 +1,8 @@
 import { useLocale } from "@/app/contexts/LocaleContext";
+import { text, theme } from "@/design";
 import { dashboard } from "@/styles/dashboard";
-import { theme } from "@/theme";
 import { CategorySpend, MonthTrendPoint } from "@/utils/finance";
 import { StyleSheet, Text, View } from "react-native";
-
-const CATEGORY_COLORS = [
-    theme.color.accent,
-    theme.color.success,
-    theme.color.warning,
-    "#7C3AED",
-    "#DB2777",
-    theme.color.muted,
-];
 
 type SpendByCategoryChartProps = {
     rows: CategorySpend[];
@@ -33,6 +24,7 @@ export function SpendByCategoryChart({ rows }: SpendByCategoryChartProps) {
             ) : (
                 rows.map((row, index) => {
                     const share = total > 0 ? (row.amount / total) * 100 : 0;
+                    const color = theme.chart[index % theme.chart.length];
                     return (
                         <View key={row.category} style={styles.row}>
                             <View style={styles.rowTop}>
@@ -40,13 +32,7 @@ export function SpendByCategoryChart({ rows }: SpendByCategoryChartProps) {
                                     <View
                                         style={[
                                             styles.dot,
-                                            {
-                                                backgroundColor:
-                                                    CATEGORY_COLORS[
-                                                        index %
-                                                            CATEGORY_COLORS.length
-                                                    ],
-                                            },
+                                            { backgroundColor: color },
                                         ]}
                                     />
                                     <Text style={styles.label} numberOfLines={1}>
@@ -67,11 +53,7 @@ export function SpendByCategoryChart({ rows }: SpendByCategoryChartProps) {
                                         dashboard.barFill,
                                         {
                                             width: `${(row.amount / max) * 100}%`,
-                                            backgroundColor:
-                                                CATEGORY_COLORS[
-                                                    index %
-                                                        CATEGORY_COLORS.length
-                                                ],
+                                            backgroundColor: color,
                                         },
                                     ]}
                                 />
@@ -121,8 +103,8 @@ export function MonthTrendChart({ points }: MonthTrendChartProps) {
                                         {
                                             height,
                                             backgroundColor: positive
-                                                ? theme.color.success
-                                                : theme.color.danger,
+                                                ? theme.intent.positive.solid
+                                                : theme.intent.negative.fg,
                                         },
                                     ]}
                                 />
@@ -138,23 +120,18 @@ export function MonthTrendChart({ points }: MonthTrendChartProps) {
 
 const styles = StyleSheet.create({
     card: {
-        backgroundColor: theme.color.surface,
-        borderRadius: theme.radius.lg,
-        paddingHorizontal: theme.space.lg,
-        paddingTop: theme.space.lg,
-        paddingBottom: theme.space.md,
-        marginBottom: theme.space.md,
+        marginTop: theme.space.lg,
+        marginBottom: theme.space.sm,
+        paddingHorizontal: 0,
+        paddingTop: 0,
+        paddingBottom: theme.space.sm,
     },
     empty: {
-        color: theme.color.muted,
-        fontSize: theme.font.caption,
-        lineHeight: 18,
+        ...text.caption,
         marginBottom: theme.space.sm,
     },
     caption: {
-        color: theme.color.muted,
-        fontSize: theme.font.kicker,
-        marginTop: -4,
+        ...text.caption,
         marginBottom: theme.space.md,
     },
     row: {
@@ -164,66 +141,68 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
-        marginBottom: 6,
+        marginBottom: theme.space.sm,
         gap: theme.space.sm,
     },
     legend: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 8,
+        gap: theme.space.sm,
         flex: 1,
     },
     dot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
+        width: theme.space.sm,
+        height: theme.space.sm,
+        borderRadius: theme.radius.pill,
     },
     label: {
-        color: theme.color.ink,
-        fontSize: theme.font.body,
-        fontWeight: theme.font.weight.semibold,
+        ...text.body,
+        fontWeight: theme.fontWeight.semibold,
         flex: 1,
     },
     value: {
-        color: theme.color.ink,
-        fontSize: theme.font.body,
-        fontWeight: theme.font.weight.bold,
+        ...text.body,
+        fontWeight: theme.fontWeight.bold,
+        fontVariant: ["tabular-nums"],
     },
     share: {
-        color: theme.color.soft,
-        fontWeight: theme.font.weight.regular,
+        color: theme.text.tertiary,
+        fontWeight: theme.fontWeight.regular,
     },
     trendRow: {
         flexDirection: "row",
         alignItems: "flex-end",
-        gap: 6,
-        minHeight: 140,
+        gap: theme.space.sm,
+        minHeight: 144,
     },
     trendCol: {
         flex: 1,
         alignItems: "center",
     },
     trendAmount: {
-        color: theme.color.muted,
-        fontSize: 10,
-        fontWeight: theme.font.weight.semibold,
-        marginBottom: 6,
+        color: theme.text.secondary,
+        fontSize: theme.fontSize.xs,
+        lineHeight: theme.lineHeight.xs,
+        fontWeight: theme.fontWeight.semibold,
+        marginBottom: theme.space.sm,
+        fontVariant: ["tabular-nums"],
     },
     trendTrack: {
-        height: 100,
+        height: 96,
         width: "100%",
         justifyContent: "flex-end",
         alignItems: "center",
     },
     trendBar: {
         width: "70%",
-        borderRadius: 6,
-        minHeight: 8,
+        borderRadius: theme.radius.sm,
+        minHeight: theme.size.bar,
     },
     trendLabel: {
-        color: theme.color.ink,
-        fontSize: 11,
-        fontWeight: theme.font.weight.semibold,
-        marginTop: 8,
+        color: theme.text.primary,
+        fontSize: theme.fontSize.xs,
+        lineHeight: theme.lineHeight.xs,
+        fontWeight: theme.fontWeight.semibold,
+        marginTop: theme.space.sm,
     },
 });

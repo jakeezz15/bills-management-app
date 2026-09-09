@@ -3,6 +3,7 @@ import {
     DashboardHero,
     DashboardHeroCompact,
 } from "@/components/DashboardHero";
+import { FloatingAddButton } from "@/components/FloatingAddButton";
 import { HeroPeriodNav } from "@/components/HeroPeriodNav";
 import IncomeForm from "@/components/IncomeForm";
 import {
@@ -76,8 +77,6 @@ export default function IncomeScreen({ embedded = false }: IncomeScreenProps) {
                         kicker="Take-home"
                         value={heroValue}
                         pace={periodNav(true)}
-                        onAdd={openAdd}
-                        addAccessibilityLabel="Add income"
                     />
                 </View>
             ) : null}
@@ -112,8 +111,6 @@ export default function IncomeScreen({ embedded = false }: IncomeScreenProps) {
                         }
                         percent={inPeriod.length > 0 ? takeHome : 0}
                         pace={periodNav(false)}
-                        onAdd={openAdd}
-                        addAccessibilityLabel="Add income"
                     />
                 ) : null}
 
@@ -128,6 +125,7 @@ export default function IncomeScreen({ embedded = false }: IncomeScreenProps) {
 
                 {income.length === 0 && !loading && (
                     <DashboardEmpty
+                        icon="cash-outline"
                         title="No income yet"
                         text="Add a paycheck with its pay date so Home can include it in the selected period."
                         actionLabel="Add first income"
@@ -137,6 +135,7 @@ export default function IncomeScreen({ embedded = false }: IncomeScreenProps) {
 
                 {income.length > 0 && inPeriod.length === 0 && (
                     <DashboardEmpty
+                        icon="calendar-outline"
                         title="Nothing in this period"
                         text="Step the date, or jump to today, to find paychecks you already logged."
                         actionLabel="Jump to today"
@@ -171,6 +170,10 @@ export default function IncomeScreen({ embedded = false }: IncomeScreenProps) {
                     </LedgerDayGroup>
                 ))}
             </ScrollView>
+            <FloatingAddButton
+                onPress={openAdd}
+                accessibilityLabel="Add income"
+            />
         </View>
     );
 }

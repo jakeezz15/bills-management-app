@@ -1,11 +1,16 @@
-import { shadows, theme } from "@/theme";
+import { text, theme } from "@/design";
 import Ionicons from "@react-native-vector-icons/ionicons";
+import { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 type CompactPlanRowProps = {
     title: string;
     meta: string;
     amountLabel: string;
+    /** Caption under the amount (e.g. "balance", "due"). */
+    amountHint?: string;
+    /** When set and unpaid, the toggle is a pay chip (e.g. debt monthly). */
+    actionAmountLabel?: string;
     done?: boolean;
     metaTone?: "overdue" | "due-soon" | "default";
     onPress: () => void;
@@ -14,49 +19,49 @@ type CompactPlanRowProps = {
 };
 
 /**
- * Dense one-line row for binary plan items (bills / debts):
- * check · name · status · amount.
+ * Plan row: pay/check · name + status · amount + hint.
  */
 export function CompactPlanRow({
     title,
     meta,
     amountLabel,
+    amountHint,
+    actionAmountLabel,
     done = false,
     metaTone = "default",
     onPress,
     onToggle,
     toggleAccessibilityLabel,
 }: CompactPlanRowProps) {
+    // Status only — blue is reserved for interaction, so "nothing due" is neutral.
     const accent = done
-        ? theme.color.success
+        ? theme.intent.positive.solid
         : metaTone === "overdue"
-          ? theme.color.danger
-          : metaTone === "due-soon"
-            ? theme.color.warning
-            : theme.color.accent;
+            ? theme.intent.negative.fg
+            : metaTone === "due-soon"
+                ? theme.intent.caution.fg
+                : theme.border.base;
 
-    const pill = done
-        ? {
-              bg: "#ECFDF5",
-              fg: theme.color.successText,
-          }
+    const metaColor = done
+        ? theme.intent.positive.fg
         : metaTone === "overdue"
-          ? {
-                bg: theme.color.dangerSoft,
-                fg: theme.color.danger,
-            }
-          : metaTone === "due-soon"
-            ? {
-                  bg: "#FFFBEB",
-                  fg: theme.color.warning,
-              }
-            : {
-                  bg: theme.color.accentSoft,
-                  fg: theme.color.accentText,
-              };
+            ? theme.intent.negative.fg
+            : metaTone === "due-soon"
+                ? theme.intent.caution.fg
+                : theme.text.secondary;
+
+    const showPayChip = Boolean(actionAmountLabel) && !done;
+    const spokenAmount = amountHint
+        ? `${amountHint} ${amountLabel}`
+        : amountLabel;
 
     return (
-        <View style={[styles.row, done && styles.rowDone]}>
+        <View
+            style={[
+                styles.row,
+                done && styles.rowDone,
+            ]}
+        >
             <View style={[styles.accent, { backgroundColor: accent }]} />
 
             {onToggle ? (
@@ -66,134 +71,203 @@ export function CompactPlanRow({
                     accessibilityRole="button"
                     accessibilityLabel={
                         toggleAccessibilityLabel ??
-                        (done ? "Mark as unpaid" : "Mark as paid")
+                        (done
+                            ? "Mark as unpaid"
+                            : actionAmountLabel
+                              ? `Record ${actionAmountLabel}`
+                              : "Mark as paid")
                     }
-                    style={[
-                        styles.toggle,
-                        done ? styles.toggleDone : styles.toggleIdle,
+                    style={({ pressed }) => [
+                        showPayChip ? styles.payChip : styles.toggle,
+                        !showPayChip &&
+                            (done ? styles.toggleDone : styles.toggleIdle),
+                        pressed && { opacity: 0.82 },
                     ]}
                 >
-                    <Ionicons
-                        name={done ? "checkmark" : "ellipse-outline"}
-                        size={done ? 16 : 20}
-                        color={done ? theme.color.successText : theme.color.soft}
-                    />
+                    {showPayChip ? (
+                        <Text style={styles.payChipText} numberOfLines={1}>
+                            {actionAmountLabel}
+                        </Text>
+                    ) : (
+                        <Ionicons
+                            name={done ? "checkmark" : "ellipse-outline"}
+                            size={done ? 16 : 20}
+                            color={
+                                done
+                                    ? theme.intent.positive.fg
+                                    : theme.text.tertiary
+                            }
+                        />
+                    )}
                 </Pressable>
             ) : null}
 
             <Pressable
                 onPress={onPress}
+                accessibilityRole="button"
+                accessibilityLabel={`${title}, ${meta}, ${spokenAmount}`}
                 style={({ pressed }) => [
                     styles.main,
-                    pressed && { opacity: 0.88 },
+                    pressed && styles.mainPressed,
                 ]}
             >
-                <Text
-                    style={[styles.title, done && styles.titleDone]}
-                    numberOfLines={1}
-                >
-                    {title}
-                </Text>
-
-                <View style={[styles.pill, { backgroundColor: pill.bg }]}>
+                <View style={styles.copy}>
                     <Text
-                        style={[styles.pillText, { color: pill.fg }]}
+                        style={[styles.title, done && styles.titleDone]}
+                        numberOfLines={1}
+                    >
+                        {title}
+                    </Text>
+                    <Text
+                        style={[styles.meta, { color: metaColor }]}
                         numberOfLines={1}
                     >
                         {meta}
                     </Text>
                 </View>
 
-                <Text
-                    style={[styles.amount, done && styles.amountDone]}
-                    numberOfLines={1}
-                >
-                    {amountLabel}
-                </Text>
+                <View style={styles.amountCol}>
+                    <Text
+                        style={[styles.amount, done && styles.amountDone]}
+                        numberOfLines={1}
+                    >
+                        {amountLabel}
+                    </Text>
+                    {amountHint ? (
+                        <Text
+                            style={[
+                                styles.amountHint,
+                                done && styles.amountHintDone,
+                            ]}
+                            numberOfLines={1}
+                        >
+                            {amountHint}
+                        </Text>
+                    ) : (
+                        <Text style={styles.amountHintSpacer}> </Text>
+                    )}
+                </View>
             </Pressable>
         </View>
     );
 }
 
+type PlanGroupProps = {
+    children: ReactNode;
+};
+
+/** One sheet for a due-day (or Due now) group — not a card per row. */
+export function PlanGroup({ children }: PlanGroupProps) {
+    return <View style={styles.group}>{children}</View>;
+}
+
 const styles = StyleSheet.create({
+    group: {
+        gap: theme.space.sm,
+        marginBottom: theme.space.md,
+    },
     row: {
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: theme.color.surface,
+        backgroundColor: theme.bg.surface,
         borderRadius: theme.radius.md,
-        paddingVertical: 11,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: theme.border.subtle,
+        paddingVertical: theme.space.md,
         paddingRight: theme.space.md,
         paddingLeft: theme.space.sm,
-        marginBottom: theme.space.sm,
-        minHeight: 48,
-        overflow: "hidden",
-        ...shadows.card,
+        minHeight: 64,
     },
     rowDone: {
-        backgroundColor: theme.color.surfaceMuted,
+        backgroundColor: theme.bg.sunken,
     },
     accent: {
-        width: 3,
+        width: 4,
         alignSelf: "stretch",
         borderRadius: theme.radius.pill,
         marginRight: theme.space.sm,
-        marginVertical: 6,
+        marginVertical: theme.space.xs,
     },
     toggle: {
-        width: 28,
-        height: 28,
-        borderRadius: 14,
+        width: theme.size.control,
+        height: theme.size.control,
+        borderRadius: theme.radius.pill,
         alignItems: "center",
         justifyContent: "center",
         marginRight: theme.space.sm,
     },
     toggleIdle: {
-        backgroundColor: theme.color.segmentTrack,
+        backgroundColor: theme.bg.canvas,
     },
     toggleDone: {
-        backgroundColor: "#D1FAE5",
+        backgroundColor: theme.intent.positive.strong,
+    },
+    // Tonal, not solid: one row of many, so it must sit below the FAB.
+    payChip: {
+        minWidth: theme.size.tap,
+        minHeight: theme.size.tap,
+        paddingHorizontal: theme.space.sm,
+        borderRadius: theme.radius.sm,
+        alignItems: "center",
+        justifyContent: "center",
+        marginRight: theme.space.sm,
+        backgroundColor: theme.intent.info.bg,
+    },
+    payChipText: {
+        ...text.money,
+        color: theme.text.accent,
+        fontSize: theme.fontSize.xs,
+        lineHeight: theme.lineHeight.xs,
     },
     main: {
         flex: 1,
         flexDirection: "row",
         alignItems: "center",
-        gap: theme.space.sm,
+        gap: theme.space.md,
         minWidth: 0,
+        minHeight: theme.size.tap,
     },
-    title: {
+    mainPressed: {
+        opacity: 0.88,
+    },
+    copy: {
         flex: 1,
-        minWidth: 64,
-        color: theme.color.ink,
-        fontSize: 15,
-        fontWeight: theme.font.weight.bold,
-        letterSpacing: -0.2,
+        minWidth: 0,
+        gap: theme.space.xs,
     },
+    title: text.itemTitle,
     titleDone: {
-        color: theme.color.muted,
+        color: theme.text.secondary,
         textDecorationLine: "line-through",
-        fontWeight: theme.font.weight.semibold,
+        fontWeight: theme.fontWeight.semibold,
     },
-    pill: {
-        flexShrink: 1,
-        maxWidth: "42%",
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: theme.radius.pill,
+    meta: {
+        fontSize: theme.fontSize.xs,
+        fontWeight: theme.fontWeight.semibold,
+        lineHeight: theme.lineHeight.xs,
     },
-    pillText: {
-        fontSize: 11,
-        fontWeight: theme.font.weight.bold,
-        letterSpacing: 0.1,
+    amountCol: {
+        alignItems: "flex-end",
+        justifyContent: "center",
+        gap: theme.space.xs,
+        flexShrink: 0,
     },
     amount: {
-        color: theme.color.ink,
-        fontSize: 15,
-        fontWeight: theme.font.weight.bold,
-        letterSpacing: -0.2,
-        minWidth: 52,
+        ...text.money,
         textAlign: "right",
     },
     amountDone: {
-        color: theme.color.soft,
+        color: theme.text.tertiary,
+    },
+    amountHint: {
+        ...text.caption,
+        textAlign: "right",
+    },
+    amountHintDone: {
+        color: theme.text.tertiary,
+    },
+    amountHintSpacer: {
+        fontSize: theme.fontSize.xs,
+        lineHeight: theme.lineHeight.xs,
     },
 });

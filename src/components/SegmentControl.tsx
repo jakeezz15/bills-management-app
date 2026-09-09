@@ -1,4 +1,4 @@
-import { theme } from "@/theme";
+import { text, theme } from "@/design";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 type SegmentControlProps<T extends string> = {
@@ -53,45 +53,41 @@ export function SegmentControl<T extends string>({
 const styles = StyleSheet.create({
     track: {
         flexDirection: "row",
-        backgroundColor: theme.color.segmentTrack,
-        borderRadius: 10,
-        padding: 3,
-        marginBottom: 4,
+        backgroundColor: theme.bg.canvas,
+        borderRadius: theme.radius.sm,
+        padding: theme.space.xs,
+        marginBottom: theme.space.xs,
     },
     segment: {
         flex: 1,
         alignItems: "center",
         justifyContent: "center",
-        paddingVertical: 10,
+        minHeight: theme.size.tap,
+        paddingVertical: theme.space.sm,
         borderRadius: theme.radius.sm,
     },
     segmentSelected: {
-        backgroundColor: theme.color.surface,
-        shadowColor: theme.color.ink,
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.08,
-        shadowRadius: 2,
-        elevation: 2,
+        backgroundColor: theme.bg.surface,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: theme.border.subtle,
     },
-    label: {
-        fontSize: 14,
-        fontWeight: theme.font.weight.regular,
-        color: theme.color.muted,
-    },
+    label: text.bodyMuted,
     labelSelected: {
-        color: theme.color.ink,
-        fontWeight: theme.font.weight.bold,
+        color: theme.text.primary,
+        fontWeight: theme.fontWeight.bold,
     },
     trackCompact: {
         marginBottom: 0,
         borderRadius: theme.radius.sm,
-        padding: 2,
+        padding: theme.space.xs,
     },
     segmentCompact: {
-        paddingVertical: 7,
-        borderRadius: 6,
+        minHeight: theme.size.tap,
+        paddingVertical: theme.space.sm,
+        borderRadius: theme.radius.sm,
     },
     labelCompact: {
-        fontSize: 12,
+        fontSize: theme.fontSize.xs,
+        lineHeight: theme.lineHeight.xs,
     },
 });

@@ -1,11 +1,11 @@
-import { modalForm } from "@/styles/modal-form";
-import { theme } from "@/theme";
+import { theme } from "@/design";
+import { form } from "@/styles/form";
 import { parseIsoDate, toIsoDate } from "@/utils/date";
 import DateTimePicker, {
     DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
 import { useState } from "react";
-import { Platform, Pressable, Text, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
 type DateFieldProps = {
     label: string;
@@ -13,7 +13,6 @@ type DateFieldProps = {
     onChange: (isoDate: string) => void;
     hasError?: boolean;
     errorMessage?: string;
-    layout?: "stacked" | "row" | "dialog";
 };
 
 function displayLabel(iso: string): string {
@@ -34,7 +33,6 @@ export function DateField({
     onChange,
     hasError = false,
     errorMessage,
-    layout = "stacked",
 }: DateFieldProps) {
     const [open, setOpen] = useState(false);
     const selected = parseIsoDate(value) ?? new Date();
@@ -56,64 +54,27 @@ export function DateField({
 
     return (
         <View>
-            {layout !== "row" ? (
-                <Text
-                    style={
-                        layout === "dialog"
-                            ? modalForm.dialogLabel
-                            : modalForm.label
-                    }
-                >
-                    {label}
-                </Text>
-            ) : null}
+            <Text style={form.label}>{label}</Text>
 
             <Pressable
                 onPress={() => setOpen((prev) => !prev)}
-                style={
-                    layout === "row"
-                        ? [modalForm.cell, { paddingHorizontal: 0, minHeight: 44 }]
-                        : layout === "dialog"
-                          ? [
-                                modalForm.dialogInput,
-                                open && modalForm.dialogInputFocused,
-                                hasError && modalForm.dialogInputError,
-                            ]
-                          : [
-                                modalForm.input,
-                                open && modalForm.inputFocused,
-                                hasError && modalForm.inputError,
-                            ]
-                }
+                style={[
+                    form.input,
+                    open && form.inputFocused,
+                    hasError && form.inputError,
+                ]}
                 accessibilityRole="button"
                 accessibilityLabel={label}
             >
-                {layout === "row" ? (
-                    <>
-                        <Text style={modalForm.cellLabel}>{label}</Text>
-                        <Text
-                            style={[
-                                modalForm.cellInput,
-                                hasError && modalForm.cellInputError,
-                                { paddingVertical: 0 },
-                            ]}
-                        >
-                            {displayLabel(value)}
-                        </Text>
-                    </>
-                ) : (
-                    <Text style={{ fontSize: 16, color: theme.color.ink }}>
-                        {displayLabel(value)}
-                    </Text>
-                )}
+                <Text style={styles.value}>{displayLabel(value)}</Text>
             </Pressable>
 
             {hasError && errorMessage ? (
-                <Text style={modalForm.errorText}>{errorMessage}</Text>
+                <Text style={form.error}>{errorMessage}</Text>
             ) : null}
 
             {open && (
-                <View style={{ marginBottom: layout === "row" ? 0 : 12 }}>
+                <View style={styles.picker}>
                     <DateTimePicker
                         value={selected}
                         mode="date"
@@ -123,16 +84,9 @@ export function DateField({
                     {Platform.OS === "ios" && (
                         <Pressable
                             onPress={() => setOpen(false)}
-                            style={{ alignSelf: "flex-end", paddingVertical: 8 }}
+                            style={styles.done}
                         >
-                            <Text
-                                style={{
-                                    color: theme.color.accentText,
-                                    fontWeight: "600",
-                                }}
-                            >
-                                Done
-                            </Text>
+                            <Text style={styles.doneText}>Done</Text>
                         </Pressable>
                     )}
                 </View>
@@ -140,3 +94,21 @@ export function DateField({
         </View>
     );
 }
+
+const styles = StyleSheet.create({
+    value: {
+        fontSize: theme.fontSize.md,
+        color: theme.text.primary,
+    },
+    picker: {
+        marginBottom: theme.space.md,
+    },
+    done: {
+        alignSelf: "flex-end",
+        paddingVertical: theme.space.sm,
+    },
+    doneText: {
+        color: theme.text.accent,
+        fontWeight: theme.fontWeight.semibold,
+    },
+});

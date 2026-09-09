@@ -3,8 +3,9 @@ import { useLocale } from "@/app/contexts/LocaleContext";
 import { FilterChips } from "@/components/FilterChips";
 import { FormDialog } from "@/components/FormDialog";
 import { BILL_CATEGORIES } from "@/constants/categories";
+import { theme } from "@/design";
 import { buttonStyle } from "@/styles/button-style";
-import { modalForm } from "@/styles/modal-form";
+import { form, formColors } from "@/styles/form";
 import { Bill } from "@/types/bill";
 import { parseIsoDate, todayIsoDate } from "@/utils/date";
 import { getBillPaymentInMonth, isBillPaidAsOf } from "@/utils/filters";
@@ -205,31 +206,31 @@ export default function BillForm({
             }
         >
             {amountVaries ? (
-                <View style={[modalForm.actionCard, modalForm.actionCardLead]}>
-                    <Text style={modalForm.actionCardTitle}>
+                <View style={[form.actionCard, form.actionCardLead]}>
+                    <Text style={form.actionCardTitle}>
                         {isPaid ? "Paid this month" : "This month’s bill"}
                     </Text>
-                    <Text style={modalForm.actionCardCaption}>
+                    <Text style={form.actionCardCaption}>
                         {isPaid
                             ? "Leftover uses this amount. Change it if the statement is different, or undo."
                             : "Stays $0 until you log what the statement actually is."}
                     </Text>
                     <View
                         style={[
-                            modalForm.dialogAmountWrap,
+                            form.amountWrap,
                             focusedInput === "paidAmount" &&
-                                modalForm.dialogInputFocused,
-                            logAmountHasError && modalForm.dialogInputError,
-                            { marginBottom: 12 },
+                                form.inputFocused,
+                            logAmountHasError && form.inputError,
+                            { marginBottom: theme.space.md },
                         ]}
                     >
-                        <Text style={modalForm.dialogAmountPrefix}>
+                        <Text style={form.amountPrefix}>
                             {symbol}
                         </Text>
                         <TextInput
-                            style={modalForm.dialogAmountInput}
+                            style={form.amountInput}
                             placeholder="0.00"
-                            placeholderTextColor="#CBD5E1"
+                            placeholderTextColor={formColors.placeholder}
                             value={paidAmount}
                             onChangeText={setPaidAmount}
                             keyboardType="decimal-pad"
@@ -238,16 +239,16 @@ export default function BillForm({
                         />
                     </View>
                     {logAmountHasError ? (
-                        <Text style={modalForm.errorText}>
+                        <Text style={form.error}>
                             Enter this month’s amount.
                         </Text>
                     ) : null}
                     {isPaid ? (
                         <Pressable
                             style={({ pressed }) => [
-                                modalForm.actionCardButton,
+                                form.actionCardButton,
                                 pressed && buttonStyle.buttonPressed,
-                                { marginBottom: 8 },
+                                form.actionCardButtonSpacer,
                             ]}
                             onPress={() => {
                                 void handleLogPayment();
@@ -262,9 +263,9 @@ export default function BillForm({
                     ) : null}
                     <Pressable
                         style={({ pressed }) => [
-                            modalForm.actionCardButton,
+                            form.actionCardButton,
                             pressed && buttonStyle.buttonPressed,
-                            isPaid && { backgroundColor: "#334155" },
+                            isPaid && form.actionCardButtonMuted,
                         ]}
                         onPress={() => {
                             if (isPaid) {
@@ -285,39 +286,39 @@ export default function BillForm({
                 </View>
             ) : null}
 
-            <View style={modalForm.dialogField}>
-                <Text style={modalForm.dialogLabel}>Name</Text>
+            <View style={form.field}>
+                <Text style={form.label}>Name</Text>
                 <TextInput
                     style={[
-                        modalForm.dialogInput,
-                        focusedInput === "name" && modalForm.dialogInputFocused,
-                        nameHasError && modalForm.dialogInputError,
+                        form.input,
+                        focusedInput === "name" && form.inputFocused,
+                        nameHasError && form.inputError,
                     ]}
                     placeholder="Rent, electricity, Netflix…"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={formColors.placeholder}
                     value={name}
                     onChangeText={setName}
                     onFocus={() => setFocusedInput("name")}
                     onBlur={() => setFocusedInput(null)}
                 />
                 {nameHasError && (
-                    <Text style={modalForm.errorText}>
+                    <Text style={form.error}>
                         Bill name is required.
                     </Text>
                 )}
             </View>
 
-            <View style={modalForm.dialogField}>
-                <Text style={modalForm.dialogLabel}>Due day each month</Text>
+            <View style={form.field}>
+                <Text style={form.label}>Due day each month</Text>
                 <TextInput
                     style={[
-                        modalForm.dialogInput,
+                        form.input,
                         focusedInput === "dueDay" &&
-                            modalForm.dialogInputFocused,
-                        dueDayHasError && modalForm.dialogInputError,
+                            form.inputFocused,
+                        dueDayHasError && form.inputError,
                     ]}
                     placeholder="1–31"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={formColors.placeholder}
                     value={dueDay}
                     onChangeText={setDueDay}
                     keyboardType="number-pad"
@@ -325,14 +326,14 @@ export default function BillForm({
                     onBlur={() => setFocusedInput(null)}
                 />
                 {dueDayHasError && (
-                    <Text style={modalForm.errorText}>
+                    <Text style={form.error}>
                         Enter a day between 1 and 31.
                     </Text>
                 )}
             </View>
 
-            <View style={modalForm.dialogField}>
-                <Text style={modalForm.dialogLabel}>Category</Text>
+            <View style={form.field}>
+                <Text style={form.label}>Category</Text>
                 <FilterChips
                     options={BILL_CATEGORIES}
                     selected={category}
@@ -341,12 +342,12 @@ export default function BillForm({
                 />
             </View>
 
-            <View style={modalForm.dialogSwitchRow}>
-                <View style={modalForm.dialogSwitchCopy}>
-                    <Text style={modalForm.dialogSwitchTitle}>
+            <View style={form.switchRow}>
+                <View style={form.switchCopy}>
+                    <Text style={form.switchTitle}>
                         Amount changes each month
                     </Text>
-                    <Text style={modalForm.dialogSwitchCaption}>
+                    <Text style={form.switchCaption}>
                         Water, electricity — $0 until you log the statement
                     </Text>
                 </View>
@@ -361,29 +362,32 @@ export default function BillForm({
                             }
                         }
                     }}
-                    trackColor={{ false: "#CBD5E1", true: "#93C5FD" }}
-                    thumbColor={amountVaries ? "#1D4ED8" : "#F8FAFC"}
+                    trackColor={{
+                        false: formColors.switchTrackOff,
+                        true: formColors.switchTrackOn,
+                    }}
+                    thumbColor={formColors.switchThumb}
                 />
             </View>
 
             {!amountVaries ? (
-                <View style={modalForm.dialogField}>
-                    <Text style={modalForm.dialogLabel}>Amount</Text>
+                <View style={form.field}>
+                    <Text style={form.label}>Amount</Text>
                     <View
                         style={[
-                            modalForm.dialogAmountWrap,
+                            form.amountWrap,
                             focusedInput === "amount" &&
-                                modalForm.dialogInputFocused,
-                            amountHasError && modalForm.dialogInputError,
+                                form.inputFocused,
+                            amountHasError && form.inputError,
                         ]}
                     >
-                        <Text style={modalForm.dialogAmountPrefix}>
+                        <Text style={form.amountPrefix}>
                             {symbol}
                         </Text>
                         <TextInput
-                            style={modalForm.dialogAmountInput}
+                            style={form.amountInput}
                             placeholder="0.00"
-                            placeholderTextColor="#CBD5E1"
+                            placeholderTextColor={formColors.placeholder}
                             value={amount}
                             onChangeText={(value) => {
                                 setAmount(value);
@@ -397,7 +401,7 @@ export default function BillForm({
                         />
                     </View>
                     {amountHasError && (
-                        <Text style={modalForm.errorText}>
+                        <Text style={form.error}>
                             Amount is required.
                         </Text>
                     )}
@@ -405,12 +409,12 @@ export default function BillForm({
             ) : null}
 
             {!amountVaries ? (
-                <View style={modalForm.dialogSwitchRow}>
-                    <View style={modalForm.dialogSwitchCopy}>
-                        <Text style={modalForm.dialogSwitchTitle}>
+                <View style={form.switchRow}>
+                    <View style={form.switchCopy}>
+                        <Text style={form.switchTitle}>
                             Paid this month
                         </Text>
-                        <Text style={modalForm.dialogSwitchCaption}>
+                        <Text style={form.switchCaption}>
                             Turn off and save to undo this period’s payment
                         </Text>
                     </View>
@@ -422,30 +426,33 @@ export default function BillForm({
                                 setPaidAmount(amount);
                             }
                         }}
-                        trackColor={{ false: "#CBD5E1", true: "#86EFAC" }}
-                        thumbColor={isPaid ? "#15803D" : "#F8FAFC"}
+                        trackColor={{
+                            false: formColors.switchTrackOff,
+                            true: formColors.switchTrackOn,
+                        }}
+                        thumbColor={formColors.switchThumb}
                     />
                 </View>
             ) : null}
 
             {!amountVaries && isPaid ? (
-                <View style={modalForm.dialogField}>
-                    <Text style={modalForm.dialogLabel}>Paid this month</Text>
+                <View style={form.field}>
+                    <Text style={form.label}>Paid this month</Text>
                     <View
                         style={[
-                            modalForm.dialogAmountWrap,
+                            form.amountWrap,
                             focusedInput === "fixedPaidAmount" &&
-                                modalForm.dialogInputFocused,
-                            paidAmountHasError && modalForm.dialogInputError,
+                                form.inputFocused,
+                            paidAmountHasError && form.inputError,
                         ]}
                     >
-                        <Text style={modalForm.dialogAmountPrefix}>
+                        <Text style={form.amountPrefix}>
                             {symbol}
                         </Text>
                         <TextInput
-                            style={modalForm.dialogAmountInput}
+                            style={form.amountInput}
                             placeholder="0.00"
-                            placeholderTextColor="#CBD5E1"
+                            placeholderTextColor={formColors.placeholder}
                             value={paidAmount}
                             onChangeText={setPaidAmount}
                             keyboardType="decimal-pad"
@@ -454,11 +461,11 @@ export default function BillForm({
                         />
                     </View>
                     {paidAmountHasError ? (
-                        <Text style={modalForm.errorText}>
+                        <Text style={form.error}>
                             Enter what you actually paid.
                         </Text>
                     ) : (
-                        <Text style={modalForm.actionCardCaption}>
+                        <Text style={form.actionCardCaption}>
                             This is the amount leftover subtracts.
                         </Text>
                     )}

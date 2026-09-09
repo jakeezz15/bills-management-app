@@ -3,6 +3,7 @@ import {
     DashboardHero,
     DashboardHeroCompact,
 } from "@/components/DashboardHero";
+import { FloatingAddButton } from "@/components/FloatingAddButton";
 import { PageHeader } from "@/components/ui";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { PlanItemCard } from "@/components/PlanItemCard";
@@ -154,8 +155,6 @@ export default function SavingsScreen({
                         kicker="Saved so far"
                         value={heroValue}
                         pace={heroPace}
-                        onAdd={openAdd}
-                        addAccessibilityLabel="Add savings goal"
                     />
                 </View>
             ) : null}
@@ -184,8 +183,6 @@ export default function SavingsScreen({
                         }`}
                         percent={totals.percent}
                         pace={heroPace}
-                        onAdd={openAdd}
-                        addAccessibilityLabel="Add savings goal"
                     />
                 ) : null}
 
@@ -201,6 +198,7 @@ export default function SavingsScreen({
 
                 {savings.length === 0 && !loading && (
                     <DashboardEmpty
+                        icon="flag-outline"
                         title="No goals yet"
                         text="Track an emergency fund or a trip. Each goal shows how far you are and how long the remaining amount should take."
                         actionLabel="Create first goal"
@@ -218,6 +216,10 @@ export default function SavingsScreen({
                 )}
                 {reached.map(renderGoal)}
             </ScrollView>
+            <FloatingAddButton
+                onPress={openAdd}
+                accessibilityLabel="Add savings goal"
+            />
         </View>
     );
 }

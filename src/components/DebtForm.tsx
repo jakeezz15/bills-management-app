@@ -3,7 +3,7 @@ import { useLocale } from "@/app/contexts/LocaleContext";
 import { DateField } from "@/components/DateField";
 import { FormDialog } from "@/components/FormDialog";
 import { buttonStyle } from "@/styles/button-style";
-import { modalForm } from "@/styles/modal-form";
+import { form, formColors } from "@/styles/form";
 import { Debt } from "@/types/debt";
 import { parseIsoDate, todayIsoDate } from "@/utils/date";
 import { isDebtInstallmentPaidAsOf } from "@/utils/filters";
@@ -216,25 +216,25 @@ export default function DebtForm({
             onDelete={debt ? handleDelete : undefined}
         >
             {debt && debt.balance <= 0 && !paidThisPeriod ? (
-                <View style={modalForm.paidBanner}>
-                    <Text style={modalForm.paidBannerText}>
+                <View style={form.banner}>
+                    <Text style={form.bannerText}>
                         Paid off — remaining balance is {formatMoney(0)}
                     </Text>
                 </View>
             ) : null}
 
             {debt && paidThisPeriod ? (
-                <View style={[modalForm.actionCard, modalForm.actionCardLead]}>
-                    <Text style={modalForm.actionCardTitle}>
+                <View style={[form.actionCard, form.actionCardLead]}>
+                    <Text style={form.actionCardTitle}>
                         Paid this period
                     </Text>
-                    <Text style={modalForm.actionCardCaption}>
+                    <Text style={form.actionCardCaption}>
                         Recorded {formatMoney(monthPaymentAmount || debt.minimumPayment)}.
                         Undo if you marked this by mistake.
                     </Text>
                     <Pressable
                         style={({ pressed }) => [
-                            modalForm.actionCardButton,
+                            form.actionCardButton,
                             pressed && buttonStyle.buttonPressed,
                             busy && { opacity: 0.6 },
                         ]}
@@ -251,17 +251,17 @@ export default function DebtForm({
             ) : null}
 
             {debt && debt.balance > 0 && !paidThisPeriod ? (
-                <View style={[modalForm.actionCard, modalForm.actionCardLead]}>
-                    <Text style={modalForm.actionCardTitle}>
+                <View style={[form.actionCard, form.actionCardLead]}>
+                    <Text style={form.actionCardTitle}>
                         Record this period’s payment
                     </Text>
-                    <Text style={modalForm.actionCardCaption}>
+                    <Text style={form.actionCardCaption}>
                         Lowers remaining balance by{" "}
                         {formatMoney(debt.minimumPayment)}
                     </Text>
                     <Pressable
                         style={({ pressed }) => [
-                            modalForm.actionCardButton,
+                            form.actionCardButton,
                             pressed && buttonStyle.buttonPressed,
                             busy && { opacity: 0.6 },
                         ]}
@@ -277,37 +277,37 @@ export default function DebtForm({
                 </View>
             ) : null}
 
-            <View style={modalForm.dialogField}>
-                <Text style={modalForm.dialogLabel}>Name</Text>
+            <View style={form.field}>
+                <Text style={form.label}>Name</Text>
                 <TextInput
                     style={[
-                        modalForm.dialogInput,
-                        focusedInput === "name" && modalForm.dialogInputFocused,
-                        nameHasError && modalForm.dialogInputError,
+                        form.input,
+                        focusedInput === "name" && form.inputFocused,
+                        nameHasError && form.inputError,
                     ]}
                     placeholder="iPhone installment"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={formColors.placeholder}
                     value={name}
                     onChangeText={setName}
                     onFocus={() => setFocusedInput("name")}
                     onBlur={() => setFocusedInput(null)}
                 />
                 {nameHasError && (
-                    <Text style={modalForm.errorText}>Name is required.</Text>
+                    <Text style={form.error}>Name is required.</Text>
                 )}
             </View>
 
-            <View style={modalForm.dialogField}>
-                <Text style={modalForm.dialogLabel}>Due day each month</Text>
+            <View style={form.field}>
+                <Text style={form.label}>Due day each month</Text>
                 <TextInput
                     style={[
-                        modalForm.dialogInput,
+                        form.input,
                         focusedInput === "dueDay" &&
-                            modalForm.dialogInputFocused,
-                        dueDayHasError && modalForm.dialogInputError,
+                            form.inputFocused,
+                        dueDayHasError && form.inputError,
                     ]}
                     placeholder="1–31"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={formColors.placeholder}
                     value={dueDay}
                     onChangeText={setDueDay}
                     keyboardType="number-pad"
@@ -315,15 +315,14 @@ export default function DebtForm({
                     onBlur={() => setFocusedInput(null)}
                 />
                 {dueDayHasError && (
-                    <Text style={modalForm.errorText}>
+                    <Text style={form.error}>
                         Enter a day between 1 and 31.
                     </Text>
                 )}
             </View>
 
-            <View style={modalForm.dialogField}>
+            <View style={form.field}>
                 <DateField
-                    layout="dialog"
                     label="Start date"
                     value={startDate}
                     onChange={setStartDate}
@@ -332,9 +331,9 @@ export default function DebtForm({
                 />
             </View>
 
-            <View style={modalForm.dialogField}>
-                <Text style={modalForm.dialogLabel}>Type</Text>
-                <View style={modalForm.typeRow}>
+            <View style={form.field}>
+                <Text style={form.label}>Type</Text>
+                <View style={form.chipRow}>
                     {LOAN_TYPES.map((loanType) => {
                         const selected = type === loanType;
                         return (
@@ -342,15 +341,15 @@ export default function DebtForm({
                                 key={loanType}
                                 onPress={() => setType(loanType)}
                                 style={[
-                                    modalForm.typeChip,
-                                    selected && modalForm.typeChipSelected,
+                                    form.chip,
+                                    selected && form.chipSelected,
                                 ]}
                             >
                                 <Text
                                     style={[
-                                        modalForm.typeChipText,
+                                        form.chipText,
                                         selected &&
-                                            modalForm.typeChipTextSelected,
+                                            form.chipTextSelected,
                                     ]}
                                 >
                                     {loanType}
@@ -360,25 +359,25 @@ export default function DebtForm({
                     })}
                 </View>
                 {typeHasError && (
-                    <Text style={modalForm.errorText}>Choose a type.</Text>
+                    <Text style={form.error}>Choose a type.</Text>
                 )}
             </View>
 
-            <View style={modalForm.dialogField}>
-                <Text style={modalForm.dialogLabel}>Remaining</Text>
+            <View style={form.field}>
+                <Text style={form.label}>Remaining</Text>
                 <View
                     style={[
-                        modalForm.dialogAmountWrap,
+                        form.amountWrap,
                         focusedInput === "balance" &&
-                            modalForm.dialogInputFocused,
-                        balanceHasError && modalForm.dialogInputError,
+                            form.inputFocused,
+                        balanceHasError && form.inputError,
                     ]}
                 >
-                    <Text style={modalForm.dialogAmountPrefix}>{symbol}</Text>
+                    <Text style={form.amountPrefix}>{symbol}</Text>
                     <TextInput
-                        style={modalForm.dialogAmountInput}
+                        style={form.amountInput}
                         placeholder="0.00"
-                        placeholderTextColor="#CBD5E1"
+                        placeholderTextColor={formColors.placeholder}
                         value={balance}
                         onChangeText={setBalance}
                         keyboardType="decimal-pad"
@@ -387,25 +386,25 @@ export default function DebtForm({
                     />
                 </View>
                 {balanceHasError && (
-                    <Text style={modalForm.errorText}>Balance is required.</Text>
+                    <Text style={form.error}>Balance is required.</Text>
                 )}
             </View>
 
-            <View style={modalForm.dialogField}>
-                <Text style={modalForm.dialogLabel}>Monthly payment</Text>
+            <View style={form.field}>
+                <Text style={form.label}>Monthly payment</Text>
                 <View
                     style={[
-                        modalForm.dialogAmountWrap,
+                        form.amountWrap,
                         focusedInput === "minimumPayment" &&
-                            modalForm.dialogInputFocused,
-                        paymentHasError && modalForm.dialogInputError,
+                            form.inputFocused,
+                        paymentHasError && form.inputError,
                     ]}
                 >
-                    <Text style={modalForm.dialogAmountPrefix}>{symbol}</Text>
+                    <Text style={form.amountPrefix}>{symbol}</Text>
                     <TextInput
-                        style={modalForm.dialogAmountInput}
+                        style={form.amountInput}
                         placeholder="0.00"
-                        placeholderTextColor="#CBD5E1"
+                        placeholderTextColor={formColors.placeholder}
                         value={minimumPayment}
                         onChangeText={setMinimumPayment}
                         keyboardType="decimal-pad"
@@ -414,7 +413,7 @@ export default function DebtForm({
                     />
                 </View>
                 {paymentHasError && (
-                    <Text style={modalForm.errorText}>
+                    <Text style={form.error}>
                         Monthly payment is required.
                     </Text>
                 )}

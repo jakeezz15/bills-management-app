@@ -1,7 +1,10 @@
-import { theme } from "@/theme";
+import { text, theme } from "@/design";
+import { formColors } from "@/styles/form";
 import Ionicons from "@react-native-vector-icons/ionicons";
-import { ReactNode } from "react";
+import { ComponentProps, ReactNode } from "react";
 import { Pressable, StyleSheet, Switch, Text, View } from "react-native";
+
+type IconName = ComponentProps<typeof Ionicons>["name"];
 
 type SettingsSectionProps = {
     title: string;
@@ -20,7 +23,7 @@ export function SettingsSection({ title, children }: SettingsSectionProps) {
 type SettingsRowProps = {
     title: string;
     subtitle?: string;
-    icon?: keyof typeof Ionicons.glyphMap;
+    icon?: IconName;
     value?: string;
     destructive?: boolean;
     disabled?: boolean;
@@ -58,8 +61,8 @@ export function SettingsRow({
                         size={18}
                         color={
                             destructive
-                                ? theme.color.danger
-                                : theme.color.accentText
+                                ? theme.intent.negative.fg
+                                : theme.text.accent
                         }
                     />
                 </View>
@@ -98,12 +101,10 @@ export function SettingsRow({
                     disabled={disabled}
                     onValueChange={onSwitchChange}
                     trackColor={{
-                        false: theme.color.faint,
-                        true: "#86EFAC",
+                        false: formColors.switchTrackOff,
+                        true: formColors.switchTrackOn,
                     }}
-                    thumbColor={
-                        switchValue ? theme.color.successText : theme.color.surface
-                    }
+                    thumbColor={formColors.switchThumb}
                 />
             ) : null}
 
@@ -111,7 +112,7 @@ export function SettingsRow({
                 <Ionicons
                     name="chevron-forward"
                     size={18}
-                    color={theme.color.soft}
+                    color={theme.text.tertiary}
                 />
             ) : null}
         </>
@@ -125,6 +126,7 @@ export function SettingsRow({
         <Pressable
             onPress={onPress}
             disabled={disabled || !onPress}
+            accessibilityRole="button"
             style={({ pressed }) => [
                 styles.row,
                 disabled && styles.rowDisabled,
@@ -142,77 +144,77 @@ export function SettingsDivider() {
 
 const styles = StyleSheet.create({
     section: {
-        marginBottom: theme.space.xl,
+        marginBottom: theme.space.lg,
     },
     sectionTitle: {
-        color: theme.color.accentText,
-        fontSize: 12,
-        fontWeight: theme.font.weight.bold,
-        letterSpacing: 0.3,
+        ...text.sectionLabel,
+        color: theme.text.accent,
         marginBottom: theme.space.sm,
         marginLeft: theme.space.md,
-        textTransform: "uppercase",
     },
     group: {
-        backgroundColor: theme.color.surface,
-        borderRadius: theme.radius.lg,
+        backgroundColor: theme.bg.surface,
+        borderRadius: theme.radius.md,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: theme.border.subtle,
         overflow: "hidden",
     },
     row: {
         flexDirection: "row",
         alignItems: "center",
-        minHeight: 56,
-        paddingHorizontal: theme.space.lg,
-        paddingVertical: 12,
+        minHeight: 48,
+        paddingHorizontal: theme.space.md,
+        paddingVertical: theme.space.sm,
         gap: theme.space.md,
     },
     rowPressed: {
-        backgroundColor: theme.color.surfaceMuted,
+        backgroundColor: theme.bg.sunken,
     },
     rowDisabled: {
         opacity: 0.55,
     },
     iconWrap: {
-        width: 32,
-        height: 32,
-        borderRadius: 10,
-        backgroundColor: theme.color.accentSoft,
+        width: theme.size.control,
+        height: theme.size.control,
+        borderRadius: theme.radius.sm,
+        backgroundColor: theme.intent.info.bg,
         alignItems: "center",
         justifyContent: "center",
     },
     iconWrapDanger: {
-        backgroundColor: theme.color.dangerSoft,
+        backgroundColor: theme.intent.negative.bg,
     },
     copy: {
         flex: 1,
         minWidth: 0,
     },
     rowTitle: {
-        color: theme.color.ink,
-        fontSize: 16,
-        fontWeight: theme.font.weight.semibold,
+        color: theme.text.primary,
+        fontSize: theme.fontSize.md,
+        lineHeight: theme.lineHeight.md,
+        fontWeight: theme.fontWeight.semibold,
     },
     rowTitleDanger: {
-        color: theme.color.danger,
+        color: theme.intent.negative.fg,
     },
     rowSubtitle: {
-        color: theme.color.muted,
-        fontSize: 13,
-        lineHeight: 17,
-        marginTop: 2,
+        ...text.caption,
+        marginTop: theme.space.xs,
     },
     rowValue: {
-        color: theme.color.muted,
-        fontSize: 14,
-        fontWeight: theme.font.weight.semibold,
-        marginRight: 2,
+        color: theme.text.secondary,
+        fontSize: theme.fontSize.sm,
+        lineHeight: theme.lineHeight.sm,
+        fontWeight: theme.fontWeight.semibold,
+        marginRight: theme.space.xs,
     },
     disabledText: {
-        color: theme.color.soft,
+        color: theme.text.tertiary,
     },
     divider: {
         height: StyleSheet.hairlineWidth,
-        backgroundColor: theme.color.border,
-        marginLeft: 60,
+        backgroundColor: theme.border.subtle,
+        // Starts where the row copy starts: row padding + icon + gap.
+        marginLeft: theme.space.md * 2 + theme.size.control,
     },
 });

@@ -4,6 +4,7 @@ import {
     DashboardHeroCompact,
 } from "@/components/DashboardHero";
 import ExpenseForm from "@/components/ExpenseForm";
+import { FloatingAddButton } from "@/components/FloatingAddButton";
 import { HeroPeriodNav } from "@/components/HeroPeriodNav";
 import {
     LedgerDayGroup,
@@ -90,8 +91,6 @@ export default function ExpensesScreen({
                         kicker="Spent"
                         value={heroValue}
                         pace={periodNav(true)}
-                        onAdd={openAdd}
-                        addAccessibilityLabel="Add expense"
                     />
                 </View>
             ) : null}
@@ -128,8 +127,6 @@ export default function ExpensesScreen({
                                 : 0
                         }
                         pace={periodNav(false)}
-                        onAdd={openAdd}
-                        addAccessibilityLabel="Add expense"
                     />
                 ) : null}
 
@@ -144,6 +141,7 @@ export default function ExpensesScreen({
 
                 {expenses.length === 0 && !loading && (
                     <DashboardEmpty
+                        icon="bag-handle-outline"
                         title="No spending yet"
                         text="Log coffee, groceries, or other everyday spending with the date you spent it."
                         actionLabel="Add first expense"
@@ -153,6 +151,7 @@ export default function ExpensesScreen({
 
                 {expenses.length > 0 && inPeriod.length === 0 && (
                     <DashboardEmpty
+                        icon="calendar-outline"
                         title="Nothing in this period"
                         text="Step the date, or jump to today, to find purchases you already logged."
                         actionLabel="Jump to today"
@@ -185,6 +184,10 @@ export default function ExpensesScreen({
                     </LedgerDayGroup>
                 ))}
             </ScrollView>
+            <FloatingAddButton
+                onPress={openAdd}
+                accessibilityLabel="Add expense"
+            />
         </View>
     );
 }

@@ -1,5 +1,5 @@
 import { dashboard } from "@/styles/dashboard";
-import { theme } from "@/theme";
+import { theme } from "@/design";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
@@ -23,38 +23,88 @@ export function DashboardHero({
     onAdd,
     addAccessibilityLabel = "Add",
 }: DashboardHeroProps) {
-    const width = Math.max(0, Math.min(100, percent ?? 0));
+    const fill = Math.max(0, Math.min(100, percent ?? 0));
+    const showProgress = percent !== undefined;
 
     return (
         <View style={dashboard.hero}>
-            <View style={dashboard.heroTop}>
-                <View style={{ flex: 1 }}>
+            <View
+                style={dashboard.heroDisplay}
+                accessibilityLabel={
+                    showProgress
+                        ? `${kicker}, ${value}, ${fill} percent`
+                        : undefined
+                }
+            >
+                <View style={dashboard.heroEyebrow}>
                     <Text style={dashboard.heroKicker}>{kicker}</Text>
-                    <Text style={dashboard.heroValue}>{value}</Text>
-                    <Text style={dashboard.heroCaption}>{caption}</Text>
+                    {showProgress ? (
+                        <Text style={dashboard.heroPct}>{fill}%</Text>
+                    ) : null}
                 </View>
-                {onAdd ? (
-                    <Pressable
-                        onPress={onAdd}
-                        style={dashboard.heroAdd}
-                        accessibilityLabel={addAccessibilityLabel}
+
+                <Text
+                    style={dashboard.heroValue}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.65}
+                >
+                    {value}
+                </Text>
+                <Text style={dashboard.heroCaption}>{caption}</Text>
+
+                {showProgress ? (
+                    <View
+                        style={dashboard.heroTide}
+                        accessibilityElementsHidden
                     >
-                        <Ionicons name="add" size={22} color={theme.color.ink} />
-                    </Pressable>
+                        <View
+                            style={[
+                                dashboard.barFill,
+                                {
+                                    width: `${fill}%`,
+                                    backgroundColor: theme.intent.positive.bright,
+                                },
+                            ]}
+                        />
+                    </View>
                 ) : null}
             </View>
 
-            {percent !== undefined ? (
-                <View style={dashboard.heroBarTrack}>
-                    <View style={[dashboard.heroBarFill, { width: `${width}%` }]} />
+            {pace || onAdd ? (
+                <View style={dashboard.heroTools}>
+                    <View style={dashboard.heroToolsMain}>
+                        {typeof pace === "string" ? (
+                            <Text
+                                style={dashboard.heroDockText}
+                                numberOfLines={2}
+                            >
+                                {pace}
+                            </Text>
+                        ) : (
+                            pace
+                        )}
+                    </View>
+                    {onAdd ? (
+                        <Pressable
+                            onPress={onAdd}
+                            style={({ pressed }) => [
+                                dashboard.heroToolsAdd,
+                                pressed && { opacity: 0.82 },
+                            ]}
+                            accessibilityRole="button"
+                            accessibilityLabel={addAccessibilityLabel}
+                            hitSlop={8}
+                        >
+                            <Ionicons
+                                name="add"
+                                size={22}
+                                color={theme.text.inverse}
+                            />
+                        </Pressable>
+                    ) : null}
                 </View>
             ) : null}
-
-            {typeof pace === "string" ? (
-                <Text style={dashboard.heroPace}>{pace}</Text>
-            ) : (
-                pace
-            )}
         </View>
     );
 }
@@ -89,11 +139,19 @@ export function DashboardHeroCompact({
                 {onAdd ? (
                     <Pressable
                         onPress={onAdd}
-                        style={dashboard.heroCompactAdd}
+                        style={({ pressed }) => [
+                            dashboard.heroCompactAdd,
+                            pressed && { opacity: 0.82 },
+                        ]}
+                        accessibilityRole="button"
                         accessibilityLabel={addAccessibilityLabel}
                         hitSlop={8}
                     >
-                        <Ionicons name="add" size={20} color={theme.color.ink} />
+                        <Ionicons
+                            name="add"
+                            size={20}
+                            color={theme.text.primary}
+                        />
                     </Pressable>
                 ) : null}
             </View>

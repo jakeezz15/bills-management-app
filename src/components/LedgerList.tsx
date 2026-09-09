@@ -1,19 +1,8 @@
+import { text, theme } from "@/design";
 import { dashboard } from "@/styles/dashboard";
-import { theme } from "@/theme";
 import { parseIsoDate } from "@/utils/date";
 import { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-
-const ACCENT_PALETTE = [
-    theme.color.accent,
-    theme.color.success,
-    theme.color.warning,
-    "#7C3AED",
-    "#DB2777",
-    "#0891B2",
-    "#EA580C",
-    theme.color.muted,
-];
 
 /** Stable accent from a label (category / source). */
 export function accentForLabel(label: string): string {
@@ -21,7 +10,7 @@ export function accentForLabel(label: string): string {
     for (let i = 0; i < label.length; i += 1) {
         hash = (hash + label.charCodeAt(i) * (i + 1)) % 997;
     }
-    return ACCENT_PALETTE[hash % ACCENT_PALETTE.length];
+    return theme.chart[hash % theme.chart.length];
 }
 
 /** Section title like "Sep 7" or "Sep 7, 2025" when not this year. */
@@ -105,13 +94,14 @@ export function LedgerRow({
     title,
     meta,
     amountLabel,
-    accentColor = theme.color.accent,
+    accentColor = theme.action.primary.bg,
     isLast = false,
     onPress,
 }: LedgerRowProps) {
     return (
         <Pressable
             onPress={onPress}
+            accessibilityRole="button"
             style={({ pressed }) => [
                 styles.row,
                 !isLast && styles.rowBorder,
@@ -139,59 +129,56 @@ const styles = StyleSheet.create({
         marginBottom: theme.space.md,
     },
     sheet: {
-        backgroundColor: theme.color.surface,
-        borderRadius: theme.radius.lg,
+        backgroundColor: theme.bg.surface,
+        borderRadius: theme.radius.md,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: theme.border.subtle,
         overflow: "hidden",
     },
     row: {
         flexDirection: "row",
         alignItems: "center",
-        minHeight: 52,
-        paddingVertical: 12,
-        paddingRight: theme.space.lg,
+        minHeight: theme.size.tap,
+        paddingVertical: theme.space.sm,
+        paddingRight: theme.space.md,
         paddingLeft: theme.space.sm,
         gap: theme.space.sm,
     },
     rowBorder: {
         borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: theme.color.border,
+        borderBottomColor: theme.border.subtle,
     },
     rowPressed: {
-        backgroundColor: theme.color.surfaceMuted,
+        backgroundColor: theme.bg.sunken,
     },
     accent: {
         width: 3,
         alignSelf: "stretch",
         borderRadius: theme.radius.pill,
-        marginVertical: 4,
+        marginVertical: theme.space.xs,
     },
     title: {
+        ...text.itemTitle,
         flex: 1,
         minWidth: 64,
-        color: theme.color.ink,
-        fontSize: 15,
-        fontWeight: theme.font.weight.bold,
-        letterSpacing: -0.2,
     },
     pill: {
         flexShrink: 1,
         maxWidth: "36%",
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: theme.radius.pill,
-        backgroundColor: theme.color.accentSoft,
+        paddingHorizontal: theme.space.sm,
+        paddingVertical: theme.space.xs,
+        borderRadius: theme.radius.sm,
+        backgroundColor: theme.intent.info.bg,
     },
     pillText: {
-        color: theme.color.accentText,
-        fontSize: 11,
-        fontWeight: theme.font.weight.bold,
+        color: theme.text.accent,
+        fontSize: theme.fontSize.xs,
+        lineHeight: theme.lineHeight.xs,
+        fontWeight: theme.fontWeight.bold,
     },
     amount: {
-        color: theme.color.ink,
-        fontSize: 15,
-        fontWeight: theme.font.weight.bold,
-        letterSpacing: -0.2,
-        minWidth: 52,
+        ...text.money,
+        minWidth: 56,
         textAlign: "right",
     },
 });

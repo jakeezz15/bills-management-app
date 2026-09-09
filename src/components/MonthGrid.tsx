@@ -1,4 +1,4 @@
-import { theme } from "@/theme";
+import { theme } from "@/design";
 import { startOfMonth, toIsoDate } from "@/utils/date";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -69,6 +69,7 @@ export function MonthGrid({
                                 selected && styles.cellSelected,
                                 isToday && !selected && styles.cellToday,
                             ]}
+                            accessibilityRole="button"
                             accessibilityLabel={iso}
                         >
                             <Text
@@ -97,23 +98,23 @@ export function MonthGrid({
 
 const styles = StyleSheet.create({
     card: {
-        backgroundColor: theme.color.surface,
-        borderRadius: theme.radius.lg,
-        paddingHorizontal: theme.space.sm,
-        paddingTop: theme.space.md,
+        marginTop: theme.space.sm,
+        marginBottom: theme.space.md,
+        paddingHorizontal: 0,
+        paddingTop: 0,
         paddingBottom: theme.space.sm,
-        marginTop: theme.space.lg,
     },
     weekRow: {
         flexDirection: "row",
-        marginBottom: 4,
+        marginBottom: theme.space.xs,
     },
     weekday: {
         flex: 1,
         textAlign: "center",
-        color: theme.color.muted,
-        fontSize: 11,
-        fontWeight: theme.font.weight.bold,
+        color: theme.text.secondary,
+        fontSize: theme.fontSize.xs,
+        lineHeight: theme.lineHeight.xs,
+        fontWeight: theme.fontWeight.bold,
     },
     grid: {
         flexDirection: "row",
@@ -121,38 +122,45 @@ const styles = StyleSheet.create({
     },
     cell: {
         width: "14.285%",
+        minHeight: theme.size.tap,
         alignItems: "center",
-        paddingVertical: 6,
-        borderRadius: theme.radius.md,
+        justifyContent: "center",
+        paddingVertical: theme.space.xs,
+        borderRadius: theme.radius.sm,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: "transparent",
     },
     cellSelected: {
-        backgroundColor: theme.color.hero,
+        backgroundColor: theme.bg.inverse,
     },
     cellToday: {
-        backgroundColor: theme.color.canvas,
+        backgroundColor: theme.bg.surface,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: theme.border.subtle,
     },
     day: {
-        color: theme.color.ink,
-        fontSize: 13,
-        fontWeight: theme.font.weight.semibold,
+        color: theme.text.primary,
+        fontSize: theme.fontSize.xs,
+        lineHeight: theme.lineHeight.xs,
+        fontWeight: theme.fontWeight.semibold,
     },
     daySelected: {
-        color: theme.color.onHero,
+        color: theme.text.inverse,
     },
     dayToday: {
-        fontWeight: theme.font.weight.bold,
+        fontWeight: theme.fontWeight.bold,
     },
     dot: {
-        width: 5,
-        height: 5,
-        borderRadius: 3,
-        marginTop: 3,
+        width: theme.space.xs,
+        height: theme.space.xs,
+        borderRadius: theme.radius.pill,
+        marginTop: theme.space.xs,
         backgroundColor: "transparent",
     },
     dotOn: {
-        backgroundColor: theme.color.accent,
+        backgroundColor: theme.action.primary.bg,
     },
     dotOnSelected: {
-        backgroundColor: theme.color.onHero,
+        backgroundColor: theme.text.inverse,
     },
 });

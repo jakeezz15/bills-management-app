@@ -21,22 +21,26 @@ export function AppButton({
         <Pressable
             disabled={disabled}
             onPress={onPress}
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            accessibilityState={{ disabled }}
             style={({ pressed }) => [
                 isGhost || isDanger
                     ? buttonStyle.ghostButton
                     : buttonStyle.normalButton,
                 disabled && buttonStyle.disabledButton,
-                pressed && buttonStyle.buttonPressed,
+                pressed && !disabled && buttonStyle.buttonPressed,
             ]}
         >
             <Text
-                style={
+                style={[
                     isDanger
                         ? buttonStyle.dangerText
                         : isGhost
                           ? buttonStyle.ghostButtonText
-                          : buttonStyle.buttonText
-                }
+                          : buttonStyle.buttonText,
+                    disabled && buttonStyle.disabledButtonText,
+                ]}
             >
                 {label}
             </Text>

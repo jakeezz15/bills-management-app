@@ -1,10 +1,11 @@
 import BillForm from "@/components/BillForm";
-import { CompactPlanRow } from "@/components/CompactPlanRow";
+import { CompactPlanRow, PlanGroup } from "@/components/CompactPlanRow";
 import { DashboardEmpty } from "@/components/DashboardEmpty";
 import {
     DashboardHero,
     DashboardHeroCompact,
 } from "@/components/DashboardHero";
+import { FloatingAddButton } from "@/components/FloatingAddButton";
 import { HeroPeriodNav } from "@/components/HeroPeriodNav";
 import { PageHeader } from "@/components/ui";
 import { LoadingScreen } from "@/components/LoadingScreen";
@@ -181,7 +182,7 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
         const dueRef = billDueStatusReference(asOf);
         const status = isPaid
             ? "paid"
-            : getBillDueStatus(bill, payments, 3, dueRef);
+            : getBillDueStatus(bill, payments, 3, asOf, dueRef);
 
         const monthPayment = getBillPaymentInMonth(bill.id, payments, asOf);
         const displayAmount = isPaid
@@ -196,6 +197,7 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
                 title={bill.name}
                 meta={billMeta(isPaid, status, bill.amountVaries)}
                 amountLabel={formatMoney(displayAmount, { compact: true })}
+                amountHint={isPaid ? undefined : "due"}
                 done={isPaid}
                 metaTone={metaTone(isPaid, status)}
                 onPress={() => {
@@ -229,8 +231,6 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
                         kicker="Still to pay"
                         value={heroValue}
                         pace={periodNav(true)}
-                        onAdd={openAdd}
-                        addAccessibilityLabel="Add bill"
                     />
                 </View>
             ) : null}
@@ -263,8 +263,6 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
                         }
                         percent={paidShare}
                         pace={periodNav(false)}
-                        onAdd={openAdd}
-                        addAccessibilityLabel="Add bill"
                     />
                 ) : null}
 
@@ -280,6 +278,7 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
 
                 {bills.length === 0 && !loading && (
                     <DashboardEmpty
+                        icon="receipt-outline"
                         title="No bills yet"
                         text="Add rent, utilities, or subscriptions. Variable bills (water, electricity) ask for this month’s amount when you mark them paid."
                         actionLabel="Add first bill"
@@ -290,10 +289,16 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
                 {dueDayGroups.map((group) => (
                     <View key={group.dueDay}>
                         <Text style={dashboard.sectionLabel}>{group.label}</Text>
-                        {group.bills.map(renderBill)}
+                        <PlanGroup>
+                            {group.bills.map(renderBill)}
+                        </PlanGroup>
                     </View>
                 ))}
             </ScrollView>
+            <FloatingAddButton
+                onPress={openAdd}
+                accessibilityLabel="Add bill"
+            />
         </View>
     );
 }

@@ -1,4 +1,6 @@
+import { AppButton } from "@/components/AppButton";
 import { DashboardEmpty } from "@/components/DashboardEmpty";
+import { DueNowSection } from "@/components/DueNowSection";
 import { DashboardHeroCompact } from "@/components/DashboardHero";
 import { HeroPeriodNav } from "@/components/HeroPeriodNav";
 import { MonthGrid } from "@/components/MonthGrid";
@@ -6,7 +8,7 @@ import { MonthTrendChart, SpendByCategoryChart } from "@/components/HomeCharts";
 import { SegmentControl } from "@/components/SegmentControl";
 import { useStickyHero } from "@/hooks/useStickyHero";
 import { dashboard } from "@/styles/dashboard";
-import { theme, type } from "@/theme";
+import { text, theme } from "@/design";
 import {
     hasCompletedFirstRun,
     markFirstRunComplete,
@@ -188,7 +190,11 @@ export default function HomeScreen() {
             label={label}
             onShift={shiftPeriod}
             onResetToToday={resetToToday}
-            style={forCompact ? { marginTop: 8 } : { marginTop: 0, flex: 1 }}
+            style={
+                forCompact
+                    ? { marginTop: theme.space.sm }
+                    : { marginTop: 0, flex: 1 }
+            }
         />
     );
 
@@ -206,7 +212,12 @@ export default function HomeScreen() {
     return (
         <View style={dashboard.screen}>
             {collapsed ? (
-                <View style={styles.mastCompactSticky}>
+                <View
+                    style={[
+                        dashboard.heroCompactSticky,
+                        styles.mastCompactSticky,
+                    ]}
+                >
                     <DashboardHeroCompact
                         kicker={okay ? "Leftover" : "Short"}
                         value={leftoverLabel}
@@ -221,11 +232,27 @@ export default function HomeScreen() {
                 {...scrollProps}
             >
                 <View style={styles.masthead}>
-                    <Text style={styles.mastKicker}>On Hand</Text>
-                    <Text style={styles.mastValue}>
-                        {okay ? "You’re okay" : "Short this period"}
+                    <View style={styles.mastEyebrow}>
+                        <Text style={styles.mastKicker}>On hand</Text>
+                        <Text
+                            style={[
+                                styles.mastStatus,
+                                {
+                                    color: okay
+                                        ? theme.intent.positive.bright
+                                        : theme.text.inverseSecondary,
+                                },
+                            ]}
+                        >
+                            {okay ? "Okay" : "Short"}
+                        </Text>
+                    </View>
+                    <Text
+                        style={styles.mastAmount}
+                        accessibilityRole="header"
+                    >
+                        {leftoverLabel}
                     </Text>
-                    <Text style={styles.mastAmount}>{leftoverLabel}</Text>
                     <Text style={styles.mastCaption}>
                         {okay
                             ? "Income covers spending, bills, debts, and savings so far"
@@ -244,8 +271,9 @@ export default function HomeScreen() {
                     />
 
                     {needsFirstPaycheck ? (
-                        <View style={{ marginTop: theme.space.lg, marginBottom: theme.space.md }}>
+                        <View style={styles.emptyWrap}>
                             <DashboardEmpty
+                                icon="cash-outline"
                                 title="Add your first paycheck"
                                 text="Leftover starts at zero until you log income. Activity is the place to record money in."
                                 actionLabel="Add first paycheck"
@@ -254,6 +282,11 @@ export default function HomeScreen() {
                         </View>
                     ) : null}
 
+                    <DueNowSection />
+
+                    <Text style={[dashboard.sectionLabel, styles.calLabel]}>
+                        Calendar
+                    </Text>
                     <MonthGrid
                         month={startOfMonth(
                             parseIsoDate(anchorIso) ?? range.start
@@ -269,13 +302,16 @@ export default function HomeScreen() {
                         <Text style={dashboard.sectionLabel}>
                             Cash so far
                         </Text>
-                        {lines.map((line) => (
+                        {lines.map((line, index) => (
                             <Pressable
                                 key={line.label}
                                 onPress={() => router.push(line.href)}
+                                accessibilityRole="button"
+                                accessibilityLabel={`${line.label}, ${formatMoney(line.value, { compact: true, sign: line.sign })}`}
                                 style={({ pressed }) => [
                                     styles.line,
-                                    pressed && { opacity: 0.85 },
+                                    index < lines.length - 1 && styles.lineGap,
+                                    pressed && styles.linePressed,
                                 ]}
                             >
                                 <View style={styles.lineTop}>
@@ -318,8 +354,8 @@ export default function HomeScreen() {
                                     styles.totalValue,
                                     {
                                         color: okay
-                                            ? theme.color.successText
-                                            : theme.color.danger,
+                                            ? theme.intent.positive.fg
+                                            : theme.intent.negative.fg,
                                     },
                                 ]}
                             >
@@ -331,45 +367,30 @@ export default function HomeScreen() {
                     <SpendByCategoryChart rows={categorySpend} />
                     <MonthTrendChart points={monthTrend} />
 
-                    <Pressable
-                        onPress={() => router.push("/(tabs)/activity")}
-                        style={({ pressed }) => [
-                            styles.cta,
-                            pressed && { opacity: 0.94 },
-                        ]}
-                    >
-                        <View>
-                            <Text style={dashboard.cardTitle}>Log activity</Text>
-                            <Text style={dashboard.cardSubtitle}>
-                                Income and everyday spending
-                            </Text>
-                        </View>
-                        <Ionicons
-                            name="arrow-forward"
-                            size={18}
-                            color={theme.color.ink}
+                    <View style={styles.actions}>
+                        <AppButton
+                            label="Log activity"
+                            onPress={() => router.push("/(tabs)/activity")}
                         />
-                    </Pressable>
-
-                    <Pressable
-                        onPress={() => router.push("/(tabs)/plans")}
-                        style={({ pressed }) => [
-                            styles.cta,
-                            pressed && { opacity: 0.94 },
-                        ]}
-                    >
-                        <View>
-                            <Text style={dashboard.cardTitle}>Review plans</Text>
-                            <Text style={dashboard.cardSubtitle}>
-                                Bills, savings, and debts
+                        <Pressable
+                            onPress={() => router.push("/(tabs)/plans")}
+                            accessibilityRole="button"
+                            accessibilityLabel="Review plans"
+                            style={({ pressed }) => [
+                                styles.secondaryAction,
+                                pressed && { opacity: 0.7 },
+                            ]}
+                        >
+                            <Text style={styles.secondaryActionText}>
+                                Review plans
                             </Text>
-                        </View>
-                        <Ionicons
-                            name="arrow-forward"
-                            size={18}
-                            color={theme.color.ink}
-                        />
-                    </Pressable>
+                            <Ionicons
+                                name="arrow-forward"
+                                size={16}
+                                color={theme.text.primary}
+                            />
+                        </Pressable>
+                    </View>
                 </View>
             </ScrollView>
         </View>
@@ -378,120 +399,124 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
     scroll: {
-        paddingBottom: 40,
+        paddingBottom: theme.space.xl,
     },
     masthead: {
-        backgroundColor: theme.color.hero,
-        paddingHorizontal: theme.space.xl,
+        backgroundColor: theme.bg.inverse,
+        paddingHorizontal: theme.space.screenX,
         paddingTop: theme.space.screenTop,
-        paddingBottom: theme.space.xxl,
+        paddingBottom: theme.space.lg,
     },
-    mastKicker: {
-        ...type.kicker,
+    mastEyebrow: {
+        flexDirection: "row",
+        alignItems: "baseline",
+        justifyContent: "space-between",
+        gap: theme.space.md,
         marginBottom: theme.space.sm,
     },
-    mastValue: {
-        color: theme.color.onHero,
-        fontSize: 22,
-        fontWeight: theme.font.weight.bold,
-        letterSpacing: -0.3,
+    mastKicker: text.kicker,
+    mastStatus: {
+        ...text.kicker,
+        fontWeight: theme.fontWeight.bold,
     },
-    mastAmount: {
-        color: theme.color.onHero,
-        fontSize: 44,
-        fontWeight: theme.font.weight.bold,
-        letterSpacing: -1,
-        marginTop: theme.space.xs,
-    },
+    mastAmount: text.hero,
     mastCaption: {
-        color: theme.color.onHeroCaption,
-        fontSize: theme.font.caption,
-        lineHeight: 18,
+        color: theme.text.inverseSecondary,
+        fontSize: theme.fontSize.xs,
+        lineHeight: theme.lineHeight.xs,
         marginTop: theme.space.sm,
-        maxWidth: 280,
+        maxWidth: 320,
     },
     mastNav: {
-        marginTop: theme.space.xl,
+        marginTop: theme.space.lg,
         paddingTop: theme.space.md,
         borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: theme.color.heroTrack,
+        borderTopColor: theme.border.inverse,
     },
     mastCompactSticky: {
-        position: "absolute",
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 20,
-        backgroundColor: theme.color.hero,
-        paddingHorizontal: theme.space.xl,
         paddingTop: theme.space.screenTop,
         paddingBottom: theme.space.md,
     },
     body: {
+        width: "100%",
+        maxWidth: theme.size.readable,
+        alignSelf: "center",
         paddingHorizontal: theme.space.screenX,
-        paddingTop: theme.space.lg,
+        paddingTop: theme.space.md,
+    },
+    emptyWrap: {
+        marginTop: theme.space.md,
+        marginBottom: theme.space.sm,
+    },
+    calLabel: {
+        marginTop: theme.space.md,
+        marginBottom: theme.space.sm,
     },
     statement: {
-        backgroundColor: theme.color.surface,
-        borderRadius: theme.radius.lg,
-        paddingHorizontal: theme.space.lg,
-        paddingTop: theme.space.lg,
-        paddingBottom: theme.space.md,
         marginTop: theme.space.lg,
-        marginBottom: theme.space.md,
+        marginBottom: theme.space.sm,
     },
     line: {
-        marginBottom: theme.space.md,
+        paddingVertical: theme.space.sm,
+    },
+    lineGap: {
+        marginBottom: theme.space.sm,
+    },
+    linePressed: {
+        opacity: 0.85,
     },
     lineTop: {
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "baseline",
-        marginBottom: 6,
+        marginBottom: theme.space.sm,
     },
     lineLabel: {
-        color: theme.color.ink,
-        fontSize: theme.font.body,
-        fontWeight: theme.font.weight.semibold,
+        ...text.body,
+        fontWeight: theme.fontWeight.semibold,
     },
     lineValue: {
-        fontSize: theme.font.body,
-        fontWeight: theme.font.weight.bold,
+        ...text.money,
+        fontSize: theme.fontSize.sm,
+        lineHeight: theme.lineHeight.sm,
     },
     lineIn: {
-        color: theme.color.successText,
+        color: theme.intent.positive.fg,
     },
     lineOut: {
-        color: theme.color.ink,
+        color: theme.text.primary,
     },
     totalRow: {
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
-        borderTopWidth: 1,
-        borderTopColor: theme.color.border,
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: theme.border.subtle,
         paddingTop: theme.space.md,
-        marginTop: theme.space.xs,
-        marginBottom: theme.space.sm,
+        marginTop: theme.space.sm,
     },
-    totalLabel: {
-        ...type.sectionLabel,
-        marginTop: 0,
-        marginBottom: 0,
-    },
+    totalLabel: text.sectionLabel,
     totalValue: {
-        fontSize: 22,
-        fontWeight: theme.font.weight.bold,
-        letterSpacing: -0.3,
+        ...text.money,
+        fontSize: theme.fontSize.xl,
+        lineHeight: theme.lineHeight.xl,
     },
-    cta: {
-        backgroundColor: theme.color.surface,
-        borderRadius: theme.radius.lg,
-        paddingHorizontal: theme.space.lg,
-        paddingVertical: theme.space.lg,
-        marginBottom: theme.space.md,
+    actions: {
+        marginTop: theme.space.md,
+        marginBottom: theme.space.sm,
+        gap: theme.space.sm,
+    },
+    secondaryAction: {
+        minHeight: theme.size.tap,
         flexDirection: "row",
         alignItems: "center",
-        justifyContent: "space-between",
+        justifyContent: "center",
+        gap: theme.space.sm,
+    },
+    secondaryActionText: {
+        color: theme.text.primary,
+        fontSize: theme.fontSize.md,
+        lineHeight: theme.lineHeight.md,
+        fontWeight: theme.fontWeight.semibold,
     },
 });

@@ -1,4 +1,6 @@
-import { theme } from "@/theme";
+import { theme } from "@/design";
+import { DueActionProvider } from "@/app/contexts/DueActionContext";
+import { NotificationTapHandler } from "@/components/NotificationTapHandler";
 import { ReminderSync } from "@/components/ReminderSync";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { Tabs } from "expo-router";
@@ -20,18 +22,20 @@ export default function TabLayout() {
                             <BillsProvider>
                                 <ExpensesProvider>
                                     <ReminderSync />
-                                    <Tabs
+                                    <DueActionProvider>
+                                        <NotificationTapHandler />
+                                        <Tabs
                                         screenOptions={{
-                                            tabBarActiveTintColor: theme.color.ink,
-                                            tabBarInactiveTintColor: theme.color.soft,
+                                            tabBarActiveTintColor: theme.action.primary.bg,
+                                            tabBarInactiveTintColor: theme.text.tertiary,
                                             headerShown: false,
                                             tabBarStyle: {
-                                                backgroundColor: theme.color.surface,
-                                                borderTopColor: theme.color.border,
+                                                backgroundColor: theme.bg.surface,
+                                                borderTopColor: theme.border.subtle,
                                             },
                                             tabBarLabelStyle: {
-                                                fontSize: 11,
-                                                fontWeight: "600",
+                                                fontSize: theme.fontSize.xs,
+                                                fontWeight: theme.fontWeight.semibold,
                                             },
                                         }}
                                     >
@@ -113,6 +117,7 @@ export default function TabLayout() {
                                         options={{ href: null }}
                                     />
                                 </Tabs>
+                                    </DueActionProvider>
                             </ExpensesProvider>
                         </BillsProvider>
                     </DebtsProvider>

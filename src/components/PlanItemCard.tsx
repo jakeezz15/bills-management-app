@@ -1,3 +1,4 @@
+import { theme } from "@/design";
 import { dashboard } from "@/styles/dashboard";
 import { Pressable, Text, View } from "react-native";
 
@@ -31,10 +32,11 @@ export function PlanItemCard({
     return (
         <Pressable
             onPress={onPress}
+            accessibilityRole="button"
             style={({ pressed }) => [dashboard.card, pressed && { opacity: 0.94 }]}
         >
             <View style={dashboard.cardTop}>
-                <View style={{ flex: 1, marginRight: 12 }}>
+                <View style={{ flex: 1, marginRight: theme.space.md }}>
                     <Text style={dashboard.cardTitle} numberOfLines={1}>
                         {title}
                     </Text>
@@ -69,6 +71,7 @@ export function PlanItemCard({
                             event.stopPropagation();
                             onChip();
                         }}
+                        accessibilityRole="button"
                         style={({ pressed }) => [
                             dashboard.chip,
                             pressed && { opacity: 0.75 },

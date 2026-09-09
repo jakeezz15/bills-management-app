@@ -2,7 +2,7 @@ import { useIncome } from "@/app/contexts/IncomeContext";
 import { useLocale } from "@/app/contexts/LocaleContext";
 import { DateField } from "@/components/DateField";
 import { FormDialog } from "@/components/FormDialog";
-import { modalForm } from "@/styles/modal-form";
+import { form, formColors } from "@/styles/form";
 import { Income } from "@/types/income";
 import { parseIsoDate, todayIsoDate } from "@/utils/date";
 import { currencySymbol } from "@/utils/money";
@@ -103,30 +103,29 @@ export default function IncomeForm({
                     : undefined
             }
         >
-            <View style={modalForm.dialogField}>
-                <Text style={modalForm.dialogLabel}>Source</Text>
+            <View style={form.field}>
+                <Text style={form.label}>Source</Text>
                 <TextInput
                     style={[
-                        modalForm.dialogInput,
+                        form.input,
                         focusedInput === "source" &&
-                            modalForm.dialogInputFocused,
-                        sourceHasError && modalForm.dialogInputError,
+                            form.inputFocused,
+                        sourceHasError && form.inputError,
                     ]}
                     placeholder="Salary, freelance…"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={formColors.placeholder}
                     value={source}
                     onChangeText={setSource}
                     onFocus={() => setFocusedInput("source")}
                     onBlur={() => setFocusedInput(null)}
                 />
                 {sourceHasError && (
-                    <Text style={modalForm.errorText}>Source is required.</Text>
+                    <Text style={form.error}>Source is required.</Text>
                 )}
             </View>
 
-            <View style={modalForm.dialogField}>
+            <View style={form.field}>
                 <DateField
-                    layout="dialog"
                     label="Pay date"
                     value={date}
                     onChange={setDate}
@@ -135,20 +134,20 @@ export default function IncomeForm({
                 />
             </View>
 
-            <View style={modalForm.dialogField}>
-                <Text style={modalForm.dialogLabel}>Net (take-home)</Text>
+            <View style={form.field}>
+                <Text style={form.label}>Net (take-home)</Text>
                 <View
                     style={[
-                        modalForm.dialogAmountWrap,
-                        focusedInput === "net" && modalForm.dialogInputFocused,
-                        netHasError && modalForm.dialogInputError,
+                        form.amountWrap,
+                        focusedInput === "net" && form.inputFocused,
+                        netHasError && form.inputError,
                     ]}
                 >
-                    <Text style={modalForm.dialogAmountPrefix}>{symbol}</Text>
+                    <Text style={form.amountPrefix}>{symbol}</Text>
                     <TextInput
-                        style={modalForm.dialogAmountInput}
+                        style={form.amountInput}
                         placeholder="0.00"
-                        placeholderTextColor="#CBD5E1"
+                        placeholderTextColor={formColors.placeholder}
                         value={net}
                         onChangeText={setNet}
                         keyboardType="decimal-pad"
@@ -157,26 +156,26 @@ export default function IncomeForm({
                     />
                 </View>
                 {netHasError && (
-                    <Text style={modalForm.errorText}>
+                    <Text style={form.error}>
                         Net amount is required.
                     </Text>
                 )}
             </View>
 
-            <View style={modalForm.dialogField}>
-                <Text style={modalForm.dialogLabel}>Gross (optional)</Text>
+            <View style={form.field}>
+                <Text style={form.label}>Gross (optional)</Text>
                 <View
                     style={[
-                        modalForm.dialogAmountWrap,
+                        form.amountWrap,
                         focusedInput === "gross" &&
-                            modalForm.dialogInputFocused,
+                            form.inputFocused,
                     ]}
                 >
-                    <Text style={modalForm.dialogAmountPrefix}>{symbol}</Text>
+                    <Text style={form.amountPrefix}>{symbol}</Text>
                     <TextInput
-                        style={modalForm.dialogAmountInput}
+                        style={form.amountInput}
                         placeholder="Defaults to net"
-                        placeholderTextColor="#CBD5E1"
+                        placeholderTextColor={formColors.placeholder}
                         value={gross}
                         onChangeText={setGross}
                         keyboardType="decimal-pad"

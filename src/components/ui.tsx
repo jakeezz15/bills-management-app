@@ -1,6 +1,6 @@
 import { dashboard } from "@/styles/dashboard";
 import { screenStyles } from "@/styles/screen";
-import { theme } from "@/theme";
+import { theme } from "@/design";
 import { ReactNode } from "react";
 import { Text, View } from "react-native";
 
@@ -38,13 +38,16 @@ export function TabScaffold({
             <View style={dashboard.tabHeader}>
                 <Text style={screenStyles.title}>{title}</Text>
                 <Text
-                    style={[screenStyles.screenDescription, { marginBottom: 14 }]}
+                    style={[
+                        screenStyles.screenDescription,
+                        { marginBottom: theme.space.md },
+                    ]}
                 >
                     {subtitle}
                 </Text>
                 {segments}
             </View>
-            <View style={{ flex: 1, backgroundColor: theme.color.canvas }}>
+            <View style={{ flex: 1, backgroundColor: theme.bg.canvas }}>
                 {children}
             </View>
         </View>

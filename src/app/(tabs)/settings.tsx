@@ -5,7 +5,7 @@ import {
     SettingsSection,
 } from "@/components/SettingsList";
 import { dashboard } from "@/styles/dashboard";
-import { theme } from "@/theme";
+import { text, theme } from "@/design";
 import { exportBackup, importBackup } from "@/services/backup";
 import {
     areDueRemindersEnabled,
@@ -344,21 +344,19 @@ const styles = {
     content: {
         paddingHorizontal: theme.space.screenX,
         paddingTop: theme.space.screenTop,
-        paddingBottom: 40,
+        paddingBottom: theme.space.xl,
     },
     pageTitle: {
-        color: theme.color.ink,
-        fontSize: 32,
-        fontWeight: "700" as const,
-        letterSpacing: -0.6,
-        marginBottom: theme.space.xl,
+        ...text.display,
+        marginBottom: theme.space.lg,
         marginLeft: theme.space.xs,
     },
     footer: {
-        color: theme.color.soft,
-        fontSize: 12,
+        color: theme.text.tertiary,
+        fontSize: theme.fontSize.xs,
+        lineHeight: theme.lineHeight.xs,
         textAlign: "center" as const,
         marginTop: theme.space.sm,
-        marginBottom: theme.space.lg,
+        marginBottom: theme.space.md,
     },
 };

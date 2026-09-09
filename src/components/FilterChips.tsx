@@ -1,5 +1,6 @@
-import { modalForm } from "@/styles/modal-form";
-import { ScrollView, Pressable, Text, View, StyleSheet } from "react-native";
+import { theme } from "@/design";
+import { form } from "@/styles/form";
+import { ScrollView, Pressable, Text, StyleSheet } from "react-native";
 
 type FilterChipsProps = {
     options: readonly string[];
@@ -23,20 +24,17 @@ export function FilterChips({
         <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.row}
+            contentContainerStyle={[form.chipRow, styles.row]}
         >
             {showAll && (
                 <Pressable
                     onPress={() => onSelect(null)}
-                    style={[
-                        modalForm.typeChip,
-                        selected === null && modalForm.typeChipSelected,
-                    ]}
+                    style={[form.chip, selected === null && form.chipSelected]}
                 >
                     <Text
                         style={[
-                            modalForm.typeChipText,
-                            selected === null && modalForm.typeChipTextSelected,
+                            form.chipText,
+                            selected === null && form.chipTextSelected,
                         ]}
                     >
                         {allLabel}
@@ -57,15 +55,12 @@ export function FilterChips({
                             }
                             onSelect(option);
                         }}
-                        style={[
-                            modalForm.typeChip,
-                            isSelected && modalForm.typeChipSelected,
-                        ]}
+                        style={[form.chip, isSelected && form.chipSelected]}
                     >
                         <Text
                             style={[
-                                modalForm.typeChipText,
-                                isSelected && modalForm.typeChipTextSelected,
+                                form.chipText,
+                                isSelected && form.chipTextSelected,
                             ]}
                         >
                             {option}
@@ -77,52 +72,8 @@ export function FilterChips({
     );
 }
 
-/** Paid status chips that always keep one selection (All / Unpaid / Paid). */
-type PaidFilterChipsProps = {
-    options: readonly string[];
-    selected: string;
-    onSelect: (value: string) => void;
-};
-
-export function PaidFilterChips({
-    options,
-    selected,
-    onSelect,
-}: PaidFilterChipsProps) {
-    return (
-        <View style={styles.row}>
-            {options.map((option) => {
-                const isSelected = selected === option;
-
-                return (
-                    <Pressable
-                        key={option}
-                        onPress={() => onSelect(option)}
-                        style={[
-                            modalForm.typeChip,
-                            isSelected && modalForm.typeChipSelected,
-                        ]}
-                    >
-                        <Text
-                            style={[
-                                modalForm.typeChipText,
-                                isSelected && modalForm.typeChipTextSelected,
-                            ]}
-                        >
-                            {option}
-                        </Text>
-                    </Pressable>
-                );
-            })}
-        </View>
-    );
-}
-
 const styles = StyleSheet.create({
     row: {
-        flexDirection: "row",
-        flexWrap: "wrap",
-        gap: 8,
-        marginBottom: 12,
+        marginBottom: theme.space.md,
     },
 });

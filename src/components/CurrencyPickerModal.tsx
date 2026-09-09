@@ -1,4 +1,4 @@
-import { theme } from "@/theme";
+import { text, theme } from "@/design";
 import {
     CurrencyCode,
     CurrencyOption,
@@ -61,6 +61,7 @@ export function CurrencyPickerModal({
                     onSelect(item.code);
                     handleClose();
                 }}
+                accessibilityRole="button"
                 style={({ pressed }) => [
                     styles.row,
                     isSelected && styles.rowSelected,
@@ -80,7 +81,7 @@ export function CurrencyPickerModal({
                     <Ionicons
                         name="checkmark-circle"
                         size={22}
-                        color={theme.color.successText}
+                        color={theme.intent.positive.fg}
                     />
                 ) : (
                     <View style={styles.checkSpacer} />
@@ -100,8 +101,8 @@ export function CurrencyPickerModal({
                 style={[
                     styles.sheet,
                     {
-                        paddingTop: Math.max(insets.top, 12),
-                        paddingBottom: Math.max(insets.bottom, 12),
+                        paddingTop: Math.max(insets.top, theme.space.md),
+                        paddingBottom: Math.max(insets.bottom, theme.space.md),
                     },
                 ]}
             >
@@ -114,12 +115,13 @@ export function CurrencyPickerModal({
                         onPress={handleClose}
                         hitSlop={10}
                         style={styles.closeBtn}
+                        accessibilityRole="button"
                         accessibilityLabel="Close"
                     >
                         <Ionicons
                             name="close"
                             size={22}
-                            color={theme.color.ink}
+                            color={theme.text.primary}
                         />
                     </Pressable>
                 </View>
@@ -134,14 +136,14 @@ export function CurrencyPickerModal({
                     <Ionicons
                         name="search"
                         size={18}
-                        color={theme.color.soft}
+                        color={theme.text.tertiary}
                     />
                     <TextInput
                         style={styles.searchInput}
                         value={query}
                         onChangeText={setQuery}
                         placeholder="Search code or name"
-                        placeholderTextColor={theme.color.soft}
+                        placeholderTextColor={theme.text.tertiary}
                         autoCorrect={false}
                         autoCapitalize="none"
                         clearButtonMode="while-editing"
@@ -169,7 +171,7 @@ export function CurrencyPickerModal({
 const styles = StyleSheet.create({
     sheet: {
         flex: 1,
-        backgroundColor: theme.color.canvas,
+        backgroundColor: theme.bg.canvas,
     },
     header: {
         flexDirection: "row",
@@ -177,32 +179,25 @@ const styles = StyleSheet.create({
         paddingHorizontal: theme.space.screenX,
         marginBottom: theme.space.sm,
     },
-    kicker: {
-        color: theme.color.muted,
-        fontSize: 12,
-        fontWeight: theme.font.weight.bold,
-        letterSpacing: 0.4,
-        textTransform: "uppercase",
-    },
+    kicker: text.sectionLabel,
     title: {
-        color: theme.color.ink,
-        fontSize: 28,
-        fontWeight: theme.font.weight.bold,
+        color: theme.text.primary,
+        fontSize: theme.fontSize.xl,
+        lineHeight: theme.lineHeight.xl,
+        fontWeight: theme.fontWeight.bold,
         letterSpacing: -0.4,
-        marginTop: 2,
+        marginTop: theme.space.xs,
     },
     closeBtn: {
         width: 36,
         height: 36,
-        borderRadius: 18,
-        backgroundColor: theme.color.surface,
+        borderRadius: theme.radius.pill,
+        backgroundColor: theme.bg.surface,
         alignItems: "center",
         justifyContent: "center",
     },
     hint: {
-        color: theme.color.muted,
-        fontSize: 13,
-        lineHeight: 18,
+        ...text.caption,
         paddingHorizontal: theme.space.screenX,
         marginBottom: theme.space.md,
     },
@@ -213,33 +208,33 @@ const styles = StyleSheet.create({
         marginHorizontal: theme.space.screenX,
         marginBottom: theme.space.md,
         paddingHorizontal: theme.space.md,
-        minHeight: 44,
-        borderRadius: theme.radius.md,
-        backgroundColor: theme.color.surface,
+        minHeight: theme.size.tap,
+        borderRadius: theme.radius.sm,
+        backgroundColor: theme.bg.surface,
         borderWidth: 1,
-        borderColor: theme.color.border,
+        borderColor: theme.border.subtle,
     },
     searchInput: {
         flex: 1,
-        color: theme.color.ink,
-        fontSize: 16,
-        paddingVertical: 10,
+        color: theme.text.primary,
+        fontSize: theme.fontSize.md,
+        paddingVertical: theme.space.sm,
     },
     listContent: {
         paddingHorizontal: theme.space.screenX,
-        paddingBottom: 24,
+        paddingBottom: theme.space.lg,
     },
     row: {
         flexDirection: "row",
         alignItems: "center",
         gap: theme.space.sm,
-        backgroundColor: theme.color.surface,
-        paddingHorizontal: theme.space.lg,
-        paddingVertical: 14,
-        minHeight: 56,
+        backgroundColor: theme.bg.surface,
+        paddingHorizontal: theme.space.md,
+        paddingVertical: theme.space.md,
+        minHeight: theme.size.fab,
     },
     rowSelected: {
-        backgroundColor: "#ECFDF5",
+        backgroundColor: theme.intent.positive.bg,
     },
     rowPressed: {
         opacity: 0.9,
@@ -248,32 +243,27 @@ const styles = StyleSheet.create({
         flex: 1,
         minWidth: 0,
     },
-    rowCode: {
-        color: theme.color.ink,
-        fontSize: 16,
-        fontWeight: theme.font.weight.bold,
-    },
+    rowCode: text.itemTitle,
     rowLabel: {
-        color: theme.color.muted,
-        fontSize: 13,
-        marginTop: 2,
+        ...text.caption,
+        marginTop: theme.space.xs,
     },
     rowSample: {
-        color: theme.color.soft,
-        fontSize: 13,
-        fontWeight: theme.font.weight.semibold,
+        color: theme.text.tertiary,
+        fontSize: theme.fontSize.xs,
+        lineHeight: theme.lineHeight.xs,
+        fontWeight: theme.fontWeight.semibold,
     },
     checkSpacer: {
         width: 22,
     },
     separator: {
         height: StyleSheet.hairlineWidth,
-        backgroundColor: theme.color.border,
+        backgroundColor: theme.border.subtle,
     },
     empty: {
-        color: theme.color.muted,
+        ...text.bodyMuted,
         textAlign: "center",
-        marginTop: 40,
-        fontSize: 14,
+        marginTop: theme.space.xl,
     },
 });

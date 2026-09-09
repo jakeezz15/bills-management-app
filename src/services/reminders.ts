@@ -108,6 +108,30 @@ export async function requestReminderPermission(): Promise<boolean> {
     return next.granted;
 }
 
+export type DueReminderPayload = {
+    type: "bill" | "debt";
+    id: string;
+};
+
+export function parseDueReminderData(
+    data: unknown
+): DueReminderPayload | null {
+    if (!data || typeof data !== "object") {
+        return null;
+    }
+    const record = data as Record<string, unknown>;
+    const type = record.type;
+    const id = record.id;
+    if (
+        (type === "bill" || type === "debt") &&
+        typeof id === "string" &&
+        id.length > 0
+    ) {
+        return { type, id };
+    }
+    return null;
+}
+
 function clampDueDay(dueDay: number): number {
     return Math.min(Math.max(Math.floor(dueDay), 1), 28);
 }
@@ -117,13 +141,15 @@ async function scheduleMonthly(
     identifier: string,
     title: string,
     body: string,
-    dueDay: number
+    dueDay: number,
+    data: DueReminderPayload
 ): Promise<void> {
     await Notifications.scheduleNotificationAsync({
         identifier,
         content: {
             title,
             body,
+            data,
             sound: true,
             ...(Platform.OS === "android" ? { channelId: CHANNEL_ID } : {}),
         },
@@ -185,7 +211,8 @@ export async function syncDueReminders(
             `bill-${bill.id}`,
             "Bill due today",
             `${bill.name} · ${formatMoney(bill.amount, currency, { compact: true })}`,
-            bill.dueDay
+            bill.dueDay,
+            { type: "bill", id: bill.id }
         );
         scheduled += 1;
     }
@@ -199,7 +226,8 @@ export async function syncDueReminders(
             `debt-${debt.id}`,
             "Debt payment due",
             `${debt.name} · min ${formatMoney(debt.minimumPayment, currency, { compact: true })}`,
-            debt.dueDay
+            debt.dueDay,
+            { type: "debt", id: debt.id }
         );
         scheduled += 1;
     }
@@ -273,4 +301,68 @@ export async function sendTestReminder(): Promise<{
         },
     });
     return { ok: true };
+}
+
+type NotificationResponseLike = {
+    notification: {
+        request: {
+            identifier: string;
+            content: { data?: unknown };
+        };
+    };
+};
+
+/**
+ * Cold start + in-app taps on due-day reminders.
+ * Test reminders have no payload and are ignored.
+ */
+export function subscribeToDueReminderTaps(
+    onTap: (payload: DueReminderPayload) => void
+): () => void {
+    if (!remindersSupported()) {
+        return () => {};
+    }
+
+    let cancelled = false;
+    let subscription: { remove: () => void } | undefined;
+    let handledKey: string | null = null;
+
+    const handleResponse = (response: NotificationResponseLike) => {
+        const key = response.notification.request.identifier;
+        if (handledKey === key) {
+            return;
+        }
+        const payload = parseDueReminderData(
+            response.notification.request.content.data
+        );
+        if (!payload) {
+            return;
+        }
+        handledKey = key;
+        onTap(payload);
+    };
+
+    void loadNotifications().then((Notifications) => {
+        if (!Notifications || cancelled) {
+            return;
+        }
+
+        const last = Notifications.getLastNotificationResponse();
+        if (last) {
+            handleResponse(last);
+            Notifications.clearLastNotificationResponse();
+        }
+
+        subscription = Notifications.addNotificationResponseReceivedListener(
+            (response) => {
+                handleResponse(response);
+                Notifications.clearLastNotificationResponse();
+            }
+        );
+    });
+
+    return () => {
+        cancelled = true;
+        subscription?.remove();
+    };
 }

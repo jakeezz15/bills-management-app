@@ -3,7 +3,7 @@ import { useSavings } from "@/app/contexts/SavingsContext";
 import { DateField } from "@/components/DateField";
 import { FormDialog } from "@/components/FormDialog";
 import { buttonStyle } from "@/styles/button-style";
-import { modalForm } from "@/styles/modal-form";
+import { form, formColors } from "@/styles/form";
 import { SavingsGoal } from "@/types/savings";
 import { parseIsoDate, todayIsoDate } from "@/utils/date";
 import { getLatestSavingsContributionInMonth } from "@/utils/filters";
@@ -174,38 +174,38 @@ export default function SavingsForm({
             }
         >
             {savingsInfo ? (
-                <View style={[modalForm.actionCard, modalForm.actionCardLead]}>
-                    <Text style={modalForm.actionCardTitle}>
+                <View style={[form.actionCard, form.actionCardLead]}>
+                    <Text style={form.actionCardTitle}>
                         {latestThisMonth
                             ? "Logged this month"
                             : "Log a contribution"}
                     </Text>
-                    <Text style={modalForm.actionCardCaption}>
+                    <Text style={form.actionCardCaption}>
                         {latestThisMonth
                             ? `Recorded ${formatMoney(latestThisMonth.amount)}. Undo if you logged this by mistake, or log another amount.`
                             : "Only this amount reduces leftover — like marking a bill paid. Change it for a one-off."}
                     </Text>
-                    <View style={modalForm.actionCardField}>
+                    <View style={form.field}>
                         <View
                             style={[
-                                modalForm.dialogAmountWrap,
+                                form.amountWrap,
                                 focusedInput === "logAmount" &&
-                                    modalForm.dialogInputFocused,
+                                    form.inputFocused,
                                 logAmountHasError &&
-                                    modalForm.dialogInputError,
+                                    form.inputError,
                             ]}
                         >
-                            <Text style={modalForm.dialogAmountPrefix}>
+                            <Text style={form.amountPrefix}>
                                 {symbol}
                             </Text>
                             <TextInput
-                                style={modalForm.dialogAmountInput}
+                                style={form.amountInput}
                                 placeholder={
                                     plannedAmount > 0
                                         ? plannedAmount.toString()
                                         : "0.00"
                                 }
-                                placeholderTextColor="#CBD5E1"
+                                placeholderTextColor={formColors.placeholder}
                                 value={logAmount}
                                 onChangeText={setLogAmount}
                                 keyboardType="decimal-pad"
@@ -214,19 +214,13 @@ export default function SavingsForm({
                             />
                         </View>
                         {logAmountHasError ? (
-                            <Text
-                                style={[
-                                    modalForm.errorText,
-                                    { marginTop: 8, marginBottom: 0 },
-                                ]}
-                            >
+                            <Text style={form.error}>
                                 Enter an amount to log.
                             </Text>
                         ) : null}
                     </View>
-                    <View style={modalForm.actionCardField}>
+                    <View style={form.field}>
                         <DateField
-                            layout="dialog"
                             label="Date"
                             value={logDate}
                             onChange={setLogDate}
@@ -237,7 +231,8 @@ export default function SavingsForm({
                     {latestThisMonth ? (
                         <Pressable
                             style={({ pressed }) => [
-                                modalForm.actionCardButton,
+                                form.actionCardButton,
+                                form.actionCardButtonSpacer,
                                 pressed && buttonStyle.buttonPressed,
                             ]}
                             onPress={() => {
@@ -253,12 +248,9 @@ export default function SavingsForm({
                     ) : null}
                     <Pressable
                         style={({ pressed }) => [
-                            modalForm.actionCardButton,
+                            form.actionCardButton,
                             pressed && buttonStyle.buttonPressed,
-                            latestThisMonth && { backgroundColor: "#334155" },
-                            latestThisMonth
-                                ? modalForm.actionCardButtonSpacer
-                                : null,
+                            latestThisMonth && form.actionCardButtonMuted,
                         ]}
                         onPress={() => {
                             if (latestThisMonth) {
@@ -279,31 +271,30 @@ export default function SavingsForm({
                 </View>
             ) : null}
 
-            <View style={modalForm.dialogField}>
-                <Text style={modalForm.dialogLabel}>Name</Text>
+            <View style={form.field}>
+                <Text style={form.label}>Name</Text>
                 <TextInput
                     style={[
-                        modalForm.dialogInput,
-                        focusedInput === "name" && modalForm.dialogInputFocused,
-                        nameHasError && modalForm.dialogInputError,
+                        form.input,
+                        focusedInput === "name" && form.inputFocused,
+                        nameHasError && form.inputError,
                     ]}
                     placeholder="Emergency fund"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={formColors.placeholder}
                     value={name}
                     onChangeText={setName}
                     onFocus={() => setFocusedInput("name")}
                     onBlur={() => setFocusedInput(null)}
                 />
                 {nameHasError && (
-                    <Text style={modalForm.errorText}>
+                    <Text style={form.error}>
                         Savings name is required.
                     </Text>
                 )}
             </View>
 
-            <View style={modalForm.dialogField}>
+            <View style={form.field}>
                 <DateField
-                    layout="dialog"
                     label="Start date"
                     value={startDate}
                     onChange={setStartDate}
@@ -312,21 +303,21 @@ export default function SavingsForm({
                 />
             </View>
 
-            <View style={modalForm.dialogField}>
-                <Text style={modalForm.dialogLabel}>Target</Text>
+            <View style={form.field}>
+                <Text style={form.label}>Target</Text>
                 <View
                     style={[
-                        modalForm.dialogAmountWrap,
+                        form.amountWrap,
                         focusedInput === "targetAmount" &&
-                            modalForm.dialogInputFocused,
-                        targetHasError && modalForm.dialogInputError,
+                            form.inputFocused,
+                        targetHasError && form.inputError,
                     ]}
                 >
-                    <Text style={modalForm.dialogAmountPrefix}>{symbol}</Text>
+                    <Text style={form.amountPrefix}>{symbol}</Text>
                     <TextInput
-                        style={modalForm.dialogAmountInput}
+                        style={form.amountInput}
                         placeholder="0.00"
-                        placeholderTextColor="#CBD5E1"
+                        placeholderTextColor={formColors.placeholder}
                         value={targetAmount}
                         onChangeText={setTargetAmount}
                         keyboardType="decimal-pad"
@@ -335,29 +326,29 @@ export default function SavingsForm({
                     />
                 </View>
                 {targetHasError && (
-                    <Text style={modalForm.errorText}>
+                    <Text style={form.error}>
                         Target amount is required.
                     </Text>
                 )}
             </View>
 
-            <View style={modalForm.dialogField}>
-                <Text style={modalForm.dialogLabel}>
+            <View style={form.field}>
+                <Text style={form.label}>
                     Already saved (opening balance)
                 </Text>
                 <View
                     style={[
-                        modalForm.dialogAmountWrap,
+                        form.amountWrap,
                         focusedInput === "currentAmount" &&
-                            modalForm.dialogInputFocused,
-                        currentHasError && modalForm.dialogInputError,
+                            form.inputFocused,
+                        currentHasError && form.inputError,
                     ]}
                 >
-                    <Text style={modalForm.dialogAmountPrefix}>{symbol}</Text>
-                        <TextInput
-                            style={modalForm.dialogAmountInput}
+                    <Text style={form.amountPrefix}>{symbol}</Text>
+                    <TextInput
+                        style={form.amountInput}
                         placeholder="0.00"
-                        placeholderTextColor="#CBD5E1"
+                        placeholderTextColor={formColors.placeholder}
                         value={currentAmount}
                         onChangeText={setCurrentAmount}
                         keyboardType="decimal-pad"
@@ -366,28 +357,28 @@ export default function SavingsForm({
                     />
                 </View>
                 {currentHasError && (
-                    <Text style={modalForm.errorText}>
+                    <Text style={form.error}>
                         Current amount is required.
                     </Text>
                 )}
             </View>
 
-            <View style={modalForm.dialogField}>
-                <Text style={modalForm.dialogLabel}>
+            <View style={form.field}>
+                <Text style={form.label}>
                     Planned monthly (optional)
                 </Text>
                 <View
                     style={[
-                        modalForm.dialogAmountWrap,
+                        form.amountWrap,
                         focusedInput === "monthlyContribution" &&
-                            modalForm.dialogInputFocused,
+                            form.inputFocused,
                     ]}
                 >
-                    <Text style={modalForm.dialogAmountPrefix}>{symbol}</Text>
-                        <TextInput
-                            style={modalForm.dialogAmountInput}
+                    <Text style={form.amountPrefix}>{symbol}</Text>
+                    <TextInput
+                        style={form.amountInput}
                         placeholder="0.00"
-                        placeholderTextColor="#CBD5E1"
+                        placeholderTextColor={formColors.placeholder}
                         value={monthlyContribution}
                         onChangeText={setMonthlyContribution}
                         keyboardType="decimal-pad"
@@ -395,7 +386,7 @@ export default function SavingsForm({
                         onBlur={() => setFocusedInput(null)}
                     />
                 </View>
-                <Text style={modalForm.helper}>
+                <Text style={form.helper}>
                     Used for pace estimates only. Leftover drops when you tap
                     Log.
                 </Text>

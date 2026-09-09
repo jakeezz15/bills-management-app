@@ -4,7 +4,7 @@ import { DateField } from "@/components/DateField";
 import { FilterChips } from "@/components/FilterChips";
 import { FormDialog } from "@/components/FormDialog";
 import { EXPENSE_CATEGORIES } from "@/constants/categories";
-import { modalForm } from "@/styles/modal-form";
+import { form, formColors } from "@/styles/form";
 import { Expense } from "@/types/expense";
 import { parseIsoDate, todayIsoDate } from "@/utils/date";
 import { currencySymbol } from "@/utils/money";
@@ -103,31 +103,30 @@ export default function ExpenseForm({
                     : undefined
             }
         >
-            <View style={modalForm.dialogField}>
-                <Text style={modalForm.dialogLabel}>Name</Text>
+            <View style={form.field}>
+                <Text style={form.label}>Name</Text>
                 <TextInput
                     style={[
-                        modalForm.dialogInput,
-                        focusedInput === "name" && modalForm.dialogInputFocused,
-                        nameHasError && modalForm.dialogInputError,
+                        form.input,
+                        focusedInput === "name" && form.inputFocused,
+                        nameHasError && form.inputError,
                     ]}
                     placeholder="Coffee, groceries…"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={formColors.placeholder}
                     value={name}
                     onChangeText={setName}
                     onFocus={() => setFocusedInput("name")}
                     onBlur={() => setFocusedInput(null)}
                 />
                 {nameHasError && (
-                    <Text style={modalForm.errorText}>
+                    <Text style={form.error}>
                         Expense name is required.
                     </Text>
                 )}
             </View>
 
-            <View style={modalForm.dialogField}>
+            <View style={form.field}>
                 <DateField
-                    layout="dialog"
                     label="Date spent"
                     value={date}
                     onChange={setDate}
@@ -136,8 +135,8 @@ export default function ExpenseForm({
                 />
             </View>
 
-            <View style={modalForm.dialogField}>
-                <Text style={modalForm.dialogLabel}>Category</Text>
+            <View style={form.field}>
+                <Text style={form.label}>Category</Text>
                 <FilterChips
                     options={EXPENSE_CATEGORIES}
                     selected={category}
@@ -146,21 +145,21 @@ export default function ExpenseForm({
                 />
             </View>
 
-            <View style={modalForm.dialogField}>
-                <Text style={modalForm.dialogLabel}>Amount</Text>
+            <View style={form.field}>
+                <Text style={form.label}>Amount</Text>
                 <View
                     style={[
-                        modalForm.dialogAmountWrap,
+                        form.amountWrap,
                         focusedInput === "amount" &&
-                            modalForm.dialogInputFocused,
-                        amountHasError && modalForm.dialogInputError,
+                            form.inputFocused,
+                        amountHasError && form.inputError,
                     ]}
                 >
-                    <Text style={modalForm.dialogAmountPrefix}>{symbol}</Text>
+                    <Text style={form.amountPrefix}>{symbol}</Text>
                     <TextInput
-                        style={modalForm.dialogAmountInput}
+                        style={form.amountInput}
                         placeholder="0.00"
-                        placeholderTextColor="#CBD5E1"
+                        placeholderTextColor={formColors.placeholder}
                         value={amount}
                         onChangeText={setAmount}
                         keyboardType="decimal-pad"
@@ -169,7 +168,7 @@ export default function ExpenseForm({
                     />
                 </View>
                 {amountHasError && (
-                    <Text style={modalForm.errorText}>Amount is required.</Text>
+                    <Text style={form.error}>Amount is required.</Text>
                 )}
             </View>
         </FormDialog>

@@ -1,5 +1,5 @@
 import { dashboard } from "@/styles/dashboard";
-import { theme } from "@/theme";
+import { theme } from "@/design";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { Pressable, Text, View, type StyleProp, type ViewStyle } from "react-native";
 
@@ -21,33 +21,36 @@ export function HeroPeriodNav({
         <View style={[dashboard.periodRow, style]}>
             <Pressable
                 onPress={() => onShift(-1)}
-                hitSlop={16}
+                accessibilityRole="button"
                 accessibilityLabel="Previous period"
                 style={dashboard.periodChevron}
             >
                 <Ionicons
                     name="chevron-back"
                     size={20}
-                    color={theme.color.onHeroMuted}
+                    color={theme.text.inverseTertiary}
                 />
             </Pressable>
             <Pressable
                 onPress={onResetToToday}
-                style={{ flex: 1 }}
+                accessibilityRole="button"
                 accessibilityLabel={`Current period ${label}. Tap to jump to today.`}
+                style={dashboard.periodLabelHit}
             >
-                <Text style={dashboard.periodLabel}>{label}</Text>
+                <Text style={dashboard.periodLabel} numberOfLines={1}>
+                    {label}
+                </Text>
             </Pressable>
             <Pressable
                 onPress={() => onShift(1)}
-                hitSlop={16}
+                accessibilityRole="button"
                 accessibilityLabel="Next period"
                 style={dashboard.periodChevron}
             >
                 <Ionicons
                     name="chevron-forward"
                     size={20}
-                    color={theme.color.onHeroMuted}
+                    color={theme.text.inverseTertiary}
                 />
             </Pressable>
         </View>

@@ -219,21 +219,34 @@ export function getLatestSavingsContributionInMonth(
         .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id))[0];
 }
 
-/** Days until due this month; negative means overdue this month. */
-export function getBillDueOffset(dueDay: number, today = new Date()): number {
+/**
+ * Calendar days from `from` to this due day in `inMonth`'s month.
+ * Negative means that due date is already past `from`.
+ */
+export function getBillDueOffset(
+    dueDay: number,
+    inMonth: Date,
+    from: Date = new Date()
+): number {
     const daysInMonth = new Date(
-        today.getFullYear(),
-        today.getMonth() + 1,
+        inMonth.getFullYear(),
+        inMonth.getMonth() + 1,
         0
     ).getDate();
     const day = Math.min(Math.max(dueDay, 1), daysInMonth);
-    return day - today.getDate();
+    const due = startOfDay(
+        new Date(inMonth.getFullYear(), inMonth.getMonth(), day)
+    );
+    const start = startOfDay(from);
+    return Math.round((due.getTime() - start.getTime()) / 86400000);
 }
 
 /**
  * Date used for Overdue / Due soon cues.
  * Current month → real today (not month-end). Past months → period end.
- * Future months → today so nothing is overdue early.
+ * Future months → today. getBillDueOffset then builds the due date in
+ * the viewed month, so a due day that already passed this month is not
+ * treated as overdue in a later month.
  */
 export function billDueStatusReference(
     periodAsOf: Date,
@@ -262,13 +275,14 @@ export function getBillDueStatus(
     bill: Bill,
     payments: BillPayment[] = [],
     soonWithinDays = 3,
-    today = new Date()
+    inMonth: Date = new Date(),
+    from: Date = new Date()
 ): BillDueStatus {
-    if (isBillPaidAsOf(bill, payments, today)) {
+    if (isBillPaidAsOf(bill, payments, inMonth)) {
         return "paid";
     }
 
-    const offset = getBillDueOffset(bill.dueDay, today);
+    const offset = getBillDueOffset(bill.dueDay, inMonth, from);
     if (offset < 0) {
         return "overdue";
     }
