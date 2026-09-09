@@ -1,11 +1,14 @@
 import { useDebt } from "@/app/contexts/DebtsContext";
+import { useLocale } from "@/app/contexts/LocaleContext";
 import { DateField } from "@/components/DateField";
 import { FormDialog } from "@/components/FormDialog";
 import { buttonStyle } from "@/styles/button-style";
 import { modalForm } from "@/styles/modal-form";
 import { Debt } from "@/types/debt";
 import { parseIsoDate, todayIsoDate } from "@/utils/date";
-import { useEffect, useState } from "react";
+import { isDebtInstallmentPaidAsOf } from "@/utils/filters";
+import { currencySymbol } from "@/utils/money";
+import { useEffect, useMemo, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 
 type DebtFormProps = {
@@ -30,7 +33,10 @@ export default function DebtForm({
     debt,
     paymentDate,
 }: DebtFormProps) {
-    const { addDebt, updateDebt, deleteDebt, recordPayment } = useDebt();
+    const { addDebt, updateDebt, deleteDebt, recordPayment, undoPayment, payments } =
+        useDebt();
+    const { currency, formatMoney } = useLocale();
+    const symbol = currencySymbol(currency);
 
     const [name, setName] = useState("");
     const [balance, setBalance] = useState("");
@@ -40,6 +46,7 @@ export default function DebtForm({
     const [type, setType] = useState("");
     const [focusedInput, setFocusedInput] = useState<string | null>(null);
     const [showErrors, setShowErrors] = useState(false);
+    const [busy, setBusy] = useState(false);
 
     const nameHasError = showErrors && name.trim() === "";
     const balanceHasError = showErrors && balance.trim() === "";
@@ -49,6 +56,46 @@ export default function DebtForm({
         (dueDay.trim() === "" || Number(dueDay) < 1 || Number(dueDay) > 31);
     const startDateHasError = showErrors && parseIsoDate(startDate) === null;
     const typeHasError = showErrors && type.trim() === "";
+
+    const asOf = useMemo(
+        () => parseIsoDate(paymentDate ?? todayIsoDate()) ?? new Date(),
+        [paymentDate]
+    );
+
+    const monthPaymentAmount = useMemo(() => {
+        if (!debt) {
+            return 0;
+        }
+        const monthPayments = payments.filter((payment) => {
+            if (payment.debtId !== debt.id) {
+                return false;
+            }
+            const paidOn = parseIsoDate(payment.date);
+            if (!paidOn) {
+                return false;
+            }
+            return (
+                paidOn.getFullYear() === asOf.getFullYear() &&
+                paidOn.getMonth() === asOf.getMonth() &&
+                paidOn.getTime() <= asOf.getTime()
+            );
+        });
+        return monthPayments.reduce((sum, payment) => sum + payment.amount, 0);
+    }, [debt, payments, asOf]);
+
+    // Prefer ledger rows so we can undo; ignore “paid off forever” for this control.
+    const paidThisPeriod = useMemo(() => {
+        if (!debt) {
+            return false;
+        }
+        if (monthPaymentAmount > 0) {
+            return true;
+        }
+        if (debt.balance <= 0) {
+            return false;
+        }
+        return isDebtInstallmentPaidAsOf(debt, asOf, payments);
+    }, [debt, asOf, payments, monthPaymentAmount]);
 
     useEffect(() => {
         if (debt) {
@@ -67,6 +114,7 @@ export default function DebtForm({
             setType("");
         }
         setShowErrors(false);
+        setBusy(false);
     }, [debt, visible]);
 
     const handleSubmit = async () => {
@@ -128,11 +176,29 @@ export default function DebtForm({
     };
 
     const handleRecordPayment = async () => {
-        if (!debt || debt.balance <= 0) {
+        if (!debt || debt.balance <= 0 || paidThisPeriod || busy) {
             return;
         }
-        await recordPayment(debt.id, undefined, paymentDate);
-        onClose();
+        setBusy(true);
+        try {
+            await recordPayment(debt.id, undefined, paymentDate);
+            onClose();
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const handleUndoPayment = async () => {
+        if (!debt || !paidThisPeriod || busy) {
+            return;
+        }
+        setBusy(true);
+        try {
+            await undoPayment(debt.id, paymentDate);
+            onClose();
+        } finally {
+            setBusy(false);
+        }
     };
 
     return (
@@ -149,34 +215,63 @@ export default function DebtForm({
             deleteMessage="This removes this debt and its payment history from the device."
             onDelete={debt ? handleDelete : undefined}
         >
-            {debt && debt.balance <= 0 ? (
+            {debt && debt.balance <= 0 && !paidThisPeriod ? (
                 <View style={modalForm.paidBanner}>
                     <Text style={modalForm.paidBannerText}>
-                        Paid off — remaining balance is $0
+                        Paid off — remaining balance is {formatMoney(0)}
                     </Text>
                 </View>
             ) : null}
 
-            {debt && debt.balance > 0 ? (
+            {debt && paidThisPeriod ? (
                 <View style={[modalForm.actionCard, { marginTop: 0, marginBottom: 16 }]}>
                     <Text style={modalForm.actionCardTitle}>
-                        Record this period’s payment
+                        Paid this period
                     </Text>
                     <Text style={modalForm.actionCardCaption}>
-                        Lowers remaining balance by $
-                        {debt.minimumPayment.toFixed(2)}
+                        Recorded {formatMoney(monthPaymentAmount || debt.minimumPayment)}.
+                        Undo if you marked this by mistake.
                     </Text>
                     <Pressable
                         style={({ pressed }) => [
                             modalForm.actionCardButton,
                             pressed && buttonStyle.buttonPressed,
+                            busy && { opacity: 0.6 },
                         ]}
+                        disabled={busy}
+                        onPress={() => {
+                            void handleUndoPayment();
+                        }}
+                    >
+                        <Text style={buttonStyle.buttonText}>
+                            Undo payment
+                        </Text>
+                    </Pressable>
+                </View>
+            ) : null}
+
+            {debt && debt.balance > 0 && !paidThisPeriod ? (
+                <View style={[modalForm.actionCard, { marginTop: 0, marginBottom: 16 }]}>
+                    <Text style={modalForm.actionCardTitle}>
+                        Record this period’s payment
+                    </Text>
+                    <Text style={modalForm.actionCardCaption}>
+                        Lowers remaining balance by{" "}
+                        {formatMoney(debt.minimumPayment)}
+                    </Text>
+                    <Pressable
+                        style={({ pressed }) => [
+                            modalForm.actionCardButton,
+                            pressed && buttonStyle.buttonPressed,
+                            busy && { opacity: 0.6 },
+                        ]}
+                        disabled={busy}
                         onPress={() => {
                             void handleRecordPayment();
                         }}
                     >
                         <Text style={buttonStyle.buttonText}>
-                            Record ${debt.minimumPayment.toFixed(2)}
+                            Record {formatMoney(debt.minimumPayment)}
                         </Text>
                     </Pressable>
                 </View>
@@ -192,7 +287,7 @@ export default function DebtForm({
                         balanceHasError && modalForm.dialogInputError,
                     ]}
                 >
-                    <Text style={modalForm.dialogAmountPrefix}>$</Text>
+                    <Text style={modalForm.dialogAmountPrefix}>{symbol}</Text>
                     <TextInput
                         style={modalForm.dialogAmountInput}
                         placeholder="0.00"
@@ -239,7 +334,7 @@ export default function DebtForm({
                         paymentHasError && modalForm.dialogInputError,
                     ]}
                 >
-                    <Text style={modalForm.dialogAmountPrefix}>$</Text>
+                    <Text style={modalForm.dialogAmountPrefix}>{symbol}</Text>
                     <TextInput
                         style={[
                             modalForm.dialogAmountInput,

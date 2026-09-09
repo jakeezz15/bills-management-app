@@ -9,12 +9,11 @@ import { SavingsContribution } from "@/types/savings-contribution";
 import {
     DateRange,
     countMonthsOverlapping,
-    dueDayFallsInRange,
+    getRangeForPeriod,
     isIsoInRange,
     rangeThrough,
     startOfYear,
 } from "@/utils/date";
-import { isBillPaidAsOf } from "@/utils/filters";
 
 export function getTotalIncome(income: Income[]) {
     return income.reduce((sum, item) => sum + item.net, 0);
@@ -24,18 +23,24 @@ export function getTotalExpenses(expenses: Expense[]) {
     return expenses.reduce((sum, item) => sum + item.amount, 0);
 }
 
-export function getTotalBills(
-    bills: Bill[],
-    payments: BillPayment[] = [],
-    asOf = new Date()
+/** Sum bill payment ledger rows whose dates fall in `range`. */
+export function getTotalBillPayments(
+    payments: BillPayment[],
+    range: DateRange
 ) {
-    return bills
-        .filter((item) => isBillPaidAsOf(item, payments, asOf))
+    return payments
+        .filter((item) => isIsoInRange(item.date, range))
         .reduce((sum, item) => sum + item.amount, 0);
 }
 
-export function getTotalDebtPayments(payments: DebtPayment[]) {
-    return payments.reduce((sum, item) => sum + item.amount, 0);
+export function getTotalDebtPayments(
+    payments: DebtPayment[],
+    range?: DateRange
+) {
+    const list = range
+        ? payments.filter((item) => isIsoInRange(item.date, range))
+        : payments;
+    return list.reduce((sum, item) => sum + item.amount, 0);
 }
 
 export function getTotalSavings(
@@ -52,7 +57,7 @@ export function getTotalSavings(
         return dated.reduce((sum, item) => sum + item.amount, 0);
     }
 
-    // Fallback until contributions are logged
+    // Fallback until contributions are logged: planned monthly × months YTD
     const savingsYearRange: DateRange = {
         start: startOfYear(range.end),
         end: through.end,
@@ -75,6 +80,8 @@ export type PeriodTotals = {
 
 /**
  * Running balance **as of the end** of the selected period (not period-only P&L).
+ * Income / expenses / bill payments / debt payments / savings contributions
+ * whose dates are on or before `range.end` are included.
  */
 export function getTotalsForRange(
     range: DateRange,
@@ -87,6 +94,10 @@ export function getTotalsForRange(
     billPayments: BillPayment[] = [],
     savingsContributions: SavingsContribution[] = []
 ): PeriodTotals {
+    // bills/debts kept in the signature for callers; cash-out uses payment ledgers.
+    void bills;
+    void debts;
+
     const through = rangeThrough(range.end);
 
     const incomeToDate = income.filter((item) =>
@@ -96,20 +107,10 @@ export function getTotalsForRange(
         isIsoInRange(item.date, through)
     );
 
-    const billsToDate = bills.filter(
-        (item) =>
-            isBillPaidAsOf(item, billPayments, through.end) &&
-            dueDayFallsInRange(item.dueDay, through)
-    );
-
-    const debtPaymentsToDate = debtPayments.filter((item) =>
-        isIsoInRange(item.date, through)
-    );
-
     const incomeTotal = getTotalIncome(incomeToDate);
     const expensesTotal = getTotalExpenses(expensesToDate);
-    const billsTotal = billsToDate.reduce((sum, item) => sum + item.amount, 0);
-    const debtTotal = getTotalDebtPayments(debtPaymentsToDate);
+    const billsTotal = getTotalBillPayments(billPayments, through);
+    const debtTotal = getTotalDebtPayments(debtPayments, through);
     const savingsTotal = getTotalSavings(
         savings,
         savingsContributions,
@@ -129,4 +130,105 @@ export function getTotalsForRange(
             debtTotal -
             savingsTotal,
     };
+}
+
+export type CategorySpend = {
+    category: string;
+    amount: number;
+};
+
+/** Everyday spending in the selected range, grouped by category. */
+export function getExpenseSpendByCategory(
+    expenses: Expense[],
+    range: DateRange
+): CategorySpend[] {
+    const totals = new Map<string, number>();
+
+    for (const expense of expenses) {
+        if (!isIsoInRange(expense.date, range)) {
+            continue;
+        }
+        const category = expense.category?.trim() || "Uncategorized";
+        totals.set(category, (totals.get(category) ?? 0) + expense.amount);
+    }
+
+    return [...totals.entries()]
+        .map(([category, amount]) => ({ category, amount }))
+        .sort((a, b) => b.amount - a.amount);
+}
+
+export type MonthTrendPoint = {
+    key: string;
+    label: string;
+    leftover: number;
+    income: number;
+    outflow: number;
+};
+
+/**
+ * Last `count` calendar months ending at the month of `endAnchor`.
+ * Each point is the running leftover as of that month’s end.
+ */
+export function getMonthlyTrend(
+    endAnchor: Date,
+    count: number,
+    expenses: Expense[],
+    bills: Bill[],
+    debts: Debt[],
+    savings: SavingsGoal[],
+    income: Income[],
+    debtPayments: DebtPayment[] = [],
+    billPayments: BillPayment[] = [],
+    savingsContributions: SavingsContribution[] = []
+): MonthTrendPoint[] {
+    const points: MonthTrendPoint[] = [];
+    const months = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+    ];
+
+    for (let i = count - 1; i >= 0; i -= 1) {
+        const monthDate = new Date(
+            endAnchor.getFullYear(),
+            endAnchor.getMonth() - i,
+            1
+        );
+        const range = getRangeForPeriod(monthDate, "month");
+        const totals = getTotalsForRange(
+            range,
+            expenses,
+            bills,
+            debts,
+            savings,
+            income,
+            debtPayments,
+            billPayments,
+            savingsContributions
+        );
+        const outflow =
+            totals.expenses +
+            totals.bills +
+            totals.debtPayments +
+            totals.savings;
+
+        points.push({
+            key: `${monthDate.getFullYear()}-${monthDate.getMonth()}`,
+            label: months[monthDate.getMonth()],
+            leftover: totals.leftover,
+            income: totals.income,
+            outflow,
+        });
+    }
+
+    return points;
 }

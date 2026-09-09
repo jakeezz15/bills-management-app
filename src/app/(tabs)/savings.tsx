@@ -1,14 +1,20 @@
 import { DashboardEmpty } from "@/components/DashboardEmpty";
-import { DashboardHero } from "@/components/DashboardHero";
+import {
+    DashboardHero,
+    DashboardHeroCompact,
+} from "@/components/DashboardHero";
 import { PageHeader } from "@/components/ui";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { PlanItemCard } from "@/components/PlanItemCard";
 import SavingsForm from "@/components/SavingsForm";
+import { useStickyHero } from "@/hooks/useStickyHero";
 import { dashboard } from "@/styles/dashboard";
 import { SavingsGoal } from "@/types/savings";
 import { useMemo, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
+import { useLocale } from "../contexts/LocaleContext";
 import { useSavings } from "../contexts/SavingsContext";
+import type { FormatMoneyOptions } from "@/utils/money";
 
 type SavingsScreenProps = {
     embedded?: boolean;
@@ -37,7 +43,10 @@ function monthsRemaining(goal: SavingsGoal) {
     return Math.ceil(leftover / monthly);
 }
 
-function goalPace(goal: SavingsGoal) {
+function goalPace(
+    goal: SavingsGoal,
+    formatMoney: (amount: number, options?: FormatMoneyOptions) => string
+) {
     const reached = isGoalReached(goal);
     const months = monthsRemaining(goal);
     const monthly = goal.monthlyContribution ?? 0;
@@ -46,10 +55,10 @@ function goalPace(goal: SavingsGoal) {
         return "Goal reached";
     }
     if (months === 1) {
-        return `About 1 month at $${monthly.toFixed(0)} / mo`;
+        return `About 1 month at ${formatMoney(monthly, { compact: true })} / mo`;
     }
     if (months !== null) {
-        return `About ${months} months at $${monthly.toFixed(0)} / mo`;
+        return `About ${months} months at ${formatMoney(monthly, { compact: true })} / mo`;
     }
     return "Set a monthly contribution to estimate a finish date";
 }
@@ -57,6 +66,7 @@ function goalPace(goal: SavingsGoal) {
 export default function SavingsScreen({
     embedded = false,
 }: SavingsScreenProps) {
+    const { formatMoney } = useLocale();
     const [isOpen, setIsOpen] = useState(false);
     const { savings, loading, addContribution } = useSavings();
     const [editSavingsInfo, setEditSavingsInfo] = useState<SavingsGoal | null>(
@@ -83,6 +93,11 @@ export default function SavingsScreen({
         setIsOpen(true);
     };
 
+    const { collapsed, scrollProps } = useStickyHero();
+    const heroValue = formatMoney(totals.saved, { compact: true });
+    const showHero = savings.length > 0;
+    const heroPace = `${formatMoney(totals.monthly, { compact: true })} planned each month`;
+
     const renderGoal = (goal: SavingsGoal) => {
         const percent = progressPercent(goal);
         const done = isGoalReached(goal);
@@ -92,14 +107,16 @@ export default function SavingsScreen({
             <PlanItemCard
                 key={goal.id}
                 title={goal.name}
-                subtitle={goalPace(goal)}
+                subtitle={goalPace(goal, formatMoney)}
                 rightLabel={`${Math.round(percent)}%`}
                 percent={percent}
                 done={done}
-                amounts={`$${goal.currentAmount.toFixed(0)}`}
-                amountsMuted={` / $${goal.targetAmount.toFixed(0)}`}
+                amounts={formatMoney(goal.currentAmount, { compact: true })}
+                amountsMuted={` / ${formatMoney(goal.targetAmount, { compact: true })}`}
                 chipLabel={
-                    !done && monthly > 0 ? `Log $${monthly.toFixed(0)}` : undefined
+                    !done && monthly > 0
+                        ? `Log ${formatMoney(monthly, { compact: true })}`
+                        : undefined
                 }
                 onPress={() => {
                     setEditSavingsInfo(goal);
@@ -120,12 +137,25 @@ export default function SavingsScreen({
         <View style={dashboard.screen}>
             {loading && <LoadingScreen />}
 
+            {showHero && collapsed ? (
+                <View style={dashboard.heroCompactSticky}>
+                    <DashboardHeroCompact
+                        kicker="Saved so far"
+                        value={heroValue}
+                        pace={heroPace}
+                        onAdd={openAdd}
+                        addAccessibilityLabel="Add savings goal"
+                    />
+                </View>
+            ) : null}
+
             <ScrollView
                 style={dashboard.list}
                 contentContainerStyle={[
                     dashboard.listContent,
                     !embedded && { paddingTop: 48 },
                 ]}
+                {...scrollProps}
             >
                 {!embedded ? (
                     <PageHeader
@@ -134,15 +164,15 @@ export default function SavingsScreen({
                     />
                 ) : null}
 
-                {savings.length > 0 ? (
+                {showHero ? (
                     <DashboardHero
                         kicker="Saved so far"
-                        value={`$${totals.saved.toFixed(0)}`}
-                        caption={`of $${totals.target.toFixed(0)} across ${savings.length} ${
+                        value={heroValue}
+                        caption={`of ${formatMoney(totals.target, { compact: true })} across ${savings.length} ${
                             savings.length === 1 ? "goal" : "goals"
                         }`}
                         percent={totals.percent}
-                        pace={`$${totals.monthly.toFixed(0)} planned each month`}
+                        pace={heroPace}
                         onAdd={openAdd}
                         addAccessibilityLabel="Add savings goal"
                     />

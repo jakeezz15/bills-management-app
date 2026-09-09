@@ -1,49 +1,36 @@
 import { DashboardEmpty } from "@/components/DashboardEmpty";
-import { DashboardHero } from "@/components/DashboardHero";
+import {
+    DashboardHero,
+    DashboardHeroCompact,
+} from "@/components/DashboardHero";
 import ExpenseForm from "@/components/ExpenseForm";
 import { HeroPeriodNav } from "@/components/HeroPeriodNav";
+import {
+    LedgerDayGroup,
+    LedgerRow,
+    accentForLabel,
+    groupByLedgerDate,
+} from "@/components/LedgerList";
 import { PageHeader } from "@/components/ui";
 import { LoadingScreen } from "@/components/LoadingScreen";
-import { PlanItemCard } from "@/components/PlanItemCard";
+import { useStickyHero } from "@/hooks/useStickyHero";
 import { dashboard } from "@/styles/dashboard";
 import { Expense } from "@/types/expense";
-import { formatDisplayDate, isIsoInRange } from "@/utils/date";
+import { isIsoInRange } from "@/utils/date";
 import { useMemo, useState } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { ScrollView, View } from "react-native";
 import { useDateRange } from "../contexts/DateRangeContext";
 import { useExpenses } from "../contexts/ExpensesContext";
+import { useLocale } from "../contexts/LocaleContext";
 
 type ExpensesScreenProps = {
     embedded?: boolean;
 };
 
-type CategoryGroup = {
-    category: string;
-    items: Expense[];
-    total: number;
-};
-
-function groupByCategory(expenses: Expense[]): CategoryGroup[] {
-    const map = new Map<string, Expense[]>();
-    for (const expense of expenses) {
-        const key = expense.category?.trim() || "Uncategorized";
-        const list = map.get(key) ?? [];
-        list.push(expense);
-        map.set(key, list);
-    }
-
-    return [...map.entries()]
-        .map(([category, items]) => ({
-            category,
-            items: [...items].sort((a, b) => b.date.localeCompare(a.date)),
-            total: items.reduce((sum, item) => sum + item.amount, 0),
-        }))
-        .sort((a, b) => b.total - a.total);
-}
-
 export default function ExpensesScreen({
     embedded = false,
 }: ExpensesScreenProps) {
+    const { formatMoney } = useLocale();
     const { expenses, loading } = useExpenses();
     const { range, label, shiftPeriod, resetToToday } = useDateRange();
     const [isOpen, setIsOpen] = useState(false);
@@ -58,17 +45,56 @@ export default function ExpensesScreen({
     );
 
     const total = inPeriod.reduce((sum, expense) => sum + expense.amount, 0);
-    const groups = useMemo(() => groupByCategory(inPeriod), [inPeriod]);
-    const topCategory = groups[0];
+
+    const topCategory = useMemo(() => {
+        const totals = new Map<string, number>();
+        for (const expense of inPeriod) {
+            const key = expense.category?.trim() || "Uncategorized";
+            totals.set(key, (totals.get(key) ?? 0) + expense.amount);
+        }
+        let best: { category: string; total: number } | null = null;
+        for (const [category, amount] of totals) {
+            if (!best || amount > best.total) {
+                best = { category, total: amount };
+            }
+        }
+        return best;
+    }, [inPeriod]);
+
+    const dayGroups = useMemo(() => groupByLedgerDate(inPeriod), [inPeriod]);
 
     const openAdd = () => {
         setEditingExpense(null);
         setIsOpen(true);
     };
 
+    const { collapsed, scrollProps } = useStickyHero();
+    const heroValue = formatMoney(total, { compact: true });
+    const showHero = expenses.length > 0;
+    const periodNav = (forCompact: boolean) => (
+        <HeroPeriodNav
+            label={label}
+            onShift={shiftPeriod}
+            onResetToToday={resetToToday}
+            style={forCompact ? { marginTop: 8 } : undefined}
+        />
+    );
+
     return (
         <View style={dashboard.screen}>
             {loading && <LoadingScreen />}
+
+            {showHero && collapsed ? (
+                <View style={dashboard.heroCompactSticky}>
+                    <DashboardHeroCompact
+                        kicker="Spent"
+                        value={heroValue}
+                        pace={periodNav(true)}
+                        onAdd={openAdd}
+                        addAccessibilityLabel="Add expense"
+                    />
+                </View>
+            ) : null}
 
             <ScrollView
                 style={dashboard.list}
@@ -76,18 +102,19 @@ export default function ExpensesScreen({
                     dashboard.listContent,
                     !embedded && { paddingTop: 48 },
                 ]}
+                {...scrollProps}
             >
                 {!embedded ? (
                     <PageHeader
                         title="Spending"
-                        subtitle="Everyday spending by date"
+                        subtitle="Everyday purchases, newest first"
                     />
                 ) : null}
 
-                {expenses.length > 0 ? (
+                {showHero ? (
                     <DashboardHero
                         kicker="Spent"
-                        value={`$${total.toFixed(0)}`}
+                        value={heroValue}
                         caption={
                             inPeriod.length === 0
                                 ? "Nothing recorded in this period"
@@ -100,13 +127,7 @@ export default function ExpensesScreen({
                                 ? Math.round((topCategory.total / total) * 100)
                                 : 0
                         }
-                        pace={
-                            <HeroPeriodNav
-                                label={label}
-                                onShift={shiftPeriod}
-                                onResetToToday={resetToToday}
-                            />
-                        }
+                        pace={periodNav(false)}
                         onAdd={openAdd}
                         addAccessibilityLabel="Add expense"
                     />
@@ -139,33 +160,21 @@ export default function ExpensesScreen({
                     />
                 )}
 
-                {groups.map((group) => (
-                    <View key={group.category}>
-                        <Text style={dashboard.sectionLabel}>
-                            {group.category}
-                        </Text>
-                        {group.items.map((expense) => {
-                            const share =
-                                total > 0
-                                    ? Math.min(
-                                          100,
-                                          (expense.amount / total) * 100
-                                      )
-                                    : 0;
-
+                {dayGroups.map((group) => (
+                    <LedgerDayGroup key={group.date} label={group.label}>
+                        {group.items.map((expense, index) => {
+                            const category =
+                                expense.category?.trim() || "Uncategorized";
                             return (
-                                <PlanItemCard
+                                <LedgerRow
                                     key={expense.id}
                                     title={expense.name}
-                                    subtitle={formatDisplayDate(expense.date)}
-                                    rightLabel={`$${expense.amount.toFixed(0)}`}
-                                    percent={share}
-                                    amounts={`$${expense.amount.toFixed(0)}`}
-                                    amountsMuted={
-                                        total > 0
-                                            ? ` · ${Math.round(share)}% of period`
-                                            : undefined
-                                    }
+                                    meta={category}
+                                    amountLabel={formatMoney(expense.amount, {
+                                        compact: true,
+                                    })}
+                                    accentColor={accentForLabel(category)}
+                                    isLast={index === group.items.length - 1}
                                     onPress={() => {
                                         setEditingExpense(expense);
                                         setIsOpen(true);
@@ -173,7 +182,7 @@ export default function ExpensesScreen({
                                 />
                             );
                         })}
-                    </View>
+                    </LedgerDayGroup>
                 ))}
             </ScrollView>
         </View>

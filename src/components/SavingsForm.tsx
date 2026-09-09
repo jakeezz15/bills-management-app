@@ -1,8 +1,10 @@
+import { useLocale } from "@/app/contexts/LocaleContext";
 import { useSavings } from "@/app/contexts/SavingsContext";
 import { FormDialog } from "@/components/FormDialog";
 import { buttonStyle } from "@/styles/button-style";
 import { modalForm } from "@/styles/modal-form";
 import { SavingsGoal } from "@/types/savings";
+import { currencySymbol } from "@/utils/money";
 import { useEffect, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 
@@ -19,6 +21,8 @@ export default function SavingsForm({
 }: SavingsFormProps) {
     const { addSavings, updateSavings, deleteSavings, addContribution } =
         useSavings();
+    const { currency, formatMoney } = useLocale();
+    const symbol = currencySymbol(currency);
 
     const [name, setName] = useState("");
     const [targetAmount, setTargetAmount] = useState("");
@@ -106,8 +110,8 @@ export default function SavingsForm({
                         Log a contribution
                     </Text>
                     <Text style={modalForm.actionCardCaption}>
-                        Adds ${Number(monthlyContribution).toFixed(2)} to this
-                        goal
+                        Adds {formatMoney(Number(monthlyContribution) || 0)} to
+                        this goal
                     </Text>
                     <Pressable
                         style={({ pressed }) => [
@@ -123,7 +127,7 @@ export default function SavingsForm({
                         }}
                     >
                         <Text style={buttonStyle.buttonText}>
-                            Log ${monthlyContribution}
+                            Log {formatMoney(Number(monthlyContribution) || 0)}
                         </Text>
                     </Pressable>
                 </View>
@@ -161,7 +165,7 @@ export default function SavingsForm({
                         targetHasError && modalForm.dialogInputError,
                     ]}
                 >
-                    <Text style={modalForm.dialogAmountPrefix}>$</Text>
+                    <Text style={modalForm.dialogAmountPrefix}>{symbol}</Text>
                     <TextInput
                         style={modalForm.dialogAmountInput}
                         placeholder="0.00"
@@ -190,7 +194,7 @@ export default function SavingsForm({
                         currentHasError && modalForm.dialogInputError,
                     ]}
                 >
-                    <Text style={modalForm.dialogAmountPrefix}>$</Text>
+                    <Text style={modalForm.dialogAmountPrefix}>{symbol}</Text>
                     <TextInput
                         style={[modalForm.dialogAmountInput, { fontSize: 20 }]}
                         placeholder="0.00"
@@ -219,7 +223,7 @@ export default function SavingsForm({
                         contributionHasError && modalForm.dialogInputError,
                     ]}
                 >
-                    <Text style={modalForm.dialogAmountPrefix}>$</Text>
+                    <Text style={modalForm.dialogAmountPrefix}>{symbol}</Text>
                     <TextInput
                         style={[modalForm.dialogAmountInput, { fontSize: 20 }]}
                         placeholder="0.00"

@@ -8,9 +8,11 @@
     "scheme": "billsmanagementapp",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.jakedurante.financemanager"
     },
     "android": {
+      "package": "com.jakedurante.financemanager",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -25,12 +27,21 @@
     },
     "plugins": [
       "expo-router",
+      "expo-dev-client",
       [
         "expo-splash-screen",
         {
           "backgroundColor": "#208AEF",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#0F172A",
+          "defaultChannel": "due-reminders",
+          "enableBackgroundRemoteNotifications": false
         }
       ],
       "@react-native-vector-icons/ionicons",
@@ -40,6 +51,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "9acb7580-8e04-4b4b-949d-ce146c271c5e"
+      }
+    },
+    "owner": "jakeezz15"
   }
 }

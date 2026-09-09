@@ -6,7 +6,8 @@ import {
 } from "@/services/storage";
 import { Debt } from "@/types/debt";
 import { DebtPayment } from "@/types/debt-payment";
-import { toIsoDate } from "@/utils/date";
+import { parseIsoDate, toIsoDate } from "@/utils/date";
+import { isDebtInstallmentPaidAsOf } from "@/utils/filters";
 import { stampCreate, stampUpdate } from "@/utils/timestamps";
 import {
     createContext,
@@ -28,6 +29,8 @@ type DebtsContextValue = {
         amount?: number,
         paymentDate?: string
     ) => Promise<void>;
+    /** Undo the latest installment payment for the as-of month (restores balance). */
+    undoPayment: (id: string, paymentDate?: string) => Promise<void>;
     reload: () => Promise<void>;
 };
 
@@ -125,8 +128,14 @@ export function DebtsProvider({ children }: { children: React.ReactNode }) {
     const recordPayment = useCallback(
         async (id: string, amount?: number, paymentDate?: string) => {
             const paidOn = paymentDate ?? toIsoDate(new Date());
+            const asOf = parseIsoDate(paidOn);
             const debt = debts.find((item) => item.id === id);
-            if (!debt || debt.balance <= 0) {
+            if (!debt || debt.balance <= 0 || !asOf) {
+                return;
+            }
+
+            // One installment per month — prevents double-taps from stacking payments.
+            if (isDebtInstallmentPaidAsOf(debt, asOf, payments)) {
                 return;
             }
 
@@ -172,6 +181,64 @@ export function DebtsProvider({ children }: { children: React.ReactNode }) {
         [debts, payments]
     );
 
+    const undoPayment = useCallback(
+        async (id: string, paymentDate?: string) => {
+            const asOfIso = paymentDate ?? toIsoDate(new Date());
+            const asOf = parseIsoDate(asOfIso);
+            const debt = debts.find((item) => item.id === id);
+            if (!debt || !asOf) {
+                return;
+            }
+
+            const monthPayments = payments
+                .filter((payment) => {
+                    if (payment.debtId !== id) {
+                        return false;
+                    }
+                    const paidOn = parseIsoDate(payment.date);
+                    if (!paidOn) {
+                        return false;
+                    }
+                    return (
+                        paidOn.getFullYear() === asOf.getFullYear() &&
+                        paidOn.getMonth() === asOf.getMonth() &&
+                        paidOn.getTime() <= asOf.getTime()
+                    );
+                })
+                .sort((a, b) => b.date.localeCompare(a.date));
+
+            const latest = monthPayments[0];
+            if (!latest) {
+                return;
+            }
+
+            const nextBalance =
+                Math.round((debt.balance + latest.amount) * 100) / 100;
+            const updatedPayments = payments.filter(
+                (payment) => payment.id !== latest.id
+            );
+            const updatedDebts = debts.map((item) => {
+                if (item.id !== id) {
+                    return item;
+                }
+                return {
+                    ...item,
+                    balance: nextBalance,
+                    paidOffDate: undefined,
+                    ...stampUpdate(),
+                };
+            });
+
+            setPayments(updatedPayments);
+            setDebts(updatedDebts);
+            await Promise.all([
+                saveDebtPayments(updatedPayments),
+                saveDebts(updatedDebts),
+            ]);
+        },
+        [debts, payments]
+    );
+
     const reload = useCallback(async () => {
         setLoading(true);
         const [nextDebts, nextPayments] = await Promise.all([
@@ -193,6 +260,7 @@ export function DebtsProvider({ children }: { children: React.ReactNode }) {
                 updateDebt,
                 deleteDebt,
                 recordPayment,
+                undoPayment,
                 reload,
             }}
         >

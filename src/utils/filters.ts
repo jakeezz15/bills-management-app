@@ -172,8 +172,39 @@ export function isBillPaidAsOf(
 
 /** Days until due this month; negative means overdue this month. */
 export function getBillDueOffset(dueDay: number, today = new Date()): number {
-    const day = Math.min(Math.max(dueDay, 1), 31);
+    const daysInMonth = new Date(
+        today.getFullYear(),
+        today.getMonth() + 1,
+        0
+    ).getDate();
+    const day = Math.min(Math.max(dueDay, 1), daysInMonth);
     return day - today.getDate();
+}
+
+/**
+ * Date used for Overdue / Due soon cues.
+ * Current month → real today (not month-end). Past months → period end.
+ * Future months → today so nothing is overdue early.
+ */
+export function billDueStatusReference(
+    periodAsOf: Date,
+    today = new Date()
+): Date {
+    const now = startOfDay(today);
+    const asOf = startOfDay(periodAsOf);
+
+    if (
+        asOf.getFullYear() === now.getFullYear() &&
+        asOf.getMonth() === now.getMonth()
+    ) {
+        return now;
+    }
+
+    if (asOf.getTime() < now.getTime()) {
+        return asOf;
+    }
+
+    return now;
 }
 
 export type BillDueStatus = "paid" | "overdue" | "due-soon" | "upcoming";

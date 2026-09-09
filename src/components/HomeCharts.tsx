@@ -1,0 +1,229 @@
+import { useLocale } from "@/app/contexts/LocaleContext";
+import { dashboard } from "@/styles/dashboard";
+import { theme } from "@/theme";
+import { CategorySpend, MonthTrendPoint } from "@/utils/finance";
+import { StyleSheet, Text, View } from "react-native";
+
+const CATEGORY_COLORS = [
+    theme.color.accent,
+    theme.color.success,
+    theme.color.warning,
+    "#7C3AED",
+    "#DB2777",
+    theme.color.muted,
+];
+
+type SpendByCategoryChartProps = {
+    rows: CategorySpend[];
+};
+
+export function SpendByCategoryChart({ rows }: SpendByCategoryChartProps) {
+    const { formatMoney } = useLocale();
+    const max = Math.max(...rows.map((row) => row.amount), 1);
+    const total = rows.reduce((sum, row) => sum + row.amount, 0);
+
+    return (
+        <View style={styles.card}>
+            <Text style={dashboard.sectionLabel}>Spend by category</Text>
+            <Text style={styles.caption}>Selected period only</Text>
+            {rows.length === 0 ? (
+                <Text style={styles.empty}>
+                    No everyday spending in this period yet.
+                </Text>
+            ) : (
+                rows.map((row, index) => {
+                    const share = total > 0 ? (row.amount / total) * 100 : 0;
+                    return (
+                        <View key={row.category} style={styles.row}>
+                            <View style={styles.rowTop}>
+                                <View style={styles.legend}>
+                                    <View
+                                        style={[
+                                            styles.dot,
+                                            {
+                                                backgroundColor:
+                                                    CATEGORY_COLORS[
+                                                        index %
+                                                            CATEGORY_COLORS.length
+                                                    ],
+                                            },
+                                        ]}
+                                    />
+                                    <Text style={styles.label} numberOfLines={1}>
+                                        {row.category}
+                                    </Text>
+                                </View>
+                                <Text style={styles.value}>
+                                    {formatMoney(row.amount, { compact: true })}
+                                    <Text style={styles.share}>
+                                        {" "}
+                                        · {Math.round(share)}%
+                                    </Text>
+                                </Text>
+                            </View>
+                            <View style={dashboard.barTrack}>
+                                <View
+                                    style={[
+                                        dashboard.barFill,
+                                        {
+                                            width: `${(row.amount / max) * 100}%`,
+                                            backgroundColor:
+                                                CATEGORY_COLORS[
+                                                    index %
+                                                        CATEGORY_COLORS.length
+                                                ],
+                                        },
+                                    ]}
+                                />
+                            </View>
+                        </View>
+                    );
+                })
+            )}
+        </View>
+    );
+}
+
+type MonthTrendChartProps = {
+    points: MonthTrendPoint[];
+};
+
+export function MonthTrendChart({ points }: MonthTrendChartProps) {
+    const { formatMoney } = useLocale();
+    const maxAbs = Math.max(
+        ...points.map((point) => Math.abs(point.leftover)),
+        1
+    );
+
+    return (
+        <View style={styles.card}>
+            <Text style={dashboard.sectionLabel}>Leftover trend</Text>
+            <Text style={styles.caption}>
+                Running balance at the end of each month
+            </Text>
+            <View style={styles.trendRow}>
+                {points.map((point) => {
+                    const height = Math.max(
+                        8,
+                        (Math.abs(point.leftover) / maxAbs) * 96
+                    );
+                    const positive = point.leftover >= 0;
+
+                    return (
+                        <View key={point.key} style={styles.trendCol}>
+                            <Text style={styles.trendAmount} numberOfLines={1}>
+                                {formatMoney(point.leftover, { compact: true })}
+                            </Text>
+                            <View style={styles.trendTrack}>
+                                <View
+                                    style={[
+                                        styles.trendBar,
+                                        {
+                                            height,
+                                            backgroundColor: positive
+                                                ? theme.color.success
+                                                : theme.color.danger,
+                                        },
+                                    ]}
+                                />
+                            </View>
+                            <Text style={styles.trendLabel}>{point.label}</Text>
+                        </View>
+                    );
+                })}
+            </View>
+        </View>
+    );
+}
+
+const styles = StyleSheet.create({
+    card: {
+        backgroundColor: theme.color.surface,
+        borderRadius: theme.radius.lg,
+        paddingHorizontal: theme.space.lg,
+        paddingTop: theme.space.lg,
+        paddingBottom: theme.space.md,
+        marginBottom: theme.space.md,
+    },
+    empty: {
+        color: theme.color.muted,
+        fontSize: theme.font.caption,
+        lineHeight: 18,
+        marginBottom: theme.space.sm,
+    },
+    caption: {
+        color: theme.color.muted,
+        fontSize: theme.font.kicker,
+        marginTop: -4,
+        marginBottom: theme.space.md,
+    },
+    row: {
+        marginBottom: theme.space.md,
+    },
+    rowTop: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 6,
+        gap: theme.space.sm,
+    },
+    legend: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        flex: 1,
+    },
+    dot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+    },
+    label: {
+        color: theme.color.ink,
+        fontSize: theme.font.body,
+        fontWeight: theme.font.weight.semibold,
+        flex: 1,
+    },
+    value: {
+        color: theme.color.ink,
+        fontSize: theme.font.body,
+        fontWeight: theme.font.weight.bold,
+    },
+    share: {
+        color: theme.color.soft,
+        fontWeight: theme.font.weight.regular,
+    },
+    trendRow: {
+        flexDirection: "row",
+        alignItems: "flex-end",
+        gap: 6,
+        minHeight: 140,
+    },
+    trendCol: {
+        flex: 1,
+        alignItems: "center",
+    },
+    trendAmount: {
+        color: theme.color.muted,
+        fontSize: 10,
+        fontWeight: theme.font.weight.semibold,
+        marginBottom: 6,
+    },
+    trendTrack: {
+        height: 100,
+        width: "100%",
+        justifyContent: "flex-end",
+        alignItems: "center",
+    },
+    trendBar: {
+        width: "70%",
+        borderRadius: 6,
+        minHeight: 8,
+    },
+    trendLabel: {
+        color: theme.color.ink,
+        fontSize: 11,
+        fontWeight: theme.font.weight.semibold,
+        marginTop: 8,
+    },
+});

@@ -1,4 +1,5 @@
 import { theme } from "@/theme";
+import { ReminderSync } from "@/components/ReminderSync";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { Tabs } from "expo-router";
 import { BillsProvider } from "../contexts/BillsContext";
@@ -6,31 +7,34 @@ import { DateRangeProvider } from "../contexts/DateRangeContext";
 import { DebtsProvider } from "../contexts/DebtsContext";
 import { ExpensesProvider } from "../contexts/ExpensesContext";
 import { IncomeProvider } from "../contexts/IncomeContext";
+import { LocaleProvider } from "../contexts/LocaleContext";
 import { SavingsProvider } from "../contexts/SavingsContext";
 
 export default function TabLayout() {
     return (
-        <DateRangeProvider>
-            <IncomeProvider>
-                <SavingsProvider>
-                    <DebtsProvider>
-                        <BillsProvider>
-                            <ExpensesProvider>
-                                <Tabs
-                                    screenOptions={{
-                                        tabBarActiveTintColor: theme.color.ink,
-                                        tabBarInactiveTintColor: theme.color.soft,
-                                        headerShown: false,
-                                        tabBarStyle: {
-                                            backgroundColor: theme.color.surface,
-                                            borderTopColor: theme.color.border,
-                                        },
-                                        tabBarLabelStyle: {
-                                            fontSize: 11,
-                                            fontWeight: "600",
-                                        },
-                                    }}
-                                >
+        <LocaleProvider>
+            <DateRangeProvider>
+                <IncomeProvider>
+                    <SavingsProvider>
+                        <DebtsProvider>
+                            <BillsProvider>
+                                <ExpensesProvider>
+                                    <ReminderSync />
+                                    <Tabs
+                                        screenOptions={{
+                                            tabBarActiveTintColor: theme.color.ink,
+                                            tabBarInactiveTintColor: theme.color.soft,
+                                            headerShown: false,
+                                            tabBarStyle: {
+                                                backgroundColor: theme.color.surface,
+                                                borderTopColor: theme.color.border,
+                                            },
+                                            tabBarLabelStyle: {
+                                                fontSize: 11,
+                                                fontWeight: "600",
+                                            },
+                                        }}
+                                    >
                                     <Tabs.Screen
                                         name="index"
                                         options={{
@@ -115,5 +119,6 @@ export default function TabLayout() {
                 </SavingsProvider>
             </IncomeProvider>
         </DateRangeProvider>
+        </LocaleProvider>
     );
 }

@@ -1,23 +1,34 @@
 import { DashboardEmpty } from "@/components/DashboardEmpty";
-import { DashboardHero } from "@/components/DashboardHero";
+import {
+    DashboardHero,
+    DashboardHeroCompact,
+} from "@/components/DashboardHero";
 import { HeroPeriodNav } from "@/components/HeroPeriodNav";
 import IncomeForm from "@/components/IncomeForm";
+import {
+    LedgerDayGroup,
+    LedgerRow,
+    accentForLabel,
+    groupByLedgerDate,
+} from "@/components/LedgerList";
 import { PageHeader } from "@/components/ui";
 import { LoadingScreen } from "@/components/LoadingScreen";
-import { PlanItemCard } from "@/components/PlanItemCard";
+import { useStickyHero } from "@/hooks/useStickyHero";
 import { dashboard } from "@/styles/dashboard";
 import { Income } from "@/types/income";
-import { formatDisplayDate, isIsoInRange } from "@/utils/date";
+import { isIsoInRange } from "@/utils/date";
 import { useMemo, useState } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { ScrollView, View } from "react-native";
 import { useDateRange } from "../contexts/DateRangeContext";
 import { useIncome } from "../contexts/IncomeContext";
+import { useLocale } from "../contexts/LocaleContext";
 
 type IncomeScreenProps = {
     embedded?: boolean;
 };
 
 export default function IncomeScreen({ embedded = false }: IncomeScreenProps) {
+    const { formatMoney } = useLocale();
     const { income, loading } = useIncome();
     const { range, label, shiftPeriod, resetToToday } = useDateRange();
     const [isOpen, setIsOpen] = useState(false);
@@ -35,14 +46,41 @@ export default function IncomeScreen({ embedded = false }: IncomeScreenProps) {
     const gross = inPeriod.reduce((sum, entry) => sum + entry.gross, 0);
     const takeHome = gross > 0 ? Math.round((net / gross) * 100) : 0;
 
+    const dayGroups = useMemo(() => groupByLedgerDate(inPeriod), [inPeriod]);
+
     const openAdd = () => {
         setEditingEntry(null);
         setIsOpen(true);
     };
 
+    const { collapsed, scrollProps } = useStickyHero();
+    const heroValue = formatMoney(net, { compact: true });
+    const showHero = income.length > 0;
+
+    const periodNav = (forCompact: boolean) => (
+        <HeroPeriodNav
+            label={label}
+            onShift={shiftPeriod}
+            onResetToToday={resetToToday}
+            style={forCompact ? { marginTop: 8 } : undefined}
+        />
+    );
+
     return (
         <View style={dashboard.screen}>
             {loading && <LoadingScreen />}
+
+            {showHero && collapsed ? (
+                <View style={dashboard.heroCompactSticky}>
+                    <DashboardHeroCompact
+                        kicker="Take-home"
+                        value={heroValue}
+                        pace={periodNav(true)}
+                        onAdd={openAdd}
+                        addAccessibilityLabel="Add income"
+                    />
+                </View>
+            ) : null}
 
             <ScrollView
                 style={dashboard.list}
@@ -50,35 +88,30 @@ export default function IncomeScreen({ embedded = false }: IncomeScreenProps) {
                     dashboard.listContent,
                     !embedded && { paddingTop: 48 },
                 ]}
+                {...scrollProps}
             >
                 {!embedded ? (
                     <PageHeader
                         title="Income"
-                        subtitle="Paychecks and other money in"
+                        subtitle="Paychecks by date, newest first"
                     />
                 ) : null}
 
-                {income.length > 0 ? (
+                {showHero ? (
                     <DashboardHero
                         kicker="Take-home"
-                        value={`$${net.toFixed(0)}`}
+                        value={heroValue}
                         caption={
                             inPeriod.length === 0
                                 ? "Nothing recorded in this period"
-                                : `of $${gross.toFixed(0)} gross · ${inPeriod.length} ${
+                                : `of ${formatMoney(gross, { compact: true })} gross · ${inPeriod.length} ${
                                       inPeriod.length === 1
                                           ? "paycheck"
                                           : "paychecks"
                                   }`
                         }
                         percent={inPeriod.length > 0 ? takeHome : 0}
-                        pace={
-                            <HeroPeriodNav
-                                label={label}
-                                onShift={shiftPeriod}
-                                onResetToToday={resetToToday}
-                            />
-                        }
+                        pace={periodNav(false)}
                         onAdd={openAdd}
                         addAccessibilityLabel="Add income"
                     />
@@ -111,32 +144,32 @@ export default function IncomeScreen({ embedded = false }: IncomeScreenProps) {
                     />
                 )}
 
-                {inPeriod.length > 0 && (
-                    <Text style={dashboard.sectionLabel}>This period</Text>
-                )}
-                {inPeriod.map((entry) => {
-                    const percent =
-                        entry.gross > 0
-                            ? Math.min(100, (entry.net / entry.gross) * 100)
-                            : 100;
-
-                    return (
-                        <PlanItemCard
-                            key={entry.id}
-                            title={entry.source}
-                            subtitle={formatDisplayDate(entry.date)}
-                            rightLabel={`$${entry.net.toFixed(0)}`}
-                            percent={percent}
-                            done={percent >= 100}
-                            amounts={`$${entry.net.toFixed(0)}`}
-                            amountsMuted={` / $${entry.gross.toFixed(0)} gross`}
-                            onPress={() => {
-                                setEditingEntry(entry);
-                                setIsOpen(true);
-                            }}
-                        />
-                    );
-                })}
+                {dayGroups.map((group) => (
+                    <LedgerDayGroup key={group.date} label={group.label}>
+                        {group.items.map((entry, index) => {
+                            const percent =
+                                entry.gross > 0
+                                    ? Math.round((entry.net / entry.gross) * 100)
+                                    : 100;
+                            return (
+                                <LedgerRow
+                                    key={entry.id}
+                                    title={entry.source}
+                                    meta={`${percent}% take-home`}
+                                    amountLabel={formatMoney(entry.net, {
+                                        compact: true,
+                                    })}
+                                    accentColor={accentForLabel(entry.source)}
+                                    isLast={index === group.items.length - 1}
+                                    onPress={() => {
+                                        setEditingEntry(entry);
+                                        setIsOpen(true);
+                                    }}
+                                />
+                            );
+                        })}
+                    </LedgerDayGroup>
+                ))}
             </ScrollView>
         </View>
     );

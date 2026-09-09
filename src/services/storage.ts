@@ -287,17 +287,9 @@ export async function saveSavingsContributions(
     );
 }
 
+/** Wipe finance data and leave empty arrays so loaders do not re-seed samples. */
 export async function clearAllData(): Promise<void> {
-    await AsyncStorage.multiRemove([
-        BILLS_KEY,
-        EXPENSES_KEY,
-        INCOME_KEY,
-        DEBTS_KEY,
-        DEBT_PAYMENTS_KEY,
-        BILL_PAYMENTS_KEY,
-        SAVINGS_KEY,
-        SAVINGS_CONTRIBUTIONS_KEY,
-    ]);
+    await seedEmptyData();
 }
 
 export async function resetToSampleData(): Promise<void> {

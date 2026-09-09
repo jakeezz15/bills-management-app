@@ -21,8 +21,15 @@ type BillsContextValue = {
     bills: Bill[];
     payments: BillPayment[];
     loading: boolean;
-    addBill: (bill: Omit<Bill, "createdAt" | "updatedAt">) => Promise<void>;
-    updateBill: (id: string, updates: Partial<Bill>) => Promise<void>;
+    addBill: (
+        bill: Omit<Bill, "createdAt" | "updatedAt">,
+        paidAsOfIso?: string
+    ) => Promise<void>;
+    updateBill: (
+        id: string,
+        updates: Partial<Bill>,
+        paidAsOfIso?: string
+    ) => Promise<void>;
     deleteBill: (id: string) => Promise<void>;
     toggleBillPaid: (id: string, asOfIso?: string) => Promise<void>;
     reload: () => Promise<void>;
@@ -45,27 +52,101 @@ export function BillsProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const addBill = useCallback(
-        async (bill: Omit<Bill, "createdAt" | "updatedAt">) => {
+        async (
+            bill: Omit<Bill, "createdAt" | "updatedAt">,
+            paidAsOfIso?: string
+        ) => {
             const stamped: Bill = { ...bill, ...stampCreate() };
-            const updated = [...bills, stamped];
-            setBills(updated);
-            await saveBills(updated);
+            const updatedBills = [...bills, stamped];
+            let updatedPayments = payments;
+
+            if (bill.isPaid) {
+                const asOf =
+                    parseIsoDate(paidAsOfIso ?? toIsoDate(new Date())) ??
+                    new Date();
+                const payment: BillPayment = {
+                    id: `${Date.now()}-${stamped.id}`,
+                    billId: stamped.id,
+                    amount: stamped.amount,
+                    date: toIsoDate(asOf),
+                    ...stampCreate(),
+                };
+                updatedPayments = [...payments, payment];
+            }
+
+            setBills(updatedBills);
+            setPayments(updatedPayments);
+            await Promise.all([
+                saveBills(updatedBills),
+                saveBillPayments(updatedPayments),
+            ]);
         },
-        [bills]
+        [bills, payments]
     );
 
     const updateBill = useCallback(
-        async (id: string, updates: Partial<Bill>) => {
-            const updated = bills.map((bill) => {
-                if (bill.id === id) {
-                    return { ...bill, ...updates, ...stampUpdate() };
+        async (
+            id: string,
+            updates: Partial<Bill>,
+            paidAsOfIso?: string
+        ) => {
+            const existing = bills.find((bill) => bill.id === id);
+            if (!existing) {
+                return;
+            }
+
+            let nextPayments = payments;
+            if (typeof updates.isPaid === "boolean") {
+                const asOf =
+                    parseIsoDate(paidAsOfIso ?? toIsoDate(new Date())) ??
+                    new Date();
+                const currentlyPaid = isBillPaidAsOf(
+                    existing,
+                    payments,
+                    asOf
+                );
+
+                if (currentlyPaid && !updates.isPaid) {
+                    nextPayments = payments.filter((payment) => {
+                        if (payment.billId !== id) {
+                            return true;
+                        }
+                        const paidOn = parseIsoDate(payment.date);
+                        if (!paidOn) {
+                            return true;
+                        }
+                        return !(
+                            paidOn.getFullYear() === asOf.getFullYear() &&
+                            paidOn.getMonth() === asOf.getMonth()
+                        );
+                    });
+                } else if (!currentlyPaid && updates.isPaid) {
+                    const payment: BillPayment = {
+                        id: `${Date.now()}-${id}`,
+                        billId: id,
+                        amount: updates.amount ?? existing.amount,
+                        date: toIsoDate(asOf),
+                        ...stampCreate(),
+                    };
+                    nextPayments = [...payments, payment];
                 }
-                return bill;
+            }
+
+            const updatedBills = bills.map((bill) => {
+                if (bill.id !== id) {
+                    return bill;
+                }
+                return { ...bill, ...updates, ...stampUpdate() };
             });
-            setBills(updated);
-            await saveBills(updated);
+
+            setBills(updatedBills);
+            setPayments(nextPayments);
+            await Promise.all([
+                saveBills(updatedBills),
+                saveBillPayments(nextPayments),
+            ]);
         },
-        [bills]
+        [bills, payments]
     );
 
     const deleteBill = useCallback(

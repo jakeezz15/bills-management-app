@@ -1,9 +1,11 @@
 import { useIncome } from "@/app/contexts/IncomeContext";
+import { useLocale } from "@/app/contexts/LocaleContext";
 import { DateField } from "@/components/DateField";
 import { FormDialog } from "@/components/FormDialog";
 import { modalForm } from "@/styles/modal-form";
 import { Income } from "@/types/income";
 import { parseIsoDate, todayIsoDate } from "@/utils/date";
+import { currencySymbol } from "@/utils/money";
 import { useEffect, useState } from "react";
 import { Text, TextInput, View } from "react-native";
 
@@ -19,6 +21,8 @@ export default function IncomeForm({
     entry,
 }: IncomeFormProps) {
     const { addIncome, updateIncome, deleteIncome } = useIncome();
+    const { currency } = useLocale();
+    const symbol = currencySymbol(currency);
 
     const [source, setSource] = useState("");
     const [net, setNet] = useState("");
@@ -108,7 +112,7 @@ export default function IncomeForm({
                         netHasError && modalForm.dialogInputError,
                     ]}
                 >
-                    <Text style={modalForm.dialogAmountPrefix}>$</Text>
+                    <Text style={modalForm.dialogAmountPrefix}>{symbol}</Text>
                     <TextInput
                         style={modalForm.dialogAmountInput}
                         placeholder="0.00"
@@ -157,7 +161,7 @@ export default function IncomeForm({
                             modalForm.dialogInputFocused,
                     ]}
                 >
-                    <Text style={modalForm.dialogAmountPrefix}>$</Text>
+                    <Text style={modalForm.dialogAmountPrefix}>{symbol}</Text>
                     <TextInput
                         style={[modalForm.dialogAmountInput, { fontSize: 20 }]}
                         placeholder="Defaults to net"

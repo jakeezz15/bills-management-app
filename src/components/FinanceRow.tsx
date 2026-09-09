@@ -1,3 +1,4 @@
+import { useLocale } from "@/app/contexts/LocaleContext";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -20,6 +21,7 @@ export function FinanceRow({
     onPress,
     onTogglePaid,
 }: FinanceRowProps) {
+    const { formatMoney } = useLocale();
     const subtitleColor =
         dueTone === "overdue"
             ? "#DC2626"
@@ -71,7 +73,7 @@ export function FinanceRow({
                     style={[styles.amount, isPaid && styles.amountPaid]}
                     numberOfLines={1}
                 >
-                    ${amount.toFixed(2)}
+                    {formatMoney(amount)}
                 </Text>
             </Pressable>
         </View>

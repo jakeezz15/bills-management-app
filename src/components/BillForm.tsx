@@ -1,24 +1,33 @@
 import { useBills } from "@/app/contexts/BillsContext";
+import { useLocale } from "@/app/contexts/LocaleContext";
 import { FilterChips } from "@/components/FilterChips";
 import { FormDialog } from "@/components/FormDialog";
 import { BILL_CATEGORIES } from "@/constants/categories";
 import { modalForm } from "@/styles/modal-form";
 import { Bill } from "@/types/bill";
-import { useEffect, useState } from "react";
+import { parseIsoDate, todayIsoDate } from "@/utils/date";
+import { isBillPaidAsOf } from "@/utils/filters";
+import { currencySymbol } from "@/utils/money";
+import { useEffect, useMemo, useState } from "react";
 import { Switch, Text, TextInput, View } from "react-native";
 
 type BillFormProps = {
     visible: boolean;
     onClose: () => void;
     bill?: Bill;
+    /** Period end used for “paid this month” (defaults to today). */
+    asOfIso?: string;
 };
 
 export default function BillForm({
     visible,
     onClose,
     bill,
+    asOfIso,
 }: BillFormProps) {
-    const { addBill, updateBill, deleteBill } = useBills();
+    const { addBill, updateBill, deleteBill, payments } = useBills();
+    const { currency } = useLocale();
+    const symbol = currencySymbol(currency);
 
     const [name, setName] = useState("");
     const [amount, setAmount] = useState("");
@@ -34,13 +43,19 @@ export default function BillForm({
         showErrors &&
         (dueDay.trim() === "" || Number(dueDay) < 1 || Number(dueDay) > 31);
 
+    const resolvedAsOfIso = asOfIso ?? todayIsoDate();
+    const asOf = useMemo(
+        () => parseIsoDate(resolvedAsOfIso) ?? new Date(),
+        [resolvedAsOfIso]
+    );
+
     useEffect(() => {
         if (bill) {
             setName(bill.name);
             setAmount(String(bill.amount));
             setDueDay(String(bill.dueDay));
             setCategory(bill.category ?? null);
-            setIsPaid(bill.isPaid);
+            setIsPaid(isBillPaidAsOf(bill, payments, asOf));
         } else {
             setName("");
             setAmount("");
@@ -49,7 +64,7 @@ export default function BillForm({
             setIsPaid(false);
         }
         setShowErrors(false);
-    }, [bill, visible]);
+    }, [bill, visible, payments, asOf]);
 
     const handleSubmit = async () => {
         if (!name || !amount || !dueDay) {
@@ -63,22 +78,32 @@ export default function BillForm({
             return;
         }
 
-        const payload = {
-            name,
-            amount: Number(amount),
-            dueDay: dueDayNumber,
-            category: category ?? undefined,
-            isPaid,
-        };
-
         if (bill) {
-            await updateBill(bill.id, payload);
+            await updateBill(
+                bill.id,
+                {
+                    name,
+                    amount: Number(amount),
+                    dueDay: dueDayNumber,
+                    category: category ?? undefined,
+                    isPaid,
+                },
+                resolvedAsOfIso
+            );
         } else {
-            await addBill({
-                id: Date.now().toString(),
-                ...payload,
-                isRecurring: true,
-            });
+            await addBill(
+                {
+                    id: Date.now().toString(),
+                    name,
+                    amount: Number(amount),
+                    dueDay: dueDayNumber,
+                    category: category ?? undefined,
+                    isPaid,
+                    isRecurring: true,
+                },
+                resolvedAsOfIso
+            );
+
             setName("");
             setAmount("");
             setDueDay("");
@@ -121,7 +146,7 @@ export default function BillForm({
                         amountHasError && modalForm.dialogInputError,
                     ]}
                 >
-                    <Text style={modalForm.dialogAmountPrefix}>$</Text>
+                    <Text style={modalForm.dialogAmountPrefix}>{symbol}</Text>
                     <TextInput
                         style={modalForm.dialogAmountInput}
                         placeholder="0.00"
@@ -200,7 +225,7 @@ export default function BillForm({
                         Paid this month
                     </Text>
                     <Text style={modalForm.dialogSwitchCaption}>
-                        Turn on after you send this payment
+                        Turn off and save to undo this period’s payment
                     </Text>
                 </View>
                 <Switch

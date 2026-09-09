@@ -58,3 +58,52 @@ export function DashboardHero({
         </View>
     );
 }
+
+type DashboardHeroCompactProps = {
+    kicker: string;
+    value: string;
+    pace?: ReactNode;
+    onAdd?: () => void;
+    addAccessibilityLabel?: string;
+};
+
+/** Slim sticky summary: total + optional period nav / add. */
+export function DashboardHeroCompact({
+    kicker,
+    value,
+    pace,
+    onAdd,
+    addAccessibilityLabel = "Add",
+}: DashboardHeroCompactProps) {
+    return (
+        <View style={dashboard.heroCompact} accessibilityRole="summary">
+            <View style={dashboard.heroCompactTop}>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={dashboard.heroCompactKicker} numberOfLines={1}>
+                        {kicker}
+                    </Text>
+                    <Text style={dashboard.heroCompactValue} numberOfLines={1}>
+                        {value}
+                    </Text>
+                </View>
+                {onAdd ? (
+                    <Pressable
+                        onPress={onAdd}
+                        style={dashboard.heroCompactAdd}
+                        accessibilityLabel={addAccessibilityLabel}
+                        hitSlop={8}
+                    >
+                        <Ionicons name="add" size={20} color={theme.color.ink} />
+                    </Pressable>
+                ) : null}
+            </View>
+            {typeof pace === "string" ? (
+                <Text style={dashboard.heroCompactPaceText} numberOfLines={1}>
+                    {pace}
+                </Text>
+            ) : (
+                pace
+            )}
+        </View>
+    );
+}

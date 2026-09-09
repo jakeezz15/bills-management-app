@@ -1,4 +1,6 @@
+import { HeroPeriodNav } from "@/components/HeroPeriodNav";
 import { MonthGrid } from "@/components/MonthGrid";
+import { MonthTrendChart, SpendByCategoryChart } from "@/components/HomeCharts";
 import { SegmentControl } from "@/components/SegmentControl";
 import { dashboard } from "@/styles/dashboard";
 import { theme, type } from "@/theme";
@@ -13,7 +15,11 @@ import {
     parseIsoDate,
     startOfMonth,
 } from "@/utils/date";
-import { getTotalsForRange } from "@/utils/finance";
+import {
+    getExpenseSpendByCategory,
+    getMonthlyTrend,
+    getTotalsForRange,
+} from "@/utils/finance";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { router } from "expo-router";
 import { useEffect, useMemo } from "react";
@@ -23,11 +29,13 @@ import { useDateRange } from "../contexts/DateRangeContext";
 import { useDebt } from "../contexts/DebtsContext";
 import { useExpenses } from "../contexts/ExpensesContext";
 import { useIncome } from "../contexts/IncomeContext";
+import { useLocale } from "../contexts/LocaleContext";
 import { useSavings } from "../contexts/SavingsContext";
 
 const UNIT_OPTIONS = PERIOD_UNITS.map((unit) => PERIOD_UNIT_LABELS[unit]);
 
 export default function HomeScreen() {
+    const { formatMoney } = useLocale();
     const { income, reload: reloadIncome } = useIncome();
     const { expenses, reload: reloadExpenses } = useExpenses();
     const { bills, payments: billPayments, reload: reloadBills } = useBills();
@@ -131,6 +139,38 @@ export default function HomeScreen() {
         savingsContributions,
     ]);
 
+    const categorySpend = useMemo(
+        () => getExpenseSpendByCategory(expenses, range),
+        [expenses, range]
+    );
+
+    const monthTrend = useMemo(
+        () =>
+            getMonthlyTrend(
+                range.end,
+                6,
+                expenses,
+                bills,
+                debts,
+                savings,
+                income,
+                debtPayments,
+                billPayments,
+                savingsContributions
+            ),
+        [
+            range.end,
+            expenses,
+            bills,
+            debts,
+            savings,
+            income,
+            debtPayments,
+            billPayments,
+            savingsContributions,
+        ]
+    );
+
     const reloadAll = async () => {
         await Promise.all([
             reloadIncome(),
@@ -197,7 +237,7 @@ export default function HomeScreen() {
                         {okay ? "You’re okay" : "Short this period"}
                     </Text>
                     <Text style={styles.mastAmount}>
-                        ${totals.leftover.toFixed(0)}
+                        {formatMoney(totals.leftover, { compact: true })}
                     </Text>
                     <Text style={styles.mastCaption}>
                         {okay
@@ -206,31 +246,12 @@ export default function HomeScreen() {
                     </Text>
 
                     <View style={styles.mastNav}>
-                        <Pressable
-                            onPress={() => shiftPeriod(-1)}
-                            hitSlop={8}
-                            accessibilityLabel="Previous period"
-                        >
-                            <Ionicons
-                                name="chevron-back"
-                                size={18}
-                                color={theme.color.onHeroMuted}
-                            />
-                        </Pressable>
-                        <Pressable onPress={resetToToday} style={{ flex: 1 }}>
-                            <Text style={styles.mastPeriod}>{label}</Text>
-                        </Pressable>
-                        <Pressable
-                            onPress={() => shiftPeriod(1)}
-                            hitSlop={8}
-                            accessibilityLabel="Next period"
-                        >
-                            <Ionicons
-                                name="chevron-forward"
-                                size={18}
-                                color={theme.color.onHeroMuted}
-                            />
-                        </Pressable>
+                        <HeroPeriodNav
+                            label={label}
+                            onShift={shiftPeriod}
+                            onResetToToday={resetToToday}
+                            style={{ marginTop: 0, flex: 1 }}
+                        />
                     </View>
                 </View>
 
@@ -254,7 +275,9 @@ export default function HomeScreen() {
                     />
 
                     <View style={styles.statement}>
-                        <Text style={dashboard.sectionLabel}>This period</Text>
+                        <Text style={dashboard.sectionLabel}>
+                            Cash so far
+                        </Text>
                         {lines.map((line) => (
                             <Pressable
                                 key={line.label}
@@ -274,7 +297,10 @@ export default function HomeScreen() {
                                                 : styles.lineOut,
                                         ]}
                                     >
-                                        {line.sign}${line.value.toFixed(0)}
+                                        {formatMoney(line.value, {
+                                            compact: true,
+                                            sign: line.sign,
+                                        })}
                                     </Text>
                                 </View>
                                 <View style={dashboard.barTrack}>
@@ -306,10 +332,13 @@ export default function HomeScreen() {
                                     },
                                 ]}
                             >
-                                ${totals.leftover.toFixed(0)}
+                                {formatMoney(totals.leftover, { compact: true })}
                             </Text>
                         </View>
                     </View>
+
+                    <SpendByCategoryChart rows={categorySpend} />
+                    <MonthTrendChart points={monthTrend} />
 
                     <Pressable
                         onPress={() => router.push("/(tabs)/activity")}
@@ -349,13 +378,6 @@ export default function HomeScreen() {
                             size={18}
                             color={theme.color.ink}
                         />
-                    </Pressable>
-
-                    <Pressable
-                        onPress={() => router.push("/(tabs)/settings")}
-                        style={styles.settingsLink}
-                    >
-                        <Text style={styles.settingsText}>Settings</Text>
                     </Pressable>
                 </View>
             </ScrollView>
@@ -398,19 +420,10 @@ const styles = StyleSheet.create({
         maxWidth: 280,
     },
     mastNav: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: theme.space.sm,
         marginTop: theme.space.xl,
         paddingTop: theme.space.md,
         borderTopWidth: StyleSheet.hairlineWidth,
         borderTopColor: theme.color.heroTrack,
-    },
-    mastPeriod: {
-        color: theme.color.faint,
-        fontSize: theme.font.caption,
-        fontWeight: theme.font.weight.semibold,
-        textAlign: "center",
     },
     body: {
         paddingHorizontal: theme.space.screenX,
@@ -478,14 +491,5 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
-    },
-    settingsLink: {
-        alignItems: "center",
-        paddingVertical: theme.space.md,
-    },
-    settingsText: {
-        color: theme.color.muted,
-        fontSize: theme.font.caption,
-        fontWeight: theme.font.weight.semibold,
     },
 });

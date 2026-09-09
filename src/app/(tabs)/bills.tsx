@@ -1,38 +1,125 @@
 import BillForm from "@/components/BillForm";
+import { CompactPlanRow } from "@/components/CompactPlanRow";
 import { DashboardEmpty } from "@/components/DashboardEmpty";
-import { DashboardHero } from "@/components/DashboardHero";
+import {
+    DashboardHero,
+    DashboardHeroCompact,
+} from "@/components/DashboardHero";
 import { HeroPeriodNav } from "@/components/HeroPeriodNav";
 import { PageHeader } from "@/components/ui";
 import { LoadingScreen } from "@/components/LoadingScreen";
-import { PlanItemCard } from "@/components/PlanItemCard";
+import { useStickyHero } from "@/hooks/useStickyHero";
 import { dashboard } from "@/styles/dashboard";
 import { Bill } from "@/types/bill";
 import { toIsoDate } from "@/utils/date";
-import { getBillDueStatus, isBillPaidAsOf } from "@/utils/filters";
+import { getBillDueStatus, billDueStatusReference, isBillPaidAsOf } from "@/utils/filters";
 import { useMemo, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { useBills } from "../contexts/BillsContext";
 import { useDateRange } from "../contexts/DateRangeContext";
+import { useLocale } from "../contexts/LocaleContext";
 
 type BillsScreenProps = {
     embedded?: boolean;
 };
 
-function dueCaption(bill: Bill, paid: boolean, status: string) {
-    const due = `Due day ${bill.dueDay}`;
+type DueDayGroup = {
+    dueDay: number;
+    label: string;
+    bills: Bill[];
+};
+
+const MONTHS = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+];
+
+function billMeta(paid: boolean, status: string) {
     if (paid) {
-        return bill.category ? `${bill.category} · Paid` : "Paid this period";
+        return "Paid";
     }
     if (status === "overdue") {
-        return `${due} · Overdue`;
+        return "Overdue";
     }
     if (status === "due-soon") {
-        return `${due} · Due soon`;
+        return "Soon";
     }
-    return bill.category ? `${bill.category} · ${due}` : due;
+    // Due day is already in the section header — keep the pill as status only.
+    return "Upcoming";
+}
+
+function metaTone(
+    paid: boolean,
+    status: string
+): "overdue" | "due-soon" | "default" {
+    if (paid) {
+        return "default";
+    }
+    if (status === "overdue") {
+        return "overdue";
+    }
+    if (status === "due-soon") {
+        return "due-soon";
+    }
+    return "default";
+}
+
+function dueDayLabel(dueDay: number, asOf: Date) {
+    const daysInMonth = new Date(
+        asOf.getFullYear(),
+        asOf.getMonth() + 1,
+        0
+    ).getDate();
+    const day = Math.min(Math.max(dueDay, 1), daysInMonth);
+    return `${MONTHS[asOf.getMonth()]} ${day}`;
+}
+
+function groupBillsByDueDay(
+    bills: Bill[],
+    payments: Parameters<typeof isBillPaidAsOf>[1],
+    asOf: Date
+): DueDayGroup[] {
+    const map = new Map<number, Bill[]>();
+
+    for (const bill of bills) {
+        const day = Math.min(Math.max(bill.dueDay, 1), 31);
+        const list = map.get(day) ?? [];
+        list.push(bill);
+        map.set(day, list);
+    }
+
+    return [...map.entries()]
+        .sort(([a], [b]) => a - b)
+        .map(([dueDay, groupBills]) => {
+            const sorted = [...groupBills].sort((a, b) => {
+                const aPaid = isBillPaidAsOf(a, payments, asOf) ? 1 : 0;
+                const bPaid = isBillPaidAsOf(b, payments, asOf) ? 1 : 0;
+                if (aPaid !== bPaid) {
+                    return aPaid - bPaid;
+                }
+                return a.name.localeCompare(b.name);
+            });
+
+            return {
+                dueDay,
+                label: dueDayLabel(dueDay, asOf),
+                bills: sorted,
+            };
+        });
 }
 
 export default function BillsScreen({ embedded = false }: BillsScreenProps) {
+    const { formatMoney } = useLocale();
     const { bills, payments, loading, toggleBillPaid } = useBills();
     const { range, label, shiftPeriod, resetToToday } = useDateRange();
     const [isOpen, setIsOpen] = useState(false);
@@ -49,6 +136,11 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
         [bills, payments, asOf]
     );
 
+    const dueDayGroups = useMemo(
+        () => groupBillsByDueDay(bills, payments, asOf),
+        [bills, payments, asOf]
+    );
+
     const unpaidTotal = unpaid.reduce((sum, bill) => sum + bill.amount, 0);
     const allTotal = bills.reduce((sum, bill) => sum + bill.amount, 0);
     const paidShare =
@@ -59,35 +151,42 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
         setIsOpen(true);
     };
 
+    const { collapsed, scrollProps } = useStickyHero();
+    const heroValue = formatMoney(unpaidTotal, { compact: true });
+    const showHero = bills.length > 0;
+    const periodNav = (forCompact: boolean) => (
+        <HeroPeriodNav
+            label={label}
+            onShift={shiftPeriod}
+            onResetToToday={resetToToday}
+            style={forCompact ? { marginTop: 8 } : undefined}
+        />
+    );
+
     const renderBill = (bill: Bill) => {
         const isPaid = isBillPaidAsOf(bill, payments, asOf);
-        const status = getBillDueStatus(bill, payments, 3, asOf);
+        // Overdue/soon vs real today in the current month — not month-end (which
+        // made every due-day before the 30th look overdue).
+        const dueRef = billDueStatusReference(asOf);
+        const status = isPaid
+            ? "paid"
+            : getBillDueStatus(bill, payments, 3, dueRef);
 
         return (
-            <PlanItemCard
+            <CompactPlanRow
                 key={bill.id}
                 title={bill.name}
-                subtitle={dueCaption(bill, isPaid, status)}
-                rightLabel={`$${bill.amount.toFixed(0)}`}
-                percent={isPaid ? 100 : 0}
+                meta={billMeta(isPaid, status)}
+                amountLabel={formatMoney(bill.amount, { compact: true })}
                 done={isPaid}
-                amounts={
-                    isPaid
-                        ? "Paid this period"
-                        : `$${bill.amount.toFixed(0)} still due`
-                }
-                chipLabel={isPaid ? undefined : "Mark paid"}
+                metaTone={metaTone(isPaid, status)}
                 onPress={() => {
                     setEditingBill(bill);
                     setIsOpen(true);
                 }}
-                onChip={
-                    isPaid
-                        ? undefined
-                        : () => {
-                              void toggleBillPaid(bill.id, asOfIso);
-                          }
-                }
+                onToggle={() => {
+                    void toggleBillPaid(bill.id, asOfIso);
+                }}
             />
         );
     };
@@ -96,37 +195,44 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
         <View style={dashboard.screen}>
             {loading && <LoadingScreen />}
 
+            {showHero && collapsed ? (
+                <View style={dashboard.heroCompactSticky}>
+                    <DashboardHeroCompact
+                        kicker="Still to pay"
+                        value={heroValue}
+                        pace={periodNav(true)}
+                        onAdd={openAdd}
+                        addAccessibilityLabel="Add bill"
+                    />
+                </View>
+            ) : null}
+
             <ScrollView
                 style={dashboard.list}
                 contentContainerStyle={[
                     dashboard.listContent,
                     !embedded && { paddingTop: 48 },
                 ]}
+                {...scrollProps}
             >
                 {!embedded ? (
                     <PageHeader
                         title="Bills"
-                        subtitle="Recurring payments for this period"
+                        subtitle="Grouped by due day this period"
                     />
                 ) : null}
 
-                {bills.length > 0 ? (
+                {showHero ? (
                     <DashboardHero
                         kicker="Still to pay"
-                        value={`$${unpaidTotal.toFixed(0)}`}
+                        value={heroValue}
                         caption={
                             unpaid.length === 0
                                 ? `All ${bills.length} bills paid`
-                                : `${unpaid.length} of ${bills.length} unpaid · $${allTotal.toFixed(0)} total`
+                                : `${unpaid.length} of ${bills.length} unpaid · ${formatMoney(allTotal, { compact: true })} total`
                         }
                         percent={paidShare}
-                        pace={
-                            <HeroPeriodNav
-                                label={label}
-                                onShift={shiftPeriod}
-                                onResetToToday={resetToToday}
-                            />
-                        }
+                        pace={periodNav(false)}
                         onAdd={openAdd}
                         addAccessibilityLabel="Add bill"
                     />
@@ -139,6 +245,7 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
                         setEditingBill(null);
                     }}
                     bill={editingBill ?? undefined}
+                    asOfIso={asOfIso}
                 />
 
                 {bills.length === 0 && !loading && (
@@ -150,15 +257,12 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
                     />
                 )}
 
-                {unpaid.length > 0 && (
-                    <Text style={dashboard.sectionLabel}>Still due</Text>
-                )}
-                {unpaid.map(renderBill)}
-
-                {paid.length > 0 && (
-                    <Text style={dashboard.sectionLabel}>Paid this period</Text>
-                )}
-                {paid.map(renderBill)}
+                {dueDayGroups.map((group) => (
+                    <View key={group.dueDay}>
+                        <Text style={dashboard.sectionLabel}>{group.label}</Text>
+                        {group.bills.map(renderBill)}
+                    </View>
+                ))}
             </ScrollView>
         </View>
     );

@@ -1,4 +1,5 @@
 import { useExpenses } from "@/app/contexts/ExpensesContext";
+import { useLocale } from "@/app/contexts/LocaleContext";
 import { DateField } from "@/components/DateField";
 import { FilterChips } from "@/components/FilterChips";
 import { FormDialog } from "@/components/FormDialog";
@@ -6,6 +7,7 @@ import { EXPENSE_CATEGORIES } from "@/constants/categories";
 import { modalForm } from "@/styles/modal-form";
 import { Expense } from "@/types/expense";
 import { parseIsoDate, todayIsoDate } from "@/utils/date";
+import { currencySymbol } from "@/utils/money";
 import { useEffect, useState } from "react";
 import { Text, TextInput, View } from "react-native";
 
@@ -21,6 +23,8 @@ export default function ExpenseForm({
     expense,
 }: ExpenseFormProps) {
     const { addExpense, updateExpense, deleteExpense } = useExpenses();
+    const { currency } = useLocale();
+    const symbol = currencySymbol(currency);
 
     const [name, setName] = useState("");
     const [amount, setAmount] = useState("");
@@ -109,7 +113,7 @@ export default function ExpenseForm({
                         amountHasError && modalForm.dialogInputError,
                     ]}
                 >
-                    <Text style={modalForm.dialogAmountPrefix}>$</Text>
+                    <Text style={modalForm.dialogAmountPrefix}>{symbol}</Text>
                     <TextInput
                         style={modalForm.dialogAmountInput}
                         placeholder="0.00"
