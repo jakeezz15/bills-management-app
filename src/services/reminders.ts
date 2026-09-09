@@ -221,7 +221,7 @@ export async function enableDueReminders(
         return {
             ok: false,
             scheduled: 0,
-            reason: "Turn on notifications for Finance Manager in system Settings.",
+            reason: "Turn on notifications for On Hand in system Settings.",
         };
     }
 
@@ -254,7 +254,7 @@ export async function sendTestReminder(): Promise<{
     if (!permitted) {
         return {
             ok: false,
-            reason: "Turn on notifications for Finance Manager in system Settings.",
+            reason: "Turn on notifications for On Hand in system Settings.",
         };
     }
 

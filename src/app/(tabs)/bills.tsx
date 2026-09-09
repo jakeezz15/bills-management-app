@@ -12,7 +12,12 @@ import { useStickyHero } from "@/hooks/useStickyHero";
 import { dashboard } from "@/styles/dashboard";
 import { Bill } from "@/types/bill";
 import { toIsoDate } from "@/utils/date";
-import { getBillDueStatus, billDueStatusReference, isBillPaidAsOf } from "@/utils/filters";
+import {
+    getBillDueStatus,
+    billDueStatusReference,
+    getBillPaymentInMonth,
+    isBillPaidAsOf,
+} from "@/utils/filters";
 import { useMemo, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { useBills } from "../contexts/BillsContext";
@@ -44,9 +49,12 @@ const MONTHS = [
     "Dec",
 ];
 
-function billMeta(paid: boolean, status: string) {
+function billMeta(paid: boolean, status: string, amountVaries?: boolean) {
     if (paid) {
         return "Paid";
+    }
+    if (amountVaries) {
+        return "Needs amount";
     }
     if (status === "overdue") {
         return "Overdue";
@@ -141,8 +149,11 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
         [bills, payments, asOf]
     );
 
-    const unpaidTotal = unpaid.reduce((sum, bill) => sum + bill.amount, 0);
-    const allTotal = bills.reduce((sum, bill) => sum + bill.amount, 0);
+    const unpaidTotal = unpaid.reduce(
+        (sum, bill) => sum + (bill.amountVaries ? 0 : bill.amount),
+        0
+    );
+    const variableUnpaid = unpaid.filter((bill) => bill.amountVaries).length;
     const paidShare =
         bills.length > 0 ? Math.round((paid.length / bills.length) * 100) : 0;
 
@@ -172,12 +183,19 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
             ? "paid"
             : getBillDueStatus(bill, payments, 3, dueRef);
 
+        const monthPayment = getBillPaymentInMonth(bill.id, payments, asOf);
+        const displayAmount = isPaid
+            ? (monthPayment?.amount ?? 0)
+            : bill.amountVaries
+              ? 0
+              : bill.amount;
+
         return (
             <CompactPlanRow
                 key={bill.id}
                 title={bill.name}
-                meta={billMeta(isPaid, status)}
-                amountLabel={formatMoney(bill.amount, { compact: true })}
+                meta={billMeta(isPaid, status, bill.amountVaries)}
+                amountLabel={formatMoney(displayAmount, { compact: true })}
                 done={isPaid}
                 metaTone={metaTone(isPaid, status)}
                 onPress={() => {
@@ -185,8 +203,18 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
                     setIsOpen(true);
                 }}
                 onToggle={() => {
+                    if (bill.amountVaries && !isPaid) {
+                        setEditingBill(bill);
+                        setIsOpen(true);
+                        return;
+                    }
                     void toggleBillPaid(bill.id, asOfIso);
                 }}
+                toggleAccessibilityLabel={
+                    bill.amountVaries && !isPaid
+                        ? "Enter this month’s amount"
+                        : undefined
+                }
             />
         );
     };
@@ -229,7 +257,9 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
                         caption={
                             unpaid.length === 0
                                 ? `All ${bills.length} bills paid`
-                                : `${unpaid.length} of ${bills.length} unpaid · ${formatMoney(allTotal, { compact: true })} total`
+                                : variableUnpaid > 0
+                                  ? `${unpaid.length} unpaid · ${formatMoney(unpaidTotal, { compact: true })} known · ${variableUnpaid} waiting on this month’s amount`
+                                  : `${unpaid.length} of ${bills.length} unpaid · ${formatMoney(unpaidTotal, { compact: true })} total`
                         }
                         percent={paidShare}
                         pace={periodNav(false)}
@@ -251,7 +281,7 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
                 {bills.length === 0 && !loading && (
                     <DashboardEmpty
                         title="No bills yet"
-                        text="Add rent, utilities, or subscriptions. Each one shows how much is still due this period."
+                        text="Add rent, utilities, or subscriptions. Variable bills (water, electricity) ask for this month’s amount when you mark them paid."
                         actionLabel="Add first bill"
                         onAction={openAdd}
                     />

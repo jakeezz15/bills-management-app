@@ -8,11 +8,9 @@ import { SavingsGoal } from "@/types/savings";
 import { SavingsContribution } from "@/types/savings-contribution";
 import {
     DateRange,
-    countMonthsOverlapping,
     getRangeForPeriod,
     isIsoInRange,
     rangeThrough,
-    startOfYear,
 } from "@/utils/date";
 
 export function getTotalIncome(income: Income[]) {
@@ -43,30 +41,16 @@ export function getTotalDebtPayments(
     return list.reduce((sum, item) => sum + item.amount, 0);
 }
 
+/** Sum logged savings contributions through the period end (cash model). */
 export function getTotalSavings(
-    savings: SavingsGoal[],
+    _savings: SavingsGoal[],
     contributions: SavingsContribution[],
     range: DateRange
 ) {
     const through = rangeThrough(range.end);
-    const dated = contributions.filter((item) =>
-        isIsoInRange(item.date, through)
-    );
-
-    if (dated.length > 0) {
-        return dated.reduce((sum, item) => sum + item.amount, 0);
-    }
-
-    // Fallback until contributions are logged: planned monthly × months YTD
-    const savingsYearRange: DateRange = {
-        start: startOfYear(range.end),
-        end: through.end,
-    };
-    const monthCount = countMonthsOverlapping(savingsYearRange);
-    return savings.reduce(
-        (sum, item) => sum + (item.monthlyContribution ?? 0) * monthCount,
-        0
-    );
+    return contributions
+        .filter((item) => isIsoInRange(item.date, through))
+        .reduce((sum, item) => sum + item.amount, 0);
 }
 
 export type PeriodTotals = {

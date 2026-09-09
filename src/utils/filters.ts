@@ -4,6 +4,7 @@ import { BillPayment } from "@/types/bill-payment";
 import { Debt } from "@/types/debt";
 import { DebtPayment } from "@/types/debt-payment";
 import { Expense } from "@/types/expense";
+import { SavingsContribution } from "@/types/savings-contribution";
 import { parseIsoDate, startOfDay, toIsoDate } from "@/utils/date";
 import { debtStartDate } from "@/utils/timestamps";
 
@@ -168,6 +169,54 @@ export function isBillPaidAsOf(
 
     const billHasHistory = payments.some((p) => p.billId === bill.id);
     return !billHasHistory && bill.isPaid;
+}
+
+/** Payment recorded for this bill in `asOf`'s calendar month, if any. */
+export function getBillPaymentInMonth(
+    billId: string,
+    payments: BillPayment[],
+    asOf: Date
+): BillPayment | undefined {
+    const asOfDay = startOfDay(asOf);
+    return payments.find((payment) => {
+        if (payment.billId !== billId) {
+            return false;
+        }
+        const paidOn = parseIsoDate(payment.date);
+        if (!paidOn) {
+            return false;
+        }
+        return (
+            paidOn.getFullYear() === asOfDay.getFullYear() &&
+            paidOn.getMonth() === asOfDay.getMonth() &&
+            paidOn.getTime() <= asOfDay.getTime()
+        );
+    });
+}
+
+/** Latest contribution for a goal in `asOf`'s calendar month. */
+export function getLatestSavingsContributionInMonth(
+    savingsId: string,
+    contributions: SavingsContribution[],
+    asOf: Date
+): SavingsContribution | undefined {
+    const asOfDay = startOfDay(asOf);
+    return contributions
+        .filter((item) => {
+            if (item.savingsId !== savingsId) {
+                return false;
+            }
+            const loggedOn = parseIsoDate(item.date);
+            if (!loggedOn) {
+                return false;
+            }
+            return (
+                loggedOn.getFullYear() === asOfDay.getFullYear() &&
+                loggedOn.getMonth() === asOfDay.getMonth() &&
+                loggedOn.getTime() <= asOfDay.getTime()
+            );
+        })
+        .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id))[0];
 }
 
 /** Days until due this month; negative means overdue this month. */

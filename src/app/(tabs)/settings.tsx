@@ -17,6 +17,7 @@ import {
 import { clearAllData } from "@/services/storage";
 import { seedDemoData } from "@/services/seed-demo";
 import { currencyLabel } from "@/utils/money";
+import Constants from "expo-constants";
 import { useEffect, useState } from "react";
 import { Alert, ScrollView, Text, View } from "react-native";
 import { useBills } from "../contexts/BillsContext";
@@ -38,6 +39,7 @@ export default function SettingsScreen() {
     const [reminderBusy, setReminderBusy] = useState(false);
     const [currencyOpen, setCurrencyOpen] = useState(false);
     const remindersBlocked = remindersUnavailableReason();
+    const version = Constants.expoConfig?.version ?? "1.0.0";
 
     useEffect(() => {
         void areDueRemindersEnabled().then(setRemindersOn);
@@ -293,23 +295,25 @@ export default function SettingsScreen() {
                     />
                 </SettingsSection>
 
-                <SettingsSection title="Development">
-                    <SettingsRow
-                        icon="flask-outline"
-                        title="Seed demo data"
-                        subtitle="July → today: realistic income, spend, bills, debts, savings"
-                        disabled={busy}
-                        showChevron
-                        onPress={handleSeedDemo}
-                    />
-                </SettingsSection>
+                {__DEV__ ? (
+                    <SettingsSection title="Development">
+                        <SettingsRow
+                            icon="flask-outline"
+                            title="Seed demo data"
+                            subtitle="July → today: realistic income, spend, bills, debts, savings"
+                            disabled={busy}
+                            showChevron
+                            onPress={handleSeedDemo}
+                        />
+                    </SettingsSection>
+                ) : null}
 
                 <SettingsSection title="About">
                     <SettingsRow
                         icon="information-circle-outline"
-                        title="Finance Manager"
-                        subtitle="Am I okay this month? Income, spending, bills, savings, and debts."
-                        value="1.0.0"
+                        title="On Hand"
+                        subtitle="What's left after what you logged."
+                        value={version}
                     />
                     <SettingsDivider />
                     <SettingsRow

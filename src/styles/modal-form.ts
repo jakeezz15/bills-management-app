@@ -239,8 +239,12 @@ export const modalForm = StyleSheet.create({
     actionCard: {
         backgroundColor: "#ECFDF5",
         borderRadius: 12,
-        padding: 14,
+        padding: 16,
         marginTop: 22,
+    },
+    actionCardLead: {
+        marginTop: 0,
+        marginBottom: 20,
     },
     actionCardTitle: {
         color: "#14532D",
@@ -250,8 +254,12 @@ export const modalForm = StyleSheet.create({
     actionCardCaption: {
         color: "#166534",
         fontSize: 13,
-        marginTop: 4,
-        marginBottom: 12,
+        lineHeight: 18,
+        marginTop: 6,
+        marginBottom: 14,
+    },
+    actionCardField: {
+        marginBottom: 14,
     },
     actionCardButton: {
         backgroundColor: "#15803D",
@@ -259,6 +267,9 @@ export const modalForm = StyleSheet.create({
         minHeight: 44,
         alignItems: "center",
         justifyContent: "center",
+    },
+    actionCardButtonSpacer: {
+        marginTop: 10,
     },
     paidBanner: {
         backgroundColor: "#F0FDF4",

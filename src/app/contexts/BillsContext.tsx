@@ -7,7 +7,7 @@ import {
 import { Bill } from "@/types/bill";
 import { BillPayment } from "@/types/bill-payment";
 import { parseIsoDate, toIsoDate } from "@/utils/date";
-import { isBillPaidAsOf } from "@/utils/filters";
+import { getBillPaymentInMonth, isBillPaidAsOf } from "@/utils/filters";
 import { stampCreate, stampUpdate } from "@/utils/timestamps";
 import {
     createContext,
@@ -23,12 +23,14 @@ type BillsContextValue = {
     loading: boolean;
     addBill: (
         bill: Omit<Bill, "createdAt" | "updatedAt">,
-        paidAsOfIso?: string
+        paidAsOfIso?: string,
+        paymentAmount?: number
     ) => Promise<void>;
     updateBill: (
         id: string,
         updates: Partial<Bill>,
-        paidAsOfIso?: string
+        paidAsOfIso?: string,
+        paymentAmount?: number
     ) => Promise<void>;
     deleteBill: (id: string) => Promise<void>;
     toggleBillPaid: (id: string, asOfIso?: string) => Promise<void>;
@@ -54,7 +56,8 @@ export function BillsProvider({ children }: { children: React.ReactNode }) {
     const addBill = useCallback(
         async (
             bill: Omit<Bill, "createdAt" | "updatedAt">,
-            paidAsOfIso?: string
+            paidAsOfIso?: string,
+            paymentAmount?: number
         ) => {
             const stamped: Bill = { ...bill, ...stampCreate() };
             const updatedBills = [...bills, stamped];
@@ -67,7 +70,7 @@ export function BillsProvider({ children }: { children: React.ReactNode }) {
                 const payment: BillPayment = {
                     id: `${Date.now()}-${stamped.id}`,
                     billId: stamped.id,
-                    amount: stamped.amount,
+                    amount: paymentAmount ?? stamped.amount,
                     date: toIsoDate(asOf),
                     ...stampCreate(),
                 };
@@ -88,7 +91,8 @@ export function BillsProvider({ children }: { children: React.ReactNode }) {
         async (
             id: string,
             updates: Partial<Bill>,
-            paidAsOfIso?: string
+            paidAsOfIso?: string,
+            paymentAmount?: number
         ) => {
             const existing = bills.find((bill) => bill.id === id);
             if (!existing) {
@@ -124,11 +128,36 @@ export function BillsProvider({ children }: { children: React.ReactNode }) {
                     const payment: BillPayment = {
                         id: `${Date.now()}-${id}`,
                         billId: id,
-                        amount: updates.amount ?? existing.amount,
+                        amount:
+                            paymentAmount ??
+                            updates.amount ??
+                            existing.amount,
                         date: toIsoDate(asOf),
                         ...stampCreate(),
                     };
                     nextPayments = [...payments, payment];
+                } else if (
+                    currentlyPaid &&
+                    updates.isPaid &&
+                    paymentAmount != null &&
+                    paymentAmount > 0
+                ) {
+                    const existingPayment = getBillPaymentInMonth(
+                        id,
+                        payments,
+                        asOf
+                    );
+                    if (existingPayment) {
+                        nextPayments = payments.map((payment) =>
+                            payment.id === existingPayment.id
+                                ? {
+                                      ...payment,
+                                      amount: paymentAmount,
+                                      ...stampUpdate(),
+                                  }
+                                : payment
+                        );
+                    }
                 }
             }
 

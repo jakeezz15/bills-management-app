@@ -104,33 +104,6 @@ export default function ExpenseForm({
             }
         >
             <View style={modalForm.dialogField}>
-                <Text style={modalForm.dialogLabel}>Amount</Text>
-                <View
-                    style={[
-                        modalForm.dialogAmountWrap,
-                        focusedInput === "amount" &&
-                            modalForm.dialogInputFocused,
-                        amountHasError && modalForm.dialogInputError,
-                    ]}
-                >
-                    <Text style={modalForm.dialogAmountPrefix}>{symbol}</Text>
-                    <TextInput
-                        style={modalForm.dialogAmountInput}
-                        placeholder="0.00"
-                        placeholderTextColor="#CBD5E1"
-                        value={amount}
-                        onChangeText={setAmount}
-                        keyboardType="decimal-pad"
-                        onFocus={() => setFocusedInput("amount")}
-                        onBlur={() => setFocusedInput(null)}
-                    />
-                </View>
-                {amountHasError && (
-                    <Text style={modalForm.errorText}>Amount is required.</Text>
-                )}
-            </View>
-
-            <View style={modalForm.dialogField}>
                 <Text style={modalForm.dialogLabel}>Name</Text>
                 <TextInput
                     style={[
@@ -171,6 +144,33 @@ export default function ExpenseForm({
                     onSelect={setCategory}
                     allowClear
                 />
+            </View>
+
+            <View style={modalForm.dialogField}>
+                <Text style={modalForm.dialogLabel}>Amount</Text>
+                <View
+                    style={[
+                        modalForm.dialogAmountWrap,
+                        focusedInput === "amount" &&
+                            modalForm.dialogInputFocused,
+                        amountHasError && modalForm.dialogInputError,
+                    ]}
+                >
+                    <Text style={modalForm.dialogAmountPrefix}>{symbol}</Text>
+                    <TextInput
+                        style={modalForm.dialogAmountInput}
+                        placeholder="0.00"
+                        placeholderTextColor="#CBD5E1"
+                        value={amount}
+                        onChangeText={setAmount}
+                        keyboardType="decimal-pad"
+                        onFocus={() => setFocusedInput("amount")}
+                        onBlur={() => setFocusedInput(null)}
+                    />
+                </View>
+                {amountHasError && (
+                    <Text style={modalForm.errorText}>Amount is required.</Text>
+                )}
             </View>
         </FormDialog>
     );

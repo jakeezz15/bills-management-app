@@ -6,7 +6,8 @@ import {
 } from "@/services/storage";
 import { SavingsGoal } from "@/types/savings";
 import { SavingsContribution } from "@/types/savings-contribution";
-import { toIsoDate } from "@/utils/date";
+import { parseIsoDate, toIsoDate } from "@/utils/date";
+import { getLatestSavingsContributionInMonth } from "@/utils/filters";
 import { stampCreate, stampUpdate } from "@/utils/timestamps";
 import {
     createContext,
@@ -30,6 +31,7 @@ type SavingsContextValue = {
         amount: number,
         date?: string
     ) => Promise<void>;
+    undoContribution: (savingsId: string, asOfIso?: string) => Promise<void>;
     reload: () => Promise<void>;
 };
 
@@ -128,6 +130,50 @@ export function SavingsProvider({ children }: { children: React.ReactNode }) {
         [contributions, savings]
     );
 
+    const undoContribution = useCallback(
+        async (savingsId: string, asOfIso?: string) => {
+            const asOf = parseIsoDate(asOfIso ?? toIsoDate(new Date()));
+            if (!asOf) {
+                return;
+            }
+
+            const latest = getLatestSavingsContributionInMonth(
+                savingsId,
+                contributions,
+                asOf
+            );
+            if (!latest) {
+                return;
+            }
+
+            const updatedContributions = contributions.filter(
+                (item) => item.id !== latest.id
+            );
+            const updatedSavings = savings.map((item) => {
+                if (item.id !== savingsId) {
+                    return item;
+                }
+                return {
+                    ...item,
+                    currentAmount: Math.max(
+                        0,
+                        Math.round((item.currentAmount - latest.amount) * 100) /
+                            100
+                    ),
+                    ...stampUpdate(),
+                };
+            });
+
+            setContributions(updatedContributions);
+            setSavings(updatedSavings);
+            await Promise.all([
+                saveSavingsContributions(updatedContributions),
+                saveSavings(updatedSavings),
+            ]);
+        },
+        [contributions, savings]
+    );
+
     const reload = useCallback(async () => {
         setLoading(true);
         const [nextSavings, nextContributions] = await Promise.all([
@@ -150,6 +196,7 @@ export function SavingsProvider({ children }: { children: React.ReactNode }) {
                 updateSavings,
                 deleteSavings,
                 addContribution,
+                undoContribution,
             }}
         >
             {children}

@@ -1,56 +1,36 @@
-# Welcome to your Expo app 👋
+# On Hand
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+**Store title:** On Hand: What's left?
 
-## Get started
+A personal money tracker for one question: **what's left this month?**
 
-1. Install dependencies
+Home shows **leftover** — a running balance as of the period you picked — from income, everyday spending, logged bill payments, debt payments, and savings contributions. Data stays on the device. There is no account and no bank sync.
 
-   ```bash
-   npm install
-   ```
+## What’s in the app
 
-2. Start the app
+| Tab | What you do |
+|-----|-------------|
+| **Home** | See leftover for day / week / month / year |
+| **Activity** | Log income and everyday spending |
+| **Plans** | Bills, savings goals, and debts |
+| **Settings** | Currency display, due-day reminders, backup, reset |
 
-   ```bash
-   npx expo start
-   ```
+Leftover only subtracts **logged** cash. Unpaid bills and planned monthly savings do not auto-deduct.
 
-In the output, you'll find options to open the app in a
+Public store copy, screenshot list, and ship checklist: [`docs/RELEASE.md`](docs/RELEASE.md)  
+Privacy policy (host this URL on the store): [`docs/PRIVACY.md`](docs/PRIVACY.md)
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## Develop
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+Expo SDK 57. Use a [development build](https://docs.expo.dev/develop/development-builds/introduction/), not Expo Go, if you rely on native modules in this project.
 
 ```bash
-npm run reset-project
+npm install
+npx expo start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Store / friend APKs: use EAS `preview` or `production`, not the `development` profile.
 
-### Other setup steps
+## License
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Private project unless you add a license.

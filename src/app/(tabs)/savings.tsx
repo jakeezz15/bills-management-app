@@ -10,8 +10,11 @@ import SavingsForm from "@/components/SavingsForm";
 import { useStickyHero } from "@/hooks/useStickyHero";
 import { dashboard } from "@/styles/dashboard";
 import { SavingsGoal } from "@/types/savings";
+import { toIsoDate } from "@/utils/date";
+import { getLatestSavingsContributionInMonth } from "@/utils/filters";
 import { useMemo, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
+import { useDateRange } from "../contexts/DateRangeContext";
 import { useLocale } from "../contexts/LocaleContext";
 import { useSavings } from "../contexts/SavingsContext";
 import type { FormatMoneyOptions } from "@/utils/money";
@@ -50,25 +53,31 @@ function goalPace(
     const reached = isGoalReached(goal);
     const months = monthsRemaining(goal);
     const monthly = goal.monthlyContribution ?? 0;
+    const started = goal.startDate
+        ? `Started ${goal.startDate.slice(5).replace("-", "/")}`
+        : null;
 
     if (reached) {
-        return "Goal reached";
+        return started ? `Goal reached · ${started}` : "Goal reached";
     }
     if (months === 1) {
-        return `About 1 month at ${formatMoney(monthly, { compact: true })} / mo`;
+        return `About 1 month at ${formatMoney(monthly, { compact: true })} / mo when you log it`;
     }
     if (months !== null) {
-        return `About ${months} months at ${formatMoney(monthly, { compact: true })} / mo`;
+        return `About ${months} months at ${formatMoney(monthly, { compact: true })} / mo when you log it`;
     }
-    return "Set a monthly contribution to estimate a finish date";
+    return started
+        ? `${started} · set a planned monthly to estimate finish`
+        : "Set a planned monthly to estimate a finish date";
 }
 
 export default function SavingsScreen({
     embedded = false,
 }: SavingsScreenProps) {
     const { formatMoney } = useLocale();
+    const { range } = useDateRange();
     const [isOpen, setIsOpen] = useState(false);
-    const { savings, loading, addContribution } = useSavings();
+    const { savings, contributions, loading, undoContribution } = useSavings();
     const [editSavingsInfo, setEditSavingsInfo] = useState<SavingsGoal | null>(
         null
     );
@@ -96,12 +105,17 @@ export default function SavingsScreen({
     const { collapsed, scrollProps } = useStickyHero();
     const heroValue = formatMoney(totals.saved, { compact: true });
     const showHero = savings.length > 0;
-    const heroPace = `${formatMoney(totals.monthly, { compact: true })} planned each month`;
+    const heroPace = `${formatMoney(totals.monthly, { compact: true })} planned / mo · log to deduct`;
+
+    const asOf = range.end;
+    const asOfIso = toIsoDate(asOf);
 
     const renderGoal = (goal: SavingsGoal) => {
         const percent = progressPercent(goal);
         const done = isGoalReached(goal);
-        const monthly = goal.monthlyContribution ?? 0;
+        const loggedThisMonth = Boolean(
+            getLatestSavingsContributionInMonth(goal.id, contributions, asOf)
+        );
 
         return (
             <PlanItemCard
@@ -113,22 +127,19 @@ export default function SavingsScreen({
                 done={done}
                 amounts={formatMoney(goal.currentAmount, { compact: true })}
                 amountsMuted={` / ${formatMoney(goal.targetAmount, { compact: true })}`}
-                chipLabel={
-                    !done && monthly > 0
-                        ? `Log ${formatMoney(monthly, { compact: true })}`
-                        : undefined
-                }
+                chipLabel={loggedThisMonth ? "Undo" : "Log"}
                 onPress={() => {
                     setEditSavingsInfo(goal);
                     setIsOpen(true);
                 }}
-                onChip={
-                    !done && monthly > 0
-                        ? () => {
-                              void addContribution(goal.id, monthly);
-                          }
-                        : undefined
-                }
+                onChip={() => {
+                    if (loggedThisMonth) {
+                        void undoContribution(goal.id, asOfIso);
+                        return;
+                    }
+                    setEditSavingsInfo(goal);
+                    setIsOpen(true);
+                }}
             />
         );
     };
@@ -185,6 +196,7 @@ export default function SavingsScreen({
                         setEditSavingsInfo(null);
                     }}
                     savingsInfo={editSavingsInfo ?? undefined}
+                    asOfIso={asOfIso}
                 />
 
                 {savings.length === 0 && !loading && (

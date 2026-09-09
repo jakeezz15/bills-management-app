@@ -104,6 +104,38 @@ export default function IncomeForm({
             }
         >
             <View style={modalForm.dialogField}>
+                <Text style={modalForm.dialogLabel}>Source</Text>
+                <TextInput
+                    style={[
+                        modalForm.dialogInput,
+                        focusedInput === "source" &&
+                            modalForm.dialogInputFocused,
+                        sourceHasError && modalForm.dialogInputError,
+                    ]}
+                    placeholder="Salary, freelance…"
+                    placeholderTextColor="#94A3B8"
+                    value={source}
+                    onChangeText={setSource}
+                    onFocus={() => setFocusedInput("source")}
+                    onBlur={() => setFocusedInput(null)}
+                />
+                {sourceHasError && (
+                    <Text style={modalForm.errorText}>Source is required.</Text>
+                )}
+            </View>
+
+            <View style={modalForm.dialogField}>
+                <DateField
+                    layout="dialog"
+                    label="Pay date"
+                    value={date}
+                    onChange={setDate}
+                    hasError={dateHasError}
+                    errorMessage="Choose a valid pay date."
+                />
+            </View>
+
+            <View style={modalForm.dialogField}>
                 <Text style={modalForm.dialogLabel}>Net (take-home)</Text>
                 <View
                     style={[
@@ -132,27 +164,6 @@ export default function IncomeForm({
             </View>
 
             <View style={modalForm.dialogField}>
-                <Text style={modalForm.dialogLabel}>Source</Text>
-                <TextInput
-                    style={[
-                        modalForm.dialogInput,
-                        focusedInput === "source" &&
-                            modalForm.dialogInputFocused,
-                        sourceHasError && modalForm.dialogInputError,
-                    ]}
-                    placeholder="Salary, freelance…"
-                    placeholderTextColor="#94A3B8"
-                    value={source}
-                    onChangeText={setSource}
-                    onFocus={() => setFocusedInput("source")}
-                    onBlur={() => setFocusedInput(null)}
-                />
-                {sourceHasError && (
-                    <Text style={modalForm.errorText}>Source is required.</Text>
-                )}
-            </View>
-
-            <View style={modalForm.dialogField}>
                 <Text style={modalForm.dialogLabel}>Gross (optional)</Text>
                 <View
                     style={[
@@ -163,7 +174,7 @@ export default function IncomeForm({
                 >
                     <Text style={modalForm.dialogAmountPrefix}>{symbol}</Text>
                     <TextInput
-                        style={[modalForm.dialogAmountInput, { fontSize: 20 }]}
+                        style={modalForm.dialogAmountInput}
                         placeholder="Defaults to net"
                         placeholderTextColor="#CBD5E1"
                         value={gross}
@@ -173,17 +184,6 @@ export default function IncomeForm({
                         onBlur={() => setFocusedInput(null)}
                     />
                 </View>
-            </View>
-
-            <View style={modalForm.dialogField}>
-                <DateField
-                    layout="dialog"
-                    label="Pay date"
-                    value={date}
-                    onChange={setDate}
-                    hasError={dateHasError}
-                    errorMessage="Choose a valid pay date."
-                />
             </View>
         </FormDialog>
     );

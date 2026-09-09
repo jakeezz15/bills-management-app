@@ -224,7 +224,7 @@ export default function DebtForm({
             ) : null}
 
             {debt && paidThisPeriod ? (
-                <View style={[modalForm.actionCard, { marginTop: 0, marginBottom: 16 }]}>
+                <View style={[modalForm.actionCard, modalForm.actionCardLead]}>
                     <Text style={modalForm.actionCardTitle}>
                         Paid this period
                     </Text>
@@ -251,7 +251,7 @@ export default function DebtForm({
             ) : null}
 
             {debt && debt.balance > 0 && !paidThisPeriod ? (
-                <View style={[modalForm.actionCard, { marginTop: 0, marginBottom: 16 }]}>
+                <View style={[modalForm.actionCard, modalForm.actionCardLead]}>
                     <Text style={modalForm.actionCardTitle}>
                         Record this period’s payment
                     </Text>
@@ -278,33 +278,6 @@ export default function DebtForm({
             ) : null}
 
             <View style={modalForm.dialogField}>
-                <Text style={modalForm.dialogLabel}>Remaining</Text>
-                <View
-                    style={[
-                        modalForm.dialogAmountWrap,
-                        focusedInput === "balance" &&
-                            modalForm.dialogInputFocused,
-                        balanceHasError && modalForm.dialogInputError,
-                    ]}
-                >
-                    <Text style={modalForm.dialogAmountPrefix}>{symbol}</Text>
-                    <TextInput
-                        style={modalForm.dialogAmountInput}
-                        placeholder="0.00"
-                        placeholderTextColor="#CBD5E1"
-                        value={balance}
-                        onChangeText={setBalance}
-                        keyboardType="decimal-pad"
-                        onFocus={() => setFocusedInput("balance")}
-                        onBlur={() => setFocusedInput(null)}
-                    />
-                </View>
-                {balanceHasError && (
-                    <Text style={modalForm.errorText}>Balance is required.</Text>
-                )}
-            </View>
-
-            <View style={modalForm.dialogField}>
                 <Text style={modalForm.dialogLabel}>Name</Text>
                 <TextInput
                     style={[
@@ -321,38 +294,6 @@ export default function DebtForm({
                 />
                 {nameHasError && (
                     <Text style={modalForm.errorText}>Name is required.</Text>
-                )}
-            </View>
-
-            <View style={modalForm.dialogField}>
-                <Text style={modalForm.dialogLabel}>Monthly payment</Text>
-                <View
-                    style={[
-                        modalForm.dialogAmountWrap,
-                        focusedInput === "minimumPayment" &&
-                            modalForm.dialogInputFocused,
-                        paymentHasError && modalForm.dialogInputError,
-                    ]}
-                >
-                    <Text style={modalForm.dialogAmountPrefix}>{symbol}</Text>
-                    <TextInput
-                        style={[
-                            modalForm.dialogAmountInput,
-                            { fontSize: 20 },
-                        ]}
-                        placeholder="0.00"
-                        placeholderTextColor="#CBD5E1"
-                        value={minimumPayment}
-                        onChangeText={setMinimumPayment}
-                        keyboardType="decimal-pad"
-                        onFocus={() => setFocusedInput("minimumPayment")}
-                        onBlur={() => setFocusedInput(null)}
-                    />
-                </View>
-                {paymentHasError && (
-                    <Text style={modalForm.errorText}>
-                        Monthly payment is required.
-                    </Text>
                 )}
             </View>
 
@@ -420,6 +361,62 @@ export default function DebtForm({
                 </View>
                 {typeHasError && (
                     <Text style={modalForm.errorText}>Choose a type.</Text>
+                )}
+            </View>
+
+            <View style={modalForm.dialogField}>
+                <Text style={modalForm.dialogLabel}>Remaining</Text>
+                <View
+                    style={[
+                        modalForm.dialogAmountWrap,
+                        focusedInput === "balance" &&
+                            modalForm.dialogInputFocused,
+                        balanceHasError && modalForm.dialogInputError,
+                    ]}
+                >
+                    <Text style={modalForm.dialogAmountPrefix}>{symbol}</Text>
+                    <TextInput
+                        style={modalForm.dialogAmountInput}
+                        placeholder="0.00"
+                        placeholderTextColor="#CBD5E1"
+                        value={balance}
+                        onChangeText={setBalance}
+                        keyboardType="decimal-pad"
+                        onFocus={() => setFocusedInput("balance")}
+                        onBlur={() => setFocusedInput(null)}
+                    />
+                </View>
+                {balanceHasError && (
+                    <Text style={modalForm.errorText}>Balance is required.</Text>
+                )}
+            </View>
+
+            <View style={modalForm.dialogField}>
+                <Text style={modalForm.dialogLabel}>Monthly payment</Text>
+                <View
+                    style={[
+                        modalForm.dialogAmountWrap,
+                        focusedInput === "minimumPayment" &&
+                            modalForm.dialogInputFocused,
+                        paymentHasError && modalForm.dialogInputError,
+                    ]}
+                >
+                    <Text style={modalForm.dialogAmountPrefix}>{symbol}</Text>
+                    <TextInput
+                        style={modalForm.dialogAmountInput}
+                        placeholder="0.00"
+                        placeholderTextColor="#CBD5E1"
+                        value={minimumPayment}
+                        onChangeText={setMinimumPayment}
+                        keyboardType="decimal-pad"
+                        onFocus={() => setFocusedInput("minimumPayment")}
+                        onBlur={() => setFocusedInput(null)}
+                    />
+                </View>
+                {paymentHasError && (
+                    <Text style={modalForm.errorText}>
+                        Monthly payment is required.
+                    </Text>
                 )}
             </View>
         </FormDialog>

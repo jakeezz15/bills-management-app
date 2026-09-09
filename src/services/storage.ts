@@ -1,4 +1,3 @@
-import { billsData, debtData, expensesData, incomeData, savingsData } from "@/constants/sample-data";
 import { Bill } from "@/types/bill";
 import { BillPayment } from "@/types/bill-payment";
 import { Debt } from "@/types/debt";
@@ -7,7 +6,7 @@ import { Expense } from "@/types/expense";
 import { Income } from "@/types/income";
 import { SavingsGoal } from "@/types/savings";
 import { SavingsContribution } from "@/types/savings-contribution";
-import { debtStartDate, ensureTimestamps, stampCreate } from "@/utils/timestamps";
+import { debtStartDate, ensureTimestamps, savingsStartDate, stampCreate } from "@/utils/timestamps";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const BILLS_KEY = "bills";
@@ -71,10 +70,7 @@ async function migrateLegacyExpensesIfNeeded(): Promise<void> {
 
         if (looksLikeBill) {
             await AsyncStorage.setItem(BILLS_KEY, expensesRaw);
-            await AsyncStorage.setItem(
-                EXPENSES_KEY,
-                JSON.stringify(expensesData)
-            );
+            await AsyncStorage.setItem(EXPENSES_KEY, JSON.stringify([]));
         }
     } catch {
         // Leave storage alone if parse fails; loaders will re-seed.
@@ -89,12 +85,19 @@ export async function loadBills(): Promise<Bill[]> {
     const raw = await AsyncStorage.getItem(BILLS_KEY);
 
     if (raw === null) {
-        await AsyncStorage.setItem(BILLS_KEY, JSON.stringify(billsData));
-        return billsData;
+        await AsyncStorage.setItem(BILLS_KEY, JSON.stringify([]));
+        return [];
     }
 
     const parsed = JSON.parse(raw) as Bill[];
-    return parsed.map((bill) => ensureTimestamps(bill));
+    return parsed.map((bill) => {
+        const withTs = ensureTimestamps(bill);
+        return {
+            ...withTs,
+            amountVaries: withTs.amountVaries === true,
+            amount: withTs.amountVaries === true ? 0 : withTs.amount,
+        };
+    });
 }
 
 export async function saveBills(bills: Bill[]): Promise<void> {
@@ -109,8 +112,8 @@ export async function loadExpenses(): Promise<Expense[]> {
     const raw = await AsyncStorage.getItem(EXPENSES_KEY);
 
     if (raw === null) {
-        await AsyncStorage.setItem(EXPENSES_KEY, JSON.stringify(expensesData));
-        return expensesData;
+        await AsyncStorage.setItem(EXPENSES_KEY, JSON.stringify([]));
+        return [];
     }
 
     const parsed = JSON.parse(raw) as Expense[];
@@ -127,8 +130,8 @@ export async function loadIncome(): Promise<Income[]> {
     const raw = await AsyncStorage.getItem(INCOME_KEY);
 
     if (raw === null) {
-        await AsyncStorage.setItem(INCOME_KEY, JSON.stringify(incomeData));
-        return incomeData;
+        await AsyncStorage.setItem(INCOME_KEY, JSON.stringify([]));
+        return [];
     }
 
     const parsed = JSON.parse(raw) as Income[];
@@ -145,8 +148,8 @@ export async function loadDebts(): Promise<Debt[]> {
     const raw = await AsyncStorage.getItem(DEBTS_KEY);
 
     if (raw === null) {
-        await AsyncStorage.setItem(DEBTS_KEY, JSON.stringify(debtData));
-        return debtData;
+        await AsyncStorage.setItem(DEBTS_KEY, JSON.stringify([]));
+        return [];
     }
 
     const parsed = JSON.parse(raw) as Debt[];
@@ -249,12 +252,18 @@ export async function loadSavings(): Promise<SavingsGoal[]> {
     const raw = await AsyncStorage.getItem(SAVINGS_KEY);
 
     if (raw === null) {
-        await AsyncStorage.setItem(SAVINGS_KEY, JSON.stringify(savingsData));
-        return savingsData;
+        await AsyncStorage.setItem(SAVINGS_KEY, JSON.stringify([]));
+        return [];
     }
 
     const parsed = JSON.parse(raw) as SavingsGoal[];
-    return parsed.map((item) => ensureTimestamps(item));
+    return parsed.map((item) => {
+        const withTs = ensureTimestamps(item);
+        return {
+            ...withTs,
+            startDate: savingsStartDate(withTs),
+        };
+    });
 }
 
 export async function saveSavings(savings: SavingsGoal[]): Promise<void> {
@@ -273,7 +282,7 @@ export async function loadSavingsContributions(): Promise<
         return parsed.map((item) => ensureTimestamps(item, item.date));
     }
 
-    // No auto-migration from monthlyContribution — finance falls back until user logs contributions.
+    // Empty ledger until the user logs contributions (no auto monthly deduction).
     await saveSavingsContributions([]);
     return [];
 }
@@ -290,16 +299,4 @@ export async function saveSavingsContributions(
 /** Wipe finance data and leave empty arrays so loaders do not re-seed samples. */
 export async function clearAllData(): Promise<void> {
     await seedEmptyData();
-}
-
-export async function resetToSampleData(): Promise<void> {
-    await clearAllData();
-    await saveBills(billsData);
-    await saveExpenses(expensesData);
-    await saveIncome(incomeData);
-    await saveDebts(debtData);
-    await saveDebtPayments([]);
-    await saveBillPayments([]);
-    await saveSavings(savingsData);
-    await saveSavingsContributions([]);
 }

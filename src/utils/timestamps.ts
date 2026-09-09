@@ -49,3 +49,17 @@ export function debtStartDate(debt: {
     }
     return toIsoDate(new Date());
 }
+
+/** Calendar start for a savings goal: explicit startDate, else createdAt day. */
+export function savingsStartDate(goal: {
+    startDate?: string;
+    createdAt?: string;
+}): string {
+    if (goal.startDate) {
+        return goal.startDate;
+    }
+    if (goal.createdAt) {
+        return goal.createdAt.slice(0, 10);
+    }
+    return toIsoDate(new Date());
+}

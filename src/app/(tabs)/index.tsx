@@ -1,13 +1,15 @@
+import { DashboardEmpty } from "@/components/DashboardEmpty";
+import { DashboardHeroCompact } from "@/components/DashboardHero";
 import { HeroPeriodNav } from "@/components/HeroPeriodNav";
 import { MonthGrid } from "@/components/MonthGrid";
 import { MonthTrendChart, SpendByCategoryChart } from "@/components/HomeCharts";
 import { SegmentControl } from "@/components/SegmentControl";
+import { useStickyHero } from "@/hooks/useStickyHero";
 import { dashboard } from "@/styles/dashboard";
 import { theme, type } from "@/theme";
 import {
     hasCompletedFirstRun,
     markFirstRunComplete,
-    seedEmptyData,
 } from "@/services/storage";
 import {
     PERIOD_UNITS,
@@ -23,7 +25,7 @@ import {
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { router } from "expo-router";
 import { useEffect, useMemo } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useBills } from "../contexts/BillsContext";
 import { useDateRange } from "../contexts/DateRangeContext";
 import { useDebt } from "../contexts/DebtsContext";
@@ -36,15 +38,11 @@ const UNIT_OPTIONS = PERIOD_UNITS.map((unit) => PERIOD_UNIT_LABELS[unit]);
 
 export default function HomeScreen() {
     const { formatMoney } = useLocale();
-    const { income, reload: reloadIncome } = useIncome();
-    const { expenses, reload: reloadExpenses } = useExpenses();
-    const { bills, payments: billPayments, reload: reloadBills } = useBills();
-    const { debts, payments: debtPayments, reload: reloadDebts } = useDebt();
-    const {
-        savings,
-        contributions: savingsContributions,
-        reload: reloadSavings,
-    } = useSavings();
+    const { income } = useIncome();
+    const { expenses } = useExpenses();
+    const { bills, payments: billPayments } = useBills();
+    const { debts, payments: debtPayments } = useDebt();
+    const { savings, contributions: savingsContributions } = useSavings();
     const {
         periodUnit,
         range,
@@ -171,51 +169,28 @@ export default function HomeScreen() {
         ]
     );
 
-    const reloadAll = async () => {
-        await Promise.all([
-            reloadIncome(),
-            reloadExpenses(),
-            reloadBills(),
-            reloadDebts(),
-            reloadSavings(),
-        ]);
-    };
-
     useEffect(() => {
-        let cancelled = false;
-
-        (async () => {
-            const done = await hasCompletedFirstRun();
-            if (cancelled || done) return;
-
-            Alert.alert(
-                "Welcome",
-                "Try the sample data, or start with an empty app for your real numbers.",
-                [
-                    {
-                        text: "Keep sample data",
-                        onPress: async () => {
-                            await markFirstRunComplete();
-                        },
-                    },
-                    {
-                        text: "Start empty",
-                        style: "destructive",
-                        onPress: async () => {
-                            await seedEmptyData();
-                            await markFirstRunComplete();
-                            await reloadAll();
-                        },
-                    },
-                ],
-                { cancelable: false }
-            );
-        })();
-
-        return () => {
-            cancelled = true;
-        };
+        void hasCompletedFirstRun().then((done) => {
+            if (!done) {
+                void markFirstRunComplete();
+            }
+        });
     }, []);
+
+    const { collapsed, scrollProps } = useStickyHero({
+        collapseAt: 140,
+        expandAt: 48,
+    });
+    const leftoverLabel = formatMoney(totals.leftover, { compact: true });
+    const needsFirstPaycheck = income.length === 0;
+    const periodNav = (forCompact: boolean) => (
+        <HeroPeriodNav
+            label={label}
+            onShift={shiftPeriod}
+            onResetToToday={resetToToday}
+            style={forCompact ? { marginTop: 8 } : { marginTop: 0, flex: 1 }}
+        />
+    );
 
     const selectUnit = (value: string) => {
         const next = PERIOD_UNITS.find(
@@ -230,29 +205,34 @@ export default function HomeScreen() {
 
     return (
         <View style={dashboard.screen}>
-            <ScrollView style={dashboard.list} contentContainerStyle={styles.scroll}>
+            {collapsed ? (
+                <View style={styles.mastCompactSticky}>
+                    <DashboardHeroCompact
+                        kicker={okay ? "Leftover" : "Short"}
+                        value={leftoverLabel}
+                        pace={periodNav(true)}
+                    />
+                </View>
+            ) : null}
+
+            <ScrollView
+                style={dashboard.list}
+                contentContainerStyle={styles.scroll}
+                {...scrollProps}
+            >
                 <View style={styles.masthead}>
-                    <Text style={styles.mastKicker}>Finance Manager</Text>
+                    <Text style={styles.mastKicker}>On Hand</Text>
                     <Text style={styles.mastValue}>
                         {okay ? "You’re okay" : "Short this period"}
                     </Text>
-                    <Text style={styles.mastAmount}>
-                        {formatMoney(totals.leftover, { compact: true })}
-                    </Text>
+                    <Text style={styles.mastAmount}>{leftoverLabel}</Text>
                     <Text style={styles.mastCaption}>
                         {okay
                             ? "Income covers spending, bills, debts, and savings so far"
                             : "Outflows are higher than income received so far"}
                     </Text>
 
-                    <View style={styles.mastNav}>
-                        <HeroPeriodNav
-                            label={label}
-                            onShift={shiftPeriod}
-                            onResetToToday={resetToToday}
-                            style={{ marginTop: 0, flex: 1 }}
-                        />
-                    </View>
+                    <View style={styles.mastNav}>{periodNav(false)}</View>
                 </View>
 
                 <View style={styles.body}>
@@ -262,6 +242,17 @@ export default function HomeScreen() {
                         onSelect={selectUnit}
                         compact
                     />
+
+                    {needsFirstPaycheck ? (
+                        <View style={{ marginTop: theme.space.lg, marginBottom: theme.space.md }}>
+                            <DashboardEmpty
+                                title="Add your first paycheck"
+                                text="Leftover starts at zero until you log income. Activity is the place to record money in."
+                                actionLabel="Add first paycheck"
+                                onAction={() => router.push("/(tabs)/activity")}
+                            />
+                        </View>
+                    ) : null}
 
                     <MonthGrid
                         month={startOfMonth(
@@ -424,6 +415,17 @@ const styles = StyleSheet.create({
         paddingTop: theme.space.md,
         borderTopWidth: StyleSheet.hairlineWidth,
         borderTopColor: theme.color.heroTrack,
+    },
+    mastCompactSticky: {
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 20,
+        backgroundColor: theme.color.hero,
+        paddingHorizontal: theme.space.xl,
+        paddingTop: theme.space.screenTop,
+        paddingBottom: theme.space.md,
     },
     body: {
         paddingHorizontal: theme.space.screenX,
