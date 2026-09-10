@@ -12,6 +12,7 @@ type PlanItemCardProps = {
     chipLabel?: string;
     onPress: () => void;
     onChip?: () => void;
+    fill?: "accent" | "success";
 };
 
 export function PlanItemCard({
@@ -25,6 +26,7 @@ export function PlanItemCard({
     chipLabel,
     onPress,
     onChip,
+    fill = "accent",
 }: PlanItemCardProps) {
     const width = Math.max(0, Math.min(100, percent));
 
@@ -47,7 +49,7 @@ export function PlanItemCard({
                 <View
                     style={[
                         dashboard.barFill,
-                        done && dashboard.barFillDone,
+                        (done || fill === "success") && dashboard.barFillDone,
                         { width: `${width}%` },
                     ]}
                 />

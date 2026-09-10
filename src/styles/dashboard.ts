@@ -1,4 +1,4 @@
-import { shadows, theme, type } from "@/theme";
+import { theme, type } from "@/theme";
 import { StyleSheet } from "react-native";
 
 export const dashboard = StyleSheet.create({
@@ -11,19 +11,19 @@ export const dashboard = StyleSheet.create({
     },
     listContent: {
         paddingHorizontal: theme.space.screenX,
-        paddingTop: theme.space.md,
-        paddingBottom: 40,
+        paddingTop: theme.space.lg,
+        paddingBottom: 88,
     },
     standaloneHeader: {
         marginBottom: theme.space.md,
     },
     hero: {
         backgroundColor: theme.color.hero,
-        borderRadius: theme.radius.xl,
-        paddingHorizontal: 18,
+        paddingHorizontal: theme.space.lg,
         paddingTop: theme.space.lg,
-        paddingBottom: 18,
-        marginBottom: theme.space.xl,
+        paddingBottom: theme.space.lg,
+        marginBottom: theme.space.lg,
+        borderRadius: theme.radius.lg,
     },
     heroCompactSticky: {
         position: "absolute",
@@ -42,7 +42,6 @@ export const dashboard = StyleSheet.create({
         paddingHorizontal: theme.space.lg,
         paddingTop: theme.space.md,
         paddingBottom: theme.space.md,
-        ...shadows.card,
     },
     heroCompactTop: {
         flexDirection: "row",
@@ -82,12 +81,12 @@ export const dashboard = StyleSheet.create({
         color: theme.color.onHero,
         fontSize: theme.font.hero,
         fontWeight: theme.font.weight.bold,
-        letterSpacing: -0.6,
+        letterSpacing: -0.8,
         marginTop: theme.space.xs,
     },
     heroCaption: {
         color: theme.color.onHeroCaption,
-        fontSize: theme.font.caption,
+        fontSize: theme.font.body,
         marginTop: theme.space.xs,
     },
     heroAdd: {
@@ -108,7 +107,7 @@ export const dashboard = StyleSheet.create({
     heroBarFill: {
         height: theme.size.bar,
         borderRadius: theme.radius.pill,
-        backgroundColor: theme.color.successBright,
+        backgroundColor: theme.color.primary,
     },
     heroPace: {
         color: theme.color.onHeroMuted,
@@ -119,11 +118,11 @@ export const dashboard = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         gap: theme.space.sm,
-        marginTop: 10,
+        marginTop: theme.space.lg,
     },
     periodLabel: {
         color: theme.color.faint,
-        fontSize: theme.font.caption,
+        fontSize: theme.font.body,
         fontWeight: theme.font.weight.semibold,
         flex: 1,
         textAlign: "center",
@@ -136,8 +135,9 @@ export const dashboard = StyleSheet.create({
     },
     sectionLabel: {
         ...type.sectionLabel,
-        marginBottom: 10,
-        marginTop: theme.space.xs,
+        marginBottom: 8,
+        marginTop: theme.space.lg,
+        marginLeft: theme.space.xs,
     },
     card: {
         backgroundColor: theme.color.surface,
@@ -145,7 +145,8 @@ export const dashboard = StyleSheet.create({
         paddingHorizontal: theme.space.lg,
         paddingVertical: theme.space.lg,
         marginBottom: theme.space.md,
-        ...shadows.card,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: theme.color.border,
     },
     cardTop: {
         flexDirection: "row",
@@ -197,24 +198,23 @@ export const dashboard = StyleSheet.create({
         backgroundColor: theme.color.accentSoft,
         paddingHorizontal: theme.space.md,
         paddingVertical: theme.space.sm,
-        borderRadius: theme.radius.pill,
+        borderRadius: theme.radius.sm,
     },
     chipText: {
         color: theme.color.accentText,
         fontSize: theme.font.caption,
-        fontWeight: theme.font.weight.bold,
+        fontWeight: theme.font.weight.semibold,
     },
     emptyCard: {
         backgroundColor: theme.color.surface,
         borderRadius: theme.radius.lg,
-        padding: 22,
-        borderWidth: 1,
+        padding: theme.space.xl,
+        borderWidth: StyleSheet.hairlineWidth,
         borderColor: theme.color.border,
-        borderStyle: "dashed",
     },
     emptyTitle: {
         color: theme.color.ink,
-        fontSize: 18,
+        fontSize: theme.font.page,
         fontWeight: theme.font.weight.bold,
     },
     emptyText: {
@@ -237,7 +237,7 @@ export const dashboard = StyleSheet.create({
         paddingTop: theme.space.screenTop,
         paddingBottom: theme.space.sm,
         backgroundColor: theme.color.surface,
-        borderBottomWidth: 1,
+        borderBottomWidth: StyleSheet.hairlineWidth,
         borderBottomColor: theme.color.border,
     },
     summaryRow: {
@@ -256,7 +256,7 @@ export const dashboard = StyleSheet.create({
         fontWeight: theme.font.weight.semibold,
     },
     summaryDivider: {
-        height: 1,
+        height: StyleSheet.hairlineWidth,
         backgroundColor: theme.color.border,
     },
 });

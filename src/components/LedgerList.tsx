@@ -7,11 +7,8 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 const ACCENT_PALETTE = [
     theme.color.accent,
     theme.color.success,
-    theme.color.warning,
-    "#7C3AED",
-    "#DB2777",
-    "#0891B2",
-    "#EA580C",
+    theme.color.warningBright,
+    theme.color.info,
     theme.color.muted,
 ];
 
@@ -160,7 +157,7 @@ const styles = StyleSheet.create({
         backgroundColor: theme.color.surfaceMuted,
     },
     accent: {
-        width: 3,
+        width: theme.size.strip,
         alignSelf: "stretch",
         borderRadius: theme.radius.pill,
         marginVertical: 4,

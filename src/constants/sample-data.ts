@@ -1,7 +1,10 @@
 import { Bill } from "@/types/bill";
+import { BillPayment } from "@/types/bill-payment";
 import { Debt } from "@/types/debt";
+import { DebtPayment } from "@/types/debt-payment";
 import { Expense } from "@/types/expense";
 import { Income } from "@/types/income";
+import { SavingsContribution } from "@/types/savings-contribution";
 import { SavingsGoal } from "@/types/savings";
 
 const ts = (isoDate: string) => ({
@@ -9,138 +12,273 @@ const ts = (isoDate: string) => ({
     updatedAt: `${isoDate}T12:00:00.000Z`,
 });
 
-/** Recurring / scheduled obligations (rent, utilities, subscriptions) */
+/**
+ * September 2026 sample (USD).
+ * Leftover = paycheck 3200 − spent 1217.50 − bills paid 500 = 1482.50.
+ * Unpaid bills do not reduce leftover.
+ */
 export const billsData: Bill[] = [
     {
-        id: "1",
-        name: "Electricity",
-        amount: 0,
-        dueDay: 15,
-        isPaid: false,
-        category: "Utilities",
-        isRecurring: true,
-        amountVaries: true,
-        ...ts("2026-07-01"),
-    },
-    {
-        id: "2",
-        name: "Water",
-        amount: 0,
-        dueDay: 10,
-        isPaid: false,
-        category: "Utilities",
-        isRecurring: true,
-        amountVaries: true,
-        ...ts("2026-07-01"),
-    },
-    {
-        id: "3",
+        id: "bill-rent",
         name: "Rent",
-        amount: 500,
-        dueDay: 30,
+        amount: 1450,
+        dueDay: 1,
         isPaid: false,
         category: "Housing",
         isRecurring: true,
         ...ts("2026-07-01"),
     },
+    {
+        id: "bill-utilities",
+        name: "Utilities",
+        amount: 120,
+        dueDay: 12,
+        isPaid: false,
+        category: "Utilities",
+        isRecurring: true,
+        ...ts("2026-07-01"),
+    },
+    {
+        id: "bill-netflix",
+        name: "Netflix",
+        amount: 15.99,
+        dueDay: 25,
+        isPaid: false,
+        category: "Subscriptions",
+        isRecurring: true,
+        ...ts("2026-07-01"),
+    },
+    {
+        id: "bill-internet",
+        name: "Internet",
+        amount: 80,
+        dueDay: 5,
+        isPaid: true,
+        category: "Utilities",
+        isRecurring: true,
+        ...ts("2026-07-01"),
+    },
+    {
+        id: "bill-insurance",
+        name: "Insurance",
+        amount: 420,
+        dueDay: 8,
+        isPaid: true,
+        category: "Insurance",
+        isRecurring: true,
+        ...ts("2026-07-01"),
+    },
 ];
 
-/** Everyday spending logs (coffee, groceries, gas) */
+export const billPaymentsData: BillPayment[] = [
+    {
+        id: "pay-internet-sep",
+        billId: "bill-internet",
+        amount: 80,
+        date: "2026-09-03",
+        ...ts("2026-09-03"),
+    },
+    {
+        id: "pay-insurance-sep",
+        billId: "bill-insurance",
+        amount: 420,
+        date: "2026-09-05",
+        ...ts("2026-09-05"),
+    },
+];
+
 export const expensesData: Expense[] = [
     {
-        id: "1",
+        id: "exp-coffee",
+        name: "Coffee",
+        amount: 4.5,
+        date: "2026-09-09",
+        category: "Food",
+        ...ts("2026-09-09"),
+    },
+    {
+        id: "exp-rideshare",
+        name: "Rideshare",
+        amount: 36,
+        date: "2026-09-08",
+        category: "Transport",
+        ...ts("2026-09-08"),
+    },
+    {
+        id: "exp-groceries",
         name: "Groceries",
-        amount: 65.4,
+        amount: 86.2,
+        date: "2026-09-08",
+        category: "Food",
+        ...ts("2026-09-08"),
+    },
+    {
+        id: "exp-gas",
+        name: "Gas",
+        amount: 45,
+        date: "2026-09-07",
+        category: "Transport",
+        ...ts("2026-09-07"),
+    },
+    {
+        id: "exp-dining",
+        name: "Dining",
+        amount: 64.8,
+        date: "2026-09-06",
+        category: "Food",
+        ...ts("2026-09-06"),
+    },
+    {
+        id: "exp-pharmacy",
+        name: "Pharmacy",
+        amount: 22.4,
+        date: "2026-09-06",
+        category: "Health",
+        ...ts("2026-09-06"),
+    },
+    {
+        id: "exp-target",
+        name: "Target",
+        amount: 156.8,
+        date: "2026-09-05",
+        category: "Shopping",
+        ...ts("2026-09-05"),
+    },
+    {
+        id: "exp-lunch",
+        name: "Lunch",
+        amount: 14.75,
         date: "2026-09-05",
         category: "Food",
         ...ts("2026-09-05"),
     },
     {
-        id: "2",
-        name: "Gas",
-        amount: 40,
-        date: "2026-09-06",
-        category: "Transport",
-        ...ts("2026-09-06"),
+        id: "exp-household",
+        name: "Household",
+        amount: 67.3,
+        date: "2026-09-04",
+        category: "Shopping",
+        ...ts("2026-09-04"),
     },
     {
-        id: "3",
-        name: "Coffee",
-        amount: 5.5,
-        date: "2026-09-07",
+        id: "exp-movie",
+        name: "Movie",
+        amount: 32,
+        date: "2026-09-04",
+        category: "Entertainment",
+        ...ts("2026-09-04"),
+    },
+    {
+        id: "exp-takeout",
+        name: "Takeout",
+        amount: 41.15,
+        date: "2026-09-03",
         category: "Food",
-        ...ts("2026-09-07"),
+        ...ts("2026-09-03"),
+    },
+    {
+        id: "exp-parking",
+        name: "Parking",
+        amount: 12,
+        date: "2026-09-03",
+        category: "Transport",
+        ...ts("2026-09-03"),
+    },
+    {
+        id: "exp-clothing",
+        name: "Clothing",
+        amount: 89,
+        date: "2026-09-02",
+        category: "Shopping",
+        ...ts("2026-09-02"),
+    },
+    {
+        id: "exp-haircut",
+        name: "Haircut",
+        amount: 45,
+        date: "2026-09-02",
+        category: "Other",
+        ...ts("2026-09-02"),
+    },
+    {
+        id: "exp-electronics",
+        name: "Electronics",
+        amount: 249.85,
+        date: "2026-09-02",
+        category: "Shopping",
+        ...ts("2026-09-02"),
+    },
+    {
+        id: "exp-books",
+        name: "Books",
+        amount: 18.5,
+        date: "2026-09-01",
+        category: "Shopping",
+        ...ts("2026-09-01"),
+    },
+    {
+        id: "exp-snacks",
+        name: "Snacks",
+        amount: 11.25,
+        date: "2026-09-01",
+        category: "Food",
+        ...ts("2026-09-01"),
+    },
+    {
+        id: "exp-gym",
+        name: "Gym",
+        amount: 55,
+        date: "2026-09-01",
+        category: "Health",
+        ...ts("2026-09-01"),
+    },
+    {
+        id: "exp-transit",
+        name: "Transit pass",
+        amount: 166,
+        date: "2026-09-01",
+        category: "Transport",
+        ...ts("2026-09-01"),
     },
 ];
 
 export const incomeData: Income[] = [
     {
-        id: "1",
-        date: "2026-07-28",
-        gross: 1100,
-        net: 900,
-        source: "Salary",
-        ...ts("2026-07-28"),
-    },
-    {
-        id: "2",
-        date: "2026-08-28",
-        gross: 1200,
-        net: 1000,
-        source: "Salary",
-        ...ts("2026-08-28"),
-    },
-    {
-        id: "3",
-        date: "2026-09-28",
-        gross: 1200,
-        net: 1000,
-        source: "Salary",
-        ...ts("2026-09-28"),
+        id: "inc-paycheck",
+        date: "2026-09-01",
+        gross: 3200,
+        net: 3200,
+        source: "Paycheck",
+        ...ts("2026-09-01"),
     },
 ];
 
 export const debtData: Debt[] = [
     {
-        id: "1",
-        name: "iPhone 16 Pro Max",
-        balance: 500,
-        dueDay: 15,
-        minimumPayment: 45,
-        startDate: "2026-08-01",
-        remarks: "Installment plan",
-        type: "Device / Installment",
-        ...ts("2026-08-01"),
-    },
-    {
-        id: "2",
-        name: "MacBook Air",
-        balance: 800,
-        dueDay: 15,
-        minimumPayment: 75,
-        startDate: "2026-08-01",
-        type: "Device / Installment",
-        ...ts("2026-08-01"),
+        id: "debt-car",
+        name: "Car loan",
+        balance: 8400,
+        dueDay: 12,
+        minimumPayment: 285,
+        startDate: "2026-01-12",
+        type: "Car Loan",
+        remarks: "Monthly installment",
+        ...ts("2026-01-12"),
     },
 ];
 
+export const debtPaymentsData: DebtPayment[] = [];
+
 export const savingsData: SavingsGoal[] = [
     {
-        id: "1",
-        name: "Emergency Fund",
+        id: "sav-emergency",
+        name: "Emergency fund",
         targetAmount: 5000,
-        currentAmount: 1200,
-        startDate: "2026-07-01",
+        currentAmount: 3250,
+        startDate: "2026-01-15",
         monthlyContribution: 200,
-        ...ts("2026-07-01"),
-    },
-    {
-        id: "2",
-        name: "Vacation",
-        targetAmount: 2000,
-        currentAmount: 400,
-        startDate: "2026-07-01",
-        monthlyContribution: 100,
-        ...ts("2026-07-01"),
+        ...ts("2026-01-15"),
     },
 ];
+
+export const savingsContributionsData: SavingsContribution[] = [];

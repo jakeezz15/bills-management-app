@@ -14,7 +14,6 @@ export const buttonStyle = StyleSheet.create({
     buttonText: type.button,
     buttonPressed: {
         opacity: 0.9,
-        transform: [{ scale: 0.98 }],
     },
     submitButton: {
         alignItems: "center",
@@ -39,13 +38,12 @@ export const buttonStyle = StyleSheet.create({
         justifyContent: "center",
         minHeight: theme.size.tap,
         paddingHorizontal: theme.space.lg,
-        backgroundColor: theme.color.canvas,
+        backgroundColor: theme.color.sunken,
         borderRadius: theme.radius.md,
         marginVertical: 2,
     },
     cancelButtonPressed: {
         opacity: 0.85,
-        transform: [{ scale: 0.98 }],
     },
     disabledButton: {
         backgroundColor: theme.color.faint,
@@ -66,14 +64,31 @@ export const buttonStyle = StyleSheet.create({
         justifyContent: "center",
         minHeight: theme.size.tap,
         paddingHorizontal: theme.space.lg,
-        backgroundColor: theme.color.canvas,
+        backgroundColor: theme.color.sunken,
         borderRadius: theme.radius.md,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: theme.color.border,
     },
     ghostButtonText: type.ghostButton,
+    secondaryButton: {
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: theme.size.tap,
+        paddingHorizontal: theme.space.lg,
+        backgroundColor: theme.color.surface,
+        borderRadius: theme.radius.md,
+        borderWidth: 1,
+        borderColor: theme.color.borderStrong,
+    },
+    secondaryButtonText: {
+        color: theme.color.ink,
+        fontSize: theme.font.title,
+        fontWeight: theme.font.weight.semibold,
+    },
     dangerText: {
         color: theme.color.danger,
-        fontSize: 15,
-        fontWeight: theme.font.weight.bold,
+        fontSize: theme.font.title,
+        fontWeight: theme.font.weight.semibold,
         textAlign: "center",
     },
 });

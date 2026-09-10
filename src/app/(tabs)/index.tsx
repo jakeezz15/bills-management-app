@@ -1,31 +1,17 @@
-import { DashboardEmpty } from "@/components/DashboardEmpty";
-import { DashboardHeroCompact } from "@/components/DashboardHero";
+import { FirstRunEmpty } from "@/components/DashboardEmpty";
+import ExpenseForm from "@/components/ExpenseForm";
+import { Fab } from "@/components/Fab";
+import { Hero } from "@/components/Hero";
 import { HeroPeriodNav } from "@/components/HeroPeriodNav";
-import { MonthGrid } from "@/components/MonthGrid";
-import { MonthTrendChart, SpendByCategoryChart } from "@/components/HomeCharts";
-import { SegmentControl } from "@/components/SegmentControl";
-import { useStickyHero } from "@/hooks/useStickyHero";
+import IncomeForm from "@/components/IncomeForm";
+import { RowGroup, StatusRow } from "@/components/StatusRow";
 import { dashboard } from "@/styles/dashboard";
-import { theme, type } from "@/theme";
-import {
-    hasCompletedFirstRun,
-    markFirstRunComplete,
-} from "@/services/storage";
-import {
-    PERIOD_UNITS,
-    PERIOD_UNIT_LABELS,
-    parseIsoDate,
-    startOfMonth,
-} from "@/utils/date";
-import {
-    getExpenseSpendByCategory,
-    getMonthlyTrend,
-    getTotalsForRange,
-} from "@/utils/finance";
-import Ionicons from "@react-native-vector-icons/ionicons";
-import { router } from "expo-router";
-import { useEffect, useMemo } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { theme } from "@/theme";
+import { formatLeftoverKicker } from "@/utils/date";
+import { getTotalsForRange } from "@/utils/finance";
+import { StatusBar } from "expo-status-bar";
+import { useMemo, useState } from "react";
+import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useBills } from "../contexts/BillsContext";
 import { useDateRange } from "../contexts/DateRangeContext";
 import { useDebt } from "../contexts/DebtsContext";
@@ -34,7 +20,13 @@ import { useIncome } from "../contexts/IncomeContext";
 import { useLocale } from "../contexts/LocaleContext";
 import { useSavings } from "../contexts/SavingsContext";
 
-const UNIT_OPTIONS = PERIOD_UNITS.map((unit) => PERIOD_UNIT_LABELS[unit]);
+type RecentItem = {
+    id: string;
+    title: string;
+    date: string;
+    amount: number;
+    kind: "in" | "out";
+};
 
 export default function HomeScreen() {
     const { formatMoney } = useLocale();
@@ -43,16 +35,11 @@ export default function HomeScreen() {
     const { bills, payments: billPayments } = useBills();
     const { debts, payments: debtPayments } = useDebt();
     const { savings, contributions: savingsContributions } = useSavings();
-    const {
-        periodUnit,
-        range,
-        label,
-        setPeriodUnit,
-        shiftPeriod,
-        resetToToday,
-        selectDay,
-        anchorIso,
-    } = useDateRange();
+    const { periodUnit, range, label, shiftPeriod, resetToToday } =
+        useDateRange();
+
+    const [incomeOpen, setIncomeOpen] = useState(false);
+    const [expenseOpen, setExpenseOpen] = useState(false);
 
     const totals = useMemo(
         () =>
@@ -80,418 +67,177 @@ export default function HomeScreen() {
         ]
     );
 
-    const lines: {
-        label: string;
-        value: number;
-        sign: "+" | "−";
-        href: "/(tabs)/activity" | "/(tabs)/plans";
-    }[] = [
+    const recent = useMemo(() => {
+        const rows: RecentItem[] = [
+            ...income.map((item) => ({
+                id: `in-${item.id}`,
+                title: item.source,
+                date: item.date,
+                amount: item.net,
+                kind: "in" as const,
+            })),
+            ...expenses.map((item) => ({
+                id: `ex-${item.id}`,
+                title: item.name,
+                date: item.date,
+                amount: item.amount,
+                kind: "out" as const,
+            })),
+        ];
+        return rows.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6);
+    }, [income, expenses]);
+
+    const needsFirstPaycheck = income.length === 0;
+    const leftoverShare =
+        totals.income > 0
+            ? Math.round((Math.max(0, totals.leftover) / totals.income) * 100)
+            : 0;
+
+    const snapshot = [
         {
-            label: "Income",
+            label: "Paycheck",
             value: totals.income,
             sign: "+" as const,
-            href: "/(tabs)/activity",
+            amountTone: "positive" as const,
         },
         {
-            label: "Spending",
+            label: "Spent",
             value: totals.expenses,
             sign: "−" as const,
-            href: "/(tabs)/activity",
+            amountTone: "negative" as const,
         },
         {
-            label: "Bills",
+            label: "Bills paid",
             value: totals.bills,
             sign: "−" as const,
-            href: "/(tabs)/plans",
-        },
-        {
-            label: "Debt payments",
-            value: totals.debtPayments,
-            sign: "−" as const,
-            href: "/(tabs)/plans",
-        },
-        {
-            label: "Savings",
-            value: totals.savings,
-            sign: "−" as const,
-            href: "/(tabs)/plans",
+            amountTone: "ink" as const,
         },
     ];
 
-    const maxLine = Math.max(...lines.map((line) => line.value), 1);
-
-    const markedIso = useMemo(() => {
-        const dates = [
-            ...income.map((item) => item.date),
-            ...expenses.map((item) => item.date),
-            ...billPayments.map((item) => item.date),
-            ...debtPayments.map((item) => item.date),
-            ...savingsContributions.map((item) => item.date),
-        ];
-        return new Set(dates);
-    }, [
-        income,
-        expenses,
-        billPayments,
-        debtPayments,
-        savingsContributions,
-    ]);
-
-    const categorySpend = useMemo(
-        () => getExpenseSpendByCategory(expenses, range),
-        [expenses, range]
-    );
-
-    const monthTrend = useMemo(
-        () =>
-            getMonthlyTrend(
-                range.end,
-                6,
-                expenses,
-                bills,
-                debts,
-                savings,
-                income,
-                debtPayments,
-                billPayments,
-                savingsContributions
-            ),
-        [
-            range.end,
-            expenses,
-            bills,
-            debts,
-            savings,
-            income,
-            debtPayments,
-            billPayments,
-            savingsContributions,
-        ]
-    );
-
-    useEffect(() => {
-        void hasCompletedFirstRun().then((done) => {
-            if (!done) {
-                void markFirstRunComplete();
-            }
-        });
-    }, []);
-
-    const { collapsed, scrollProps } = useStickyHero({
-        collapseAt: 140,
-        expandAt: 48,
-    });
-    const leftoverLabel = formatMoney(totals.leftover, { compact: true });
-    const needsFirstPaycheck = income.length === 0;
-    const periodNav = (forCompact: boolean) => (
-        <HeroPeriodNav
-            label={label}
-            onShift={shiftPeriod}
-            onResetToToday={resetToToday}
-            style={forCompact ? { marginTop: 8 } : { marginTop: 0, flex: 1 }}
-        />
-    );
-
-    const selectUnit = (value: string) => {
-        const next = PERIOD_UNITS.find(
-            (unit) => PERIOD_UNIT_LABELS[unit] === value
-        );
-        if (next) {
-            setPeriodUnit(next);
-        }
+    const openFab = () => {
+        Alert.alert("Add", "What do you want to log?", [
+            {
+                text: "Paycheck",
+                onPress: () => setIncomeOpen(true),
+            },
+            {
+                text: "Spending",
+                onPress: () => setExpenseOpen(true),
+            },
+            { text: "Cancel", style: "cancel" },
+        ]);
     };
 
-    const okay = totals.leftover >= 0;
+    if (needsFirstPaycheck) {
+        return (
+            <View style={dashboard.screen}>
+                <StatusBar style="dark" />
+                <FirstRunEmpty onAddPaycheck={() => setIncomeOpen(true)} />
+                <IncomeForm
+                    visible={incomeOpen}
+                    onClose={() => setIncomeOpen(false)}
+                />
+            </View>
+        );
+    }
 
     return (
         <View style={dashboard.screen}>
-            {collapsed ? (
-                <View style={styles.mastCompactSticky}>
-                    <DashboardHeroCompact
-                        kicker={okay ? "Leftover" : "Short"}
-                        value={leftoverLabel}
-                        pace={periodNav(true)}
-                    />
-                </View>
-            ) : null}
-
+            <StatusBar style="light" />
             <ScrollView
                 style={dashboard.list}
                 contentContainerStyle={styles.scroll}
-                {...scrollProps}
             >
-                <View style={styles.masthead}>
-                    <Text style={styles.mastKicker}>On Hand</Text>
-                    <Text style={styles.mastValue}>
-                        {okay ? "You’re okay" : "Short this period"}
-                    </Text>
-                    <Text style={styles.mastAmount}>{leftoverLabel}</Text>
-                    <Text style={styles.mastCaption}>
-                        {okay
-                            ? "Income covers spending, bills, debts, and savings so far"
-                            : "Outflows are higher than income received so far"}
-                    </Text>
+                <Hero
+                    kicker={formatLeftoverKicker(range.end, periodUnit)}
+                    value={formatMoney(totals.leftover)}
+                    caption="After logged spending & payments"
+                    percent={leftoverShare}
+                    overlap
+                >
+                    <HeroPeriodNav
+                        label={label}
+                        onShift={shiftPeriod}
+                        onResetToToday={resetToToday}
+                    />
+                </Hero>
 
-                    <View style={styles.mastNav}>{periodNav(false)}</View>
+                <View style={styles.overlap}>
+                    <RowGroup>
+                        {snapshot.map((row, index) => (
+                            <StatusRow
+                                key={row.label}
+                                title={row.label}
+                                amount={formatMoney(row.value, {
+                                    sign: row.sign,
+                                })}
+                                amountTone={row.amountTone}
+                                showChip={false}
+                                isLast={index === snapshot.length - 1}
+                            />
+                        ))}
+                    </RowGroup>
                 </View>
 
                 <View style={styles.body}>
-                    <SegmentControl
-                        options={UNIT_OPTIONS}
-                        selected={PERIOD_UNIT_LABELS[periodUnit]}
-                        onSelect={selectUnit}
-                        compact
-                    />
-
-                    {needsFirstPaycheck ? (
-                        <View style={{ marginTop: theme.space.lg, marginBottom: theme.space.md }}>
-                            <DashboardEmpty
-                                title="Add your first paycheck"
-                                text="Leftover starts at zero until you log income. Activity is the place to record money in."
-                                actionLabel="Add first paycheck"
-                                onAction={() => router.push("/(tabs)/activity")}
+                    <Text style={dashboard.sectionLabel}>Recent</Text>
+                    <RowGroup>
+                        {recent.length === 0 ? (
+                            <StatusRow
+                                title="Nothing logged yet"
+                                amount=""
+                                subtitle="Spending and paychecks show up here"
+                                showChip={false}
+                                isLast
                             />
-                        </View>
-                    ) : null}
-
-                    <MonthGrid
-                        month={startOfMonth(
-                            parseIsoDate(anchorIso) ?? range.start
+                        ) : (
+                            recent.map((item, index) => (
+                                <StatusRow
+                                    key={item.id}
+                                    title={item.title}
+                                    subtitle={item.date}
+                                    amount={formatMoney(item.amount, {
+                                        sign: item.kind === "in" ? "+" : "−",
+                                    })}
+                                    amountTone={
+                                        item.kind === "in"
+                                            ? "positive"
+                                            : "ink"
+                                    }
+                                    showChip={false}
+                                    isLast={index === recent.length - 1}
+                                />
+                            ))
                         )}
-                        selectedIso={
-                            periodUnit === "day" ? anchorIso : undefined
-                        }
-                        markedIso={markedIso}
-                        onSelectDay={selectDay}
-                    />
-
-                    <View style={styles.statement}>
-                        <Text style={dashboard.sectionLabel}>
-                            Cash so far
-                        </Text>
-                        {lines.map((line) => (
-                            <Pressable
-                                key={line.label}
-                                onPress={() => router.push(line.href)}
-                                style={({ pressed }) => [
-                                    styles.line,
-                                    pressed && { opacity: 0.85 },
-                                ]}
-                            >
-                                <View style={styles.lineTop}>
-                                    <Text style={styles.lineLabel}>{line.label}</Text>
-                                    <Text
-                                        style={[
-                                            styles.lineValue,
-                                            line.sign === "+"
-                                                ? styles.lineIn
-                                                : styles.lineOut,
-                                        ]}
-                                    >
-                                        {formatMoney(line.value, {
-                                            compact: true,
-                                            sign: line.sign,
-                                        })}
-                                    </Text>
-                                </View>
-                                <View style={dashboard.barTrack}>
-                                    <View
-                                        style={[
-                                            dashboard.barFill,
-                                            line.sign === "+" && dashboard.barFillDone,
-                                            {
-                                                width: `${Math.min(
-                                                    100,
-                                                    (line.value / maxLine) * 100
-                                                )}%`,
-                                            },
-                                        ]}
-                                    />
-                                </View>
-                            </Pressable>
-                        ))}
-
-                        <View style={styles.totalRow}>
-                            <Text style={styles.totalLabel}>Leftover</Text>
-                            <Text
-                                style={[
-                                    styles.totalValue,
-                                    {
-                                        color: okay
-                                            ? theme.color.successText
-                                            : theme.color.danger,
-                                    },
-                                ]}
-                            >
-                                {formatMoney(totals.leftover, { compact: true })}
-                            </Text>
-                        </View>
-                    </View>
-
-                    <SpendByCategoryChart rows={categorySpend} />
-                    <MonthTrendChart points={monthTrend} />
-
-                    <Pressable
-                        onPress={() => router.push("/(tabs)/activity")}
-                        style={({ pressed }) => [
-                            styles.cta,
-                            pressed && { opacity: 0.94 },
-                        ]}
-                    >
-                        <View>
-                            <Text style={dashboard.cardTitle}>Log activity</Text>
-                            <Text style={dashboard.cardSubtitle}>
-                                Income and everyday spending
-                            </Text>
-                        </View>
-                        <Ionicons
-                            name="arrow-forward"
-                            size={18}
-                            color={theme.color.ink}
-                        />
-                    </Pressable>
-
-                    <Pressable
-                        onPress={() => router.push("/(tabs)/plans")}
-                        style={({ pressed }) => [
-                            styles.cta,
-                            pressed && { opacity: 0.94 },
-                        ]}
-                    >
-                        <View>
-                            <Text style={dashboard.cardTitle}>Review plans</Text>
-                            <Text style={dashboard.cardSubtitle}>
-                                Bills, savings, and debts
-                            </Text>
-                        </View>
-                        <Ionicons
-                            name="arrow-forward"
-                            size={18}
-                            color={theme.color.ink}
-                        />
-                    </Pressable>
+                    </RowGroup>
                 </View>
             </ScrollView>
+
+            <Fab onPress={openFab} accessibilityLabel="Add paycheck or spending" />
+
+            <IncomeForm
+                visible={incomeOpen}
+                onClose={() => setIncomeOpen(false)}
+            />
+            <ExpenseForm
+                visible={expenseOpen}
+                onClose={() => setExpenseOpen(false)}
+            />
         </View>
     );
 }
 
 const styles = StyleSheet.create({
     scroll: {
-        paddingBottom: 40,
+        paddingBottom: 88,
     },
-    masthead: {
-        backgroundColor: theme.color.hero,
-        paddingHorizontal: theme.space.xl,
-        paddingTop: theme.space.screenTop,
-        paddingBottom: theme.space.xxl,
-    },
-    mastKicker: {
-        ...type.kicker,
-        marginBottom: theme.space.sm,
-    },
-    mastValue: {
-        color: theme.color.onHero,
-        fontSize: 22,
-        fontWeight: theme.font.weight.bold,
-        letterSpacing: -0.3,
-    },
-    mastAmount: {
-        color: theme.color.onHero,
-        fontSize: 44,
-        fontWeight: theme.font.weight.bold,
-        letterSpacing: -1,
-        marginTop: theme.space.xs,
-    },
-    mastCaption: {
-        color: theme.color.onHeroCaption,
-        fontSize: theme.font.caption,
-        lineHeight: 18,
-        marginTop: theme.space.sm,
-        maxWidth: 280,
-    },
-    mastNav: {
-        marginTop: theme.space.xl,
-        paddingTop: theme.space.md,
-        borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: theme.color.heroTrack,
-    },
-    mastCompactSticky: {
-        position: "absolute",
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 20,
-        backgroundColor: theme.color.hero,
-        paddingHorizontal: theme.space.xl,
-        paddingTop: theme.space.screenTop,
-        paddingBottom: theme.space.md,
+    overlap: {
+        marginTop: -40,
+        marginHorizontal: theme.space.lg,
+        zIndex: 2,
     },
     body: {
-        paddingHorizontal: theme.space.screenX,
-        paddingTop: theme.space.lg,
-    },
-    statement: {
-        backgroundColor: theme.color.surface,
-        borderRadius: theme.radius.lg,
         paddingHorizontal: theme.space.lg,
-        paddingTop: theme.space.lg,
-        paddingBottom: theme.space.md,
-        marginTop: theme.space.lg,
-        marginBottom: theme.space.md,
-    },
-    line: {
-        marginBottom: theme.space.md,
-    },
-    lineTop: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "baseline",
-        marginBottom: 6,
-    },
-    lineLabel: {
-        color: theme.color.ink,
-        fontSize: theme.font.body,
-        fontWeight: theme.font.weight.semibold,
-    },
-    lineValue: {
-        fontSize: theme.font.body,
-        fontWeight: theme.font.weight.bold,
-    },
-    lineIn: {
-        color: theme.color.successText,
-    },
-    lineOut: {
-        color: theme.color.ink,
-    },
-    totalRow: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        borderTopWidth: 1,
-        borderTopColor: theme.color.border,
-        paddingTop: theme.space.md,
-        marginTop: theme.space.xs,
-        marginBottom: theme.space.sm,
-    },
-    totalLabel: {
-        ...type.sectionLabel,
-        marginTop: 0,
-        marginBottom: 0,
-    },
-    totalValue: {
-        fontSize: 22,
-        fontWeight: theme.font.weight.bold,
-        letterSpacing: -0.3,
-    },
-    cta: {
-        backgroundColor: theme.color.surface,
-        borderRadius: theme.radius.lg,
-        paddingHorizontal: theme.space.lg,
-        paddingVertical: theme.space.lg,
-        marginBottom: theme.space.md,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
+        paddingTop: theme.space.sm,
     },
 });

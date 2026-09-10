@@ -1,4 +1,4 @@
-import { shadows, theme } from "@/theme";
+import { statusStrip, theme } from "@/theme";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -28,12 +28,12 @@ export function CompactPlanRow({
     toggleAccessibilityLabel,
 }: CompactPlanRowProps) {
     const accent = done
-        ? theme.color.success
+        ? statusStrip.paid
         : metaTone === "overdue"
-          ? theme.color.danger
+          ? statusStrip.overdue
           : metaTone === "due-soon"
-            ? theme.color.warning
-            : theme.color.accent;
+            ? statusStrip["due-soon"]
+            : statusStrip.upcoming;
 
     const pill = done
         ? {
@@ -127,13 +127,12 @@ const styles = StyleSheet.create({
         marginBottom: theme.space.sm,
         minHeight: 48,
         overflow: "hidden",
-        ...shadows.card,
     },
     rowDone: {
         backgroundColor: theme.color.surfaceMuted,
     },
     accent: {
-        width: 3,
+        width: theme.size.strip,
         alignSelf: "stretch",
         borderRadius: theme.radius.pill,
         marginRight: theme.space.sm,

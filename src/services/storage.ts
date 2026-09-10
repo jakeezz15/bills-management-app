@@ -1,3 +1,13 @@
+import {
+    billPaymentsData,
+    billsData,
+    debtData,
+    debtPaymentsData,
+    expensesData,
+    incomeData,
+    savingsContributionsData,
+    savingsData,
+} from "@/constants/sample-data";
 import { Bill } from "@/types/bill";
 import { BillPayment } from "@/types/bill-payment";
 import { Debt } from "@/types/debt";
@@ -85,8 +95,8 @@ export async function loadBills(): Promise<Bill[]> {
     const raw = await AsyncStorage.getItem(BILLS_KEY);
 
     if (raw === null) {
-        await AsyncStorage.setItem(BILLS_KEY, JSON.stringify([]));
-        return [];
+        await AsyncStorage.setItem(BILLS_KEY, JSON.stringify(billsData));
+        return billsData;
     }
 
     const parsed = JSON.parse(raw) as Bill[];
@@ -112,8 +122,8 @@ export async function loadExpenses(): Promise<Expense[]> {
     const raw = await AsyncStorage.getItem(EXPENSES_KEY);
 
     if (raw === null) {
-        await AsyncStorage.setItem(EXPENSES_KEY, JSON.stringify([]));
-        return [];
+        await AsyncStorage.setItem(EXPENSES_KEY, JSON.stringify(expensesData));
+        return expensesData;
     }
 
     const parsed = JSON.parse(raw) as Expense[];
@@ -130,8 +140,8 @@ export async function loadIncome(): Promise<Income[]> {
     const raw = await AsyncStorage.getItem(INCOME_KEY);
 
     if (raw === null) {
-        await AsyncStorage.setItem(INCOME_KEY, JSON.stringify([]));
-        return [];
+        await AsyncStorage.setItem(INCOME_KEY, JSON.stringify(incomeData));
+        return incomeData;
     }
 
     const parsed = JSON.parse(raw) as Income[];
@@ -148,8 +158,8 @@ export async function loadDebts(): Promise<Debt[]> {
     const raw = await AsyncStorage.getItem(DEBTS_KEY);
 
     if (raw === null) {
-        await AsyncStorage.setItem(DEBTS_KEY, JSON.stringify([]));
-        return [];
+        await AsyncStorage.setItem(DEBTS_KEY, JSON.stringify(debtData));
+        return debtData;
     }
 
     const parsed = JSON.parse(raw) as Debt[];
@@ -197,8 +207,13 @@ export async function loadDebtPayments(): Promise<DebtPayment[]> {
         });
     }
 
-    await saveDebtPayments(migrated);
-    return migrated;
+    if (migrated.length > 0) {
+        await saveDebtPayments(migrated);
+        return migrated;
+    }
+
+    await saveDebtPayments(debtPaymentsData);
+    return debtPaymentsData;
 }
 
 export async function saveDebtPayments(
@@ -220,6 +235,11 @@ export async function loadBillPayments(): Promise<BillPayment[]> {
     }
 
     const bills = await loadBills();
+    if (bills.some((bill) => bill.id === "bill-internet")) {
+        await saveBillPayments(billPaymentsData);
+        return billPaymentsData;
+    }
+
     const today = new Date();
     const y = today.getFullYear();
     const m = String(today.getMonth() + 1).padStart(2, "0");
@@ -252,8 +272,8 @@ export async function loadSavings(): Promise<SavingsGoal[]> {
     const raw = await AsyncStorage.getItem(SAVINGS_KEY);
 
     if (raw === null) {
-        await AsyncStorage.setItem(SAVINGS_KEY, JSON.stringify([]));
-        return [];
+        await AsyncStorage.setItem(SAVINGS_KEY, JSON.stringify(savingsData));
+        return savingsData;
     }
 
     const parsed = JSON.parse(raw) as SavingsGoal[];
@@ -282,9 +302,8 @@ export async function loadSavingsContributions(): Promise<
         return parsed.map((item) => ensureTimestamps(item, item.date));
     }
 
-    // Empty ledger until the user logs contributions (no auto monthly deduction).
-    await saveSavingsContributions([]);
-    return [];
+    await saveSavingsContributions(savingsContributionsData);
+    return savingsContributionsData;
 }
 
 export async function saveSavingsContributions(

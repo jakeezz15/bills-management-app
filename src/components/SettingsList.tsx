@@ -1,6 +1,6 @@
 import { theme } from "@/theme";
 import Ionicons from "@react-native-vector-icons/ionicons";
-import { ReactNode } from "react";
+import { ComponentProps, ReactNode } from "react";
 import { Pressable, StyleSheet, Switch, Text, View } from "react-native";
 
 type SettingsSectionProps = {
@@ -20,7 +20,7 @@ export function SettingsSection({ title, children }: SettingsSectionProps) {
 type SettingsRowProps = {
     title: string;
     subtitle?: string;
-    icon?: keyof typeof Ionicons.glyphMap;
+    icon?: ComponentProps<typeof Ionicons>["name"];
     value?: string;
     destructive?: boolean;
     disabled?: boolean;
@@ -99,10 +99,10 @@ export function SettingsRow({
                     onValueChange={onSwitchChange}
                     trackColor={{
                         false: theme.color.faint,
-                        true: "#86EFAC",
+                        true: "#93C5FD",
                     }}
                     thumbColor={
-                        switchValue ? theme.color.successText : theme.color.surface
+                        switchValue ? theme.color.primary : theme.color.surface
                     }
                 />
             ) : null}
@@ -145,10 +145,10 @@ const styles = StyleSheet.create({
         marginBottom: theme.space.xl,
     },
     sectionTitle: {
-        color: theme.color.accentText,
+        color: theme.color.muted,
         fontSize: 12,
-        fontWeight: theme.font.weight.bold,
-        letterSpacing: 0.3,
+        fontWeight: theme.font.weight.semibold,
+        letterSpacing: 0.4,
         marginBottom: theme.space.sm,
         marginLeft: theme.space.md,
         textTransform: "uppercase",
@@ -157,6 +157,8 @@ const styles = StyleSheet.create({
         backgroundColor: theme.color.surface,
         borderRadius: theme.radius.lg,
         overflow: "hidden",
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: theme.color.border,
     },
     row: {
         flexDirection: "row",

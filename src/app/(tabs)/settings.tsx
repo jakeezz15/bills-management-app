@@ -12,14 +12,12 @@ import {
     disableDueReminders,
     enableDueReminders,
     remindersUnavailableReason,
-    sendTestReminder,
 } from "@/services/reminders";
 import { clearAllData } from "@/services/storage";
-import { seedDemoData } from "@/services/seed-demo";
 import { currencyLabel } from "@/utils/money";
-import Constants from "expo-constants";
+import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
-import { Alert, ScrollView, Text, View } from "react-native";
+import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useBills } from "../contexts/BillsContext";
 import { useDebt } from "../contexts/DebtsContext";
 import { useExpenses } from "../contexts/ExpensesContext";
@@ -28,7 +26,7 @@ import { useLocale } from "../contexts/LocaleContext";
 import { useSavings } from "../contexts/SavingsContext";
 
 export default function SettingsScreen() {
-    const { currency, setCurrency, formatMoney } = useLocale();
+    const { currency, setCurrency } = useLocale();
     const { reload: reloadIncome } = useIncome();
     const { reload: reloadExpenses } = useExpenses();
     const { bills, reload: reloadBills } = useBills();
@@ -39,7 +37,6 @@ export default function SettingsScreen() {
     const [reminderBusy, setReminderBusy] = useState(false);
     const [currencyOpen, setCurrencyOpen] = useState(false);
     const remindersBlocked = remindersUnavailableReason();
-    const version = Constants.expoConfig?.version ?? "1.0.0";
 
     useEffect(() => {
         void areDueRemindersEnabled().then(setRemindersOn);
@@ -128,39 +125,6 @@ export default function SettingsScreen() {
         );
     };
 
-    const handleSeedDemo = () => {
-        Alert.alert(
-            "Load demo data?",
-            "Replaces all finance data with realistic entries from July through today (income, spending, bills, debts, savings). For development only.",
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Seed data",
-                    onPress: async () => {
-                        try {
-                            setBusy(true);
-                            const result = await seedDemoData();
-                            await reloadAll();
-                            Alert.alert(
-                                "Demo data loaded",
-                                `${result.income} income · ${result.expenses} expenses · ${result.bills} bills · ${result.debts} debts · ${result.savings} savings goals`
-                            );
-                        } catch (error) {
-                            Alert.alert(
-                                "Seed failed",
-                                error instanceof Error
-                                    ? error.message
-                                    : "Something went wrong."
-                            );
-                        } finally {
-                            setBusy(false);
-                        }
-                    },
-                },
-            ]
-        );
-    };
-
     const handleToggleReminders = async (next: boolean) => {
         if (remindersBlocked) {
             Alert.alert("Reminders unavailable", remindersBlocked);
@@ -195,32 +159,16 @@ export default function SettingsScreen() {
         }
     };
 
-    const handleTestReminder = async () => {
-        setReminderBusy(true);
-        try {
-            const result = await sendTestReminder();
-            if (!result.ok) {
-                Alert.alert(
-                    "Could not send test",
-                    result.reason ?? "Something went wrong."
-                );
-                return;
-            }
-            Alert.alert("Test scheduled", "You should see an alert in a few seconds.");
-        } finally {
-            setReminderBusy(false);
-        }
-    };
-
     return (
         <View style={dashboard.screen}>
+            <StatusBar style="dark" />
             <ScrollView
                 style={dashboard.list}
                 contentContainerStyle={styles.content}
             >
                 <Text style={styles.pageTitle}>Settings</Text>
 
-                <SettingsSection title="General">
+                <SettingsSection title="Currency">
                     <SettingsRow
                         icon="cash-outline"
                         title="Currency"
@@ -231,7 +179,7 @@ export default function SettingsScreen() {
                     />
                 </SettingsSection>
 
-                <SettingsSection title="Notifications">
+                <SettingsSection title="Reminders">
                     <SettingsRow
                         icon="notifications-outline"
                         title="Due-day reminders"
@@ -248,22 +196,9 @@ export default function SettingsScreen() {
                             void handleToggleReminders(value);
                         }}
                     />
-                    <SettingsDivider />
-                    <SettingsRow
-                        icon="flash-outline"
-                        title="Send test reminder"
-                        subtitle="Schedules a local alert in a few seconds"
-                        disabled={
-                            reminderBusy || busy || Boolean(remindersBlocked)
-                        }
-                        showChevron
-                        onPress={() => {
-                            void handleTestReminder();
-                        }}
-                    />
                 </SettingsSection>
 
-                <SettingsSection title="Data & privacy">
+                <SettingsSection title="Backup">
                     <SettingsRow
                         icon="download-outline"
                         title="Export backup"
@@ -283,7 +218,9 @@ export default function SettingsScreen() {
                         showChevron
                         onPress={handleImport}
                     />
-                    <SettingsDivider />
+                </SettingsSection>
+
+                <SettingsSection title="Reset">
                     <SettingsRow
                         icon="trash-outline"
                         title="Reset all data"
@@ -295,36 +232,8 @@ export default function SettingsScreen() {
                     />
                 </SettingsSection>
 
-                {__DEV__ ? (
-                    <SettingsSection title="Development">
-                        <SettingsRow
-                            icon="flask-outline"
-                            title="Seed demo data"
-                            subtitle="July → today: realistic income, spend, bills, debts, savings"
-                            disabled={busy}
-                            showChevron
-                            onPress={handleSeedDemo}
-                        />
-                    </SettingsSection>
-                ) : null}
-
-                <SettingsSection title="About">
-                    <SettingsRow
-                        icon="information-circle-outline"
-                        title="On Hand"
-                        subtitle="What's left after what you logged."
-                        value={version}
-                    />
-                    <SettingsDivider />
-                    <SettingsRow
-                        icon="phone-portrait-outline"
-                        title="Storage"
-                        subtitle="Your data stays on this device. Nothing is uploaded."
-                    />
-                </SettingsSection>
-
                 <Text style={styles.footer}>
-                    {currencyLabel(currency)} · example {formatMoney(1234.5)}
+                    On Hand · on-device only · no account
                 </Text>
             </ScrollView>
 
@@ -340,7 +249,7 @@ export default function SettingsScreen() {
     );
 }
 
-const styles = {
+const styles = StyleSheet.create({
     content: {
         paddingHorizontal: theme.space.screenX,
         paddingTop: theme.space.screenTop,
@@ -348,17 +257,16 @@ const styles = {
     },
     pageTitle: {
         color: theme.color.ink,
-        fontSize: 32,
-        fontWeight: "700" as const,
-        letterSpacing: -0.6,
+        fontSize: theme.font.display,
+        fontWeight: theme.font.weight.bold,
+        letterSpacing: -0.4,
         marginBottom: theme.space.xl,
-        marginLeft: theme.space.xs,
     },
     footer: {
         color: theme.color.soft,
         fontSize: 12,
-        textAlign: "center" as const,
+        textAlign: "center",
         marginTop: theme.space.sm,
         marginBottom: theme.space.lg,
     },
-};
+});

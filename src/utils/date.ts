@@ -211,11 +211,42 @@ export function formatDisplayDate(iso: string): string {
     });
 }
 
+const MONTHS_SHORT = [
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+const MONTHS_LONG = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+];
+
+/** Hero kicker, e.g. “September leftover”. */
+export function formatLeftoverKicker(anchor: Date, unit: PeriodUnit): string {
+    switch (unit) {
+        case "day":
+            return `${MONTHS_SHORT[anchor.getMonth()]} ${anchor.getDate()} leftover`;
+        case "week":
+            return "This week leftover";
+        case "month":
+            return `${MONTHS_LONG[anchor.getMonth()]} leftover`;
+        case "year":
+            return `${anchor.getFullYear()} leftover`;
+    }
+}
+
 export function formatPeriodLabel(anchor: Date, unit: PeriodUnit): string {
-    const months = [
-        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-    ];
+    const months = MONTHS_SHORT;
 
     switch (unit) {
         case "day":

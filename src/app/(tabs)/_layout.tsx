@@ -22,103 +22,119 @@ export default function TabLayout() {
                                     <ReminderSync />
                                     <Tabs
                                         screenOptions={{
-                                            tabBarActiveTintColor: theme.color.ink,
-                                            tabBarInactiveTintColor: theme.color.soft,
+                                            tabBarActiveTintColor:
+                                                theme.color.primary,
+                                            tabBarInactiveTintColor:
+                                                theme.color.soft,
                                             headerShown: false,
                                             tabBarStyle: {
-                                                backgroundColor: theme.color.surface,
-                                                borderTopColor: theme.color.border,
+                                                backgroundColor:
+                                                    theme.color.surface,
+                                                borderTopColor:
+                                                    theme.color.border,
+                                                borderTopWidth: 1,
                                             },
                                             tabBarLabelStyle: {
-                                                fontSize: 11,
+                                                fontSize: 12,
                                                 fontWeight: "600",
                                             },
                                         }}
                                     >
-                                    <Tabs.Screen
-                                        name="index"
-                                        options={{
-                                            title: "Home",
-                                            tabBarIcon: ({ color, size }) => (
-                                                <Ionicons
-                                                    name="home-outline"
-                                                    size={size}
-                                                    color={color}
-                                                />
-                                            ),
-                                        }}
-                                    />
+                                        <Tabs.Screen
+                                            name="index"
+                                            options={{
+                                                title: "Home",
+                                                tabBarIcon: ({
+                                                    color,
+                                                    size,
+                                                }) => (
+                                                    <Ionicons
+                                                        name="home-outline"
+                                                        size={size}
+                                                        color={color}
+                                                    />
+                                                ),
+                                            }}
+                                        />
 
-                                    <Tabs.Screen
-                                        name="activity"
-                                        options={{
-                                            title: "Activity",
-                                            tabBarIcon: ({ color, size }) => (
-                                                <Ionicons
-                                                    name="swap-vertical-outline"
-                                                    size={size}
-                                                    color={color}
-                                                />
-                                            ),
-                                        }}
-                                    />
+                                        <Tabs.Screen
+                                            name="activity"
+                                            options={{
+                                                title: "Activity",
+                                                tabBarIcon: ({
+                                                    color,
+                                                    size,
+                                                }) => (
+                                                    <Ionicons
+                                                        name="swap-vertical-outline"
+                                                        size={size}
+                                                        color={color}
+                                                    />
+                                                ),
+                                            }}
+                                        />
 
-                                    <Tabs.Screen
-                                        name="plans"
-                                        options={{
-                                            title: "Plans",
-                                            tabBarIcon: ({ color, size }) => (
-                                                <Ionicons
-                                                    name="albums-outline"
-                                                    size={size}
-                                                    color={color}
-                                                />
-                                            ),
-                                        }}
-                                    />
+                                        <Tabs.Screen
+                                            name="plans"
+                                            options={{
+                                                title: "Plans",
+                                                tabBarIcon: ({
+                                                    color,
+                                                    size,
+                                                }) => (
+                                                    <Ionicons
+                                                        name="albums-outline"
+                                                        size={size}
+                                                        color={color}
+                                                    />
+                                                ),
+                                            }}
+                                        />
 
-                                    <Tabs.Screen
-                                        name="settings"
-                                        options={{
-                                            title: "Settings",
-                                            tabBarIcon: ({ color, size }) => (
-                                                <Ionicons
-                                                    name="settings-outline"
-                                                    size={size}
-                                                    color={color}
-                                                />
-                                            ),
-                                        }}
-                                    />
+                                        <Tabs.Screen
+                                            name="settings"
+                                            options={{
+                                                title: "Settings",
+                                                tabBarIcon: ({
+                                                    color,
+                                                    size,
+                                                }) => (
+                                                    <Ionicons
+                                                        name="settings-outline"
+                                                        size={size}
+                                                        color={color}
+                                                    />
+                                                ),
+                                            }}
+                                        />
 
-                                    {/* Kept as routes for deep links; hidden from tab bar */}
-                                    <Tabs.Screen
-                                        name="income"
-                                        options={{ href: null }}
-                                    />
-                                    <Tabs.Screen
-                                        name="expenses"
-                                        options={{ href: null }}
-                                    />
-                                    <Tabs.Screen
-                                        name="bills"
-                                        options={{ href: null }}
-                                    />
-                                    <Tabs.Screen
-                                        name="savings"
-                                        options={{ href: null }}
-                                    />
-                                    <Tabs.Screen
-                                        name="debts"
-                                        options={{ href: null }}
-                                    />
-                                </Tabs>
-                            </ExpensesProvider>
-                        </BillsProvider>
-                    </DebtsProvider>
-                </SavingsProvider>
-            </IncomeProvider>
-        </DateRangeProvider>
+                                        <Tabs.Screen
+                                            name="income"
+                                            options={{ href: null }}
+                                        />
+                                        <Tabs.Screen
+                                            name="expenses"
+                                            options={{ href: null }}
+                                        />
+                                        <Tabs.Screen
+                                            name="bills"
+                                            options={{ href: null }}
+                                        />
+                                        <Tabs.Screen
+                                            name="savings"
+                                            options={{ href: null }}
+                                        />
+                                        <Tabs.Screen
+                                            name="debts"
+                                            options={{ href: null }}
+                                        />
+                                    </Tabs>
+                                </ExpensesProvider>
+                            </BillsProvider>
+                        </DebtsProvider>
+                    </SavingsProvider>
+                </IncomeProvider>
+            </DateRangeProvider>
         </LocaleProvider>
     );
 }

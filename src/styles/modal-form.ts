@@ -19,14 +19,15 @@ export const modalForm = StyleSheet.create({
         marginBottom: 16,
     },
     input: {
-        backgroundColor: "#fff",
+        backgroundColor: theme.color.sunken,
         borderWidth: 1,
-        borderColor: "#ccc",
+        borderColor: theme.color.border,
         borderRadius: 8,
         padding: 12,
         marginBottom: 12,
-        fontSize: 16
-
+        fontSize: 16,
+        minHeight: 44,
+        color: theme.color.ink,
     },
     // Suggested addition: keeps the card responsive
     cardResponsive: {
@@ -75,28 +76,29 @@ export const modalForm = StyleSheet.create({
     },
 
     typeChip: {
-        paddingHorizontal: 10,
-        paddingVertical: 8,
-        borderWidth: 1,
-        borderColor: "#ccc",
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        minHeight: 44,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: theme.color.border,
         borderRadius: 8,
-        backgroundColor: "#fff",
+        backgroundColor: theme.color.sunken,
+        justifyContent: "center",
     },
 
     typeChipSelected: {
-        borderColor: "#3096FC",
-        borderWidth: 2,
-        backgroundColor: "#EFF6FF",
+        borderColor: theme.color.primary,
+        backgroundColor: theme.color.accentSoft,
     },
 
     typeChipText: {
-        color: "#0F172A",
-        fontSize: 13,
+        color: theme.color.muted,
+        fontSize: 14,
         fontWeight: "500",
     },
 
     typeChipTextSelected: {
-        color: "#1D4ED8",
+        color: theme.color.accentText,
         fontWeight: "600",
     },
     // Suggested addition: input label
@@ -364,7 +366,7 @@ export const modalForm = StyleSheet.create({
         letterSpacing: 0.2,
     },
     dialogInput: {
-        backgroundColor: theme.color.surfaceMuted,
+        backgroundColor: theme.color.sunken,
         borderWidth: 1,
         borderColor: theme.color.border,
         borderRadius: theme.radius.md,
@@ -372,6 +374,7 @@ export const modalForm = StyleSheet.create({
         paddingVertical: 13,
         fontSize: 16,
         color: theme.color.ink,
+        minHeight: 44,
     },
     dialogInputFocused: {
         borderColor: theme.color.accent,

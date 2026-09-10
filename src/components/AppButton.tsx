@@ -4,7 +4,7 @@ import { Pressable, Text } from "react-native";
 type AppButtonProps = {
     label: string;
     onPress: () => void;
-    variant?: "primary" | "ghost" | "danger";
+    variant?: "primary" | "secondary" | "ghost" | "danger";
     disabled?: boolean;
 };
 
@@ -16,15 +16,19 @@ export function AppButton({
 }: AppButtonProps) {
     const isDanger = variant === "danger";
     const isGhost = variant === "ghost";
+    const isSecondary = variant === "secondary";
 
     return (
         <Pressable
             disabled={disabled}
             onPress={onPress}
+            accessibilityRole="button"
             style={({ pressed }) => [
                 isGhost || isDanger
                     ? buttonStyle.ghostButton
-                    : buttonStyle.normalButton,
+                    : isSecondary
+                      ? buttonStyle.secondaryButton
+                      : buttonStyle.normalButton,
                 disabled && buttonStyle.disabledButton,
                 pressed && buttonStyle.buttonPressed,
             ]}
@@ -35,7 +39,9 @@ export function AppButton({
                         ? buttonStyle.dangerText
                         : isGhost
                           ? buttonStyle.ghostButtonText
-                          : buttonStyle.buttonText
+                          : isSecondary
+                            ? buttonStyle.secondaryButtonText
+                            : buttonStyle.buttonText
                 }
             >
                 {label}

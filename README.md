@@ -24,6 +24,8 @@ Privacy policy (host this URL on the store): [`docs/PRIVACY.md`](docs/PRIVACY.md
 
 Expo SDK 57. Use a [development build](https://docs.expo.dev/develop/development-builds/introduction/), not Expo Go, if you rely on native modules in this project.
 
+First launch loads September sample data (USD leftover **$1,482.50**) so Home, Activity, and Plans match the product frames. **Settings → Reset all data** clears the device and shows the empty Home (“Add first paycheck”).
+
 ```bash
 npm install
 npx expo start
