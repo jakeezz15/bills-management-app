@@ -1,5 +1,6 @@
 import { SegmentControl } from "@/components/SegmentControl";
 import { TabScaffold } from "@/components/ui";
+import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
 import BillsScreen from "./bills";
@@ -11,6 +12,9 @@ type Section = (typeof SECTIONS)[number];
 const STORAGE_KEY = "plansSection";
 
 export default function PlansScreen() {
+    // TabScaffold's header is a light surface.
+    useStatusBarStyle("dark");
+
     const [section, setSection] = useState<Section>("Bills");
 
     useEffect(() => {

@@ -1,11 +1,17 @@
 import { AppButton } from "@/components/AppButton";
 import { DashboardEmpty } from "@/components/DashboardEmpty";
+import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import { DueNowSection } from "@/components/DueNowSection";
+import { Bone } from "@/components/Skeleton";
 import { DashboardHeroCompact } from "@/components/DashboardHero";
+import { AnimatedMoneyText } from "@/components/AnimatedMoneyText";
+import { StickyHeroBar } from "@/components/StickyHeroBar";
 import { HeroPeriodNav } from "@/components/HeroPeriodNav";
 import { MonthGrid } from "@/components/MonthGrid";
 import { MonthTrendChart, SpendByCategoryChart } from "@/components/HomeCharts";
 import { SegmentControl } from "@/components/SegmentControl";
+import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
+import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
 import { useStickyHero } from "@/hooks/useStickyHero";
 import { dashboard } from "@/styles/dashboard";
 import { text, theme } from "@/design";
@@ -20,6 +26,7 @@ import {
     startOfMonth,
 } from "@/utils/date";
 import {
+    getCommittedForMonth,
     getExpenseSpendByCategory,
     getMonthlyTrend,
     getTotalsForRange,
@@ -39,12 +46,19 @@ import { useSavings } from "../contexts/SavingsContext";
 const UNIT_OPTIONS = PERIOD_UNITS.map((unit) => PERIOD_UNIT_LABELS[unit]);
 
 export default function HomeScreen() {
+    // The masthead is a dark band, so the clock needs to be light.
+    useStatusBarStyle("light");
+
     const { formatMoney } = useLocale();
-    const { income } = useIncome();
-    const { expenses } = useExpenses();
-    const { bills, payments: billPayments } = useBills();
-    const { debts, payments: debtPayments } = useDebt();
-    const { savings, contributions: savingsContributions } = useSavings();
+    const { income, loading: incomeLoading } = useIncome();
+    const { expenses, loading: expensesLoading } = useExpenses();
+    const { bills, payments: billPayments, loading: billsLoading } = useBills();
+    const { debts, payments: debtPayments, loading: debtsLoading } = useDebt();
+    const {
+        savings,
+        contributions: savingsContributions,
+        loading: savingsLoading,
+    } = useSavings();
     const {
         periodUnit,
         range,
@@ -55,6 +69,13 @@ export default function HomeScreen() {
         selectDay,
         anchorIso,
     } = useDateRange();
+
+    const loading =
+        incomeLoading ||
+        expensesLoading ||
+        billsLoading ||
+        debtsLoading ||
+        savingsLoading;
 
     const totals = useMemo(
         () =>
@@ -80,6 +101,18 @@ export default function HomeScreen() {
             billPayments,
             savingsContributions,
         ]
+    );
+
+    const committed = useMemo(
+        () =>
+            getCommittedForMonth(
+                range.end,
+                bills,
+                billPayments,
+                debts,
+                debtPayments
+            ),
+        [range.end, bills, billPayments, debts, debtPayments]
     );
 
     const lines: {
@@ -183,8 +216,13 @@ export default function HomeScreen() {
         collapseAt: 140,
         expandAt: 48,
     });
+    const topPadding = useScreenTopPadding();
+    // The pinned bar is chrome, not a page header, so it hugs the status bar.
+    const stickyTopPadding = useScreenTopPadding(theme.space.sm);
+    const available = totals.leftover - committed.total;
     const leftoverLabel = formatMoney(totals.leftover, { compact: true });
-    const needsFirstPaycheck = income.length === 0;
+    const availableLabel = formatMoney(available, { compact: true });
+    const needsFirstPaycheck = !loading && income.length === 0;
     const periodNav = (forCompact: boolean) => (
         <HeroPeriodNav
             label={label}
@@ -207,23 +245,51 @@ export default function HomeScreen() {
         }
     };
 
-    const okay = totals.leftover >= 0;
+    const okay = available >= 0;
+    const leftoverOkay = totals.leftover >= 0;
+
+    // Variable bills carry no amount until they're logged, so say so rather
+    // than let "available" read as the whole picture.
+    const unknownNote =
+        committed.unknownCount > 0
+            ? ` · ${committed.unknownCount} variable ${
+                  committed.unknownCount === 1 ? "bill" : "bills"
+              } not counted yet`
+            : "";
+
+    const heroCaption = (() => {
+        if (bills.length === 0 && debts.length === 0) {
+            return okay
+                ? "Income covers everything logged so far"
+                : "Outflows are higher than income received so far";
+        }
+        if (committed.total > 0) {
+            return `After ${formatMoney(committed.total, {
+                compact: true,
+            })} still due this month${unknownNote}`;
+        }
+        return `Everything due this month is paid${unknownNote}`;
+    })();
 
     return (
         <View style={dashboard.screen}>
-            {collapsed ? (
-                <View
+            {collapsed && !loading ? (
+                <StickyHeroBar
                     style={[
-                        dashboard.heroCompactSticky,
                         styles.mastCompactSticky,
+                        { paddingTop: stickyTopPadding },
                     ]}
                 >
                     <DashboardHeroCompact
-                        kicker={okay ? "Leftover" : "Short"}
-                        value={leftoverLabel}
+                        kicker={okay ? "Available" : "Short"}
+                        value={availableLabel}
+                        amount={available}
+                        formatAmount={(n) =>
+                            formatMoney(n, { compact: true })
+                        }
                         pace={periodNav(true)}
                     />
-                </View>
+                </StickyHeroBar>
             ) : null}
 
             <ScrollView
@@ -231,7 +297,37 @@ export default function HomeScreen() {
                 contentContainerStyle={styles.scroll}
                 {...scrollProps}
             >
-                <View style={styles.masthead}>
+                <View style={[styles.masthead, { paddingTop: topPadding }]}>
+                    {loading ? (
+                        <View
+                            accessibilityRole="progressbar"
+                            accessibilityLabel="Loading"
+                        >
+                            <View style={styles.mastEyebrow}>
+                                <Text style={styles.mastKicker}>On hand</Text>
+                            </View>
+                            <Bone
+                                width="48%"
+                                height={theme.lineHeight.hero}
+                                radius={theme.radius.md}
+                                tone="inverse"
+                            />
+                            <Bone
+                                width="72%"
+                                height={theme.lineHeight.xs}
+                                tone="inverse"
+                                style={{ marginTop: theme.space.sm }}
+                            />
+                            <View style={styles.mastNav}>
+                                <Bone
+                                    width="36%"
+                                    height={theme.lineHeight.xs}
+                                    tone="inverse"
+                                />
+                            </View>
+                        </View>
+                    ) : (
+                        <>
                     <View style={styles.mastEyebrow}>
                         <Text style={styles.mastKicker}>On hand</Text>
                         <Text
@@ -247,22 +343,24 @@ export default function HomeScreen() {
                             {okay ? "Okay" : "Short"}
                         </Text>
                     </View>
-                    <Text
+                    <AnimatedMoneyText
+                        amount={available}
+                        format={(n) => formatMoney(n, { compact: true })}
                         style={styles.mastAmount}
                         accessibilityRole="header"
-                    >
-                        {leftoverLabel}
-                    </Text>
-                    <Text style={styles.mastCaption}>
-                        {okay
-                            ? "Income covers spending, bills, debts, and savings so far"
-                            : "Outflows are higher than income received so far"}
-                    </Text>
+                    />
+                    <Text style={styles.mastCaption}>{heroCaption}</Text>
 
                     <View style={styles.mastNav}>{periodNav(false)}</View>
+                        </>
+                    )}
                 </View>
 
                 <View style={styles.body}>
+                    {loading ? (
+                        <DashboardSkeleton variant="home" />
+                    ) : (
+                        <>
                     <SegmentControl
                         options={UNIT_OPTIONS}
                         selected={PERIOD_UNIT_LABELS[periodUnit]}
@@ -353,15 +451,71 @@ export default function HomeScreen() {
                                 style={[
                                     styles.totalValue,
                                     {
+                                        color: leftoverOkay
+                                            ? theme.intent.positive.fg
+                                            : theme.intent.negative.fg,
+                                    },
+                                ]}
+                            >
+                                {leftoverLabel}
+                            </Text>
+                        </View>
+
+                        {committed.total > 0 ? (
+                            <Pressable
+                                onPress={() => router.push("/(tabs)/plans")}
+                                accessibilityRole="button"
+                                accessibilityLabel={`Still due this month, ${formatMoney(
+                                    committed.total,
+                                    { compact: true, sign: "−" }
+                                )}`}
+                                style={({ pressed }) => [
+                                    styles.dueRow,
+                                    pressed && styles.linePressed,
+                                ]}
+                            >
+                                <Text style={styles.dueLabel}>
+                                    Still due this month
+                                </Text>
+                                <Text style={styles.dueValue}>
+                                    {formatMoney(committed.total, {
+                                        compact: true,
+                                        sign: "−",
+                                    })}
+                                </Text>
+                            </Pressable>
+                        ) : null}
+
+                        <View style={styles.grandRow}>
+                            <Text style={styles.grandLabel}>Available</Text>
+                            <Text
+                                style={[
+                                    styles.grandValue,
+                                    {
                                         color: okay
                                             ? theme.intent.positive.fg
                                             : theme.intent.negative.fg,
                                     },
                                 ]}
                             >
-                                {formatMoney(totals.leftover, { compact: true })}
+                                {availableLabel}
                             </Text>
                         </View>
+
+                        {committed.unknownCount > 0 ? (
+                            <Text style={styles.grandNote}>
+                                {committed.unknownCount} variable{" "}
+                                {committed.unknownCount === 1
+                                    ? "bill has"
+                                    : "bills have"}{" "}
+                                no amount yet, so {
+                                    committed.unknownCount === 1
+                                        ? "it is"
+                                        : "they are"
+                                }{" "}
+                                not subtracted.
+                            </Text>
+                        ) : null}
                     </View>
 
                     <SpendByCategoryChart rows={categorySpend} />
@@ -391,6 +545,8 @@ export default function HomeScreen() {
                             />
                         </Pressable>
                     </View>
+                        </>
+                    )}
                 </View>
             </ScrollView>
         </View>
@@ -401,10 +557,10 @@ const styles = StyleSheet.create({
     scroll: {
         paddingBottom: theme.space.xl,
     },
+    // paddingTop comes from useScreenTopPadding at the call site.
     masthead: {
         backgroundColor: theme.bg.inverse,
         paddingHorizontal: theme.space.screenX,
-        paddingTop: theme.space.screenTop,
         paddingBottom: theme.space.lg,
     },
     mastEyebrow: {
@@ -434,7 +590,6 @@ const styles = StyleSheet.create({
         borderTopColor: theme.border.inverse,
     },
     mastCompactSticky: {
-        paddingTop: theme.space.screenTop,
         paddingBottom: theme.space.md,
     },
     body: {
@@ -498,8 +653,47 @@ const styles = StyleSheet.create({
     totalLabel: text.sectionLabel,
     totalValue: {
         ...text.money,
+        fontSize: theme.fontSize.lg,
+        lineHeight: theme.lineHeight.lg,
+    },
+    dueRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        minHeight: theme.size.tap,
+        paddingTop: theme.space.sm,
+    },
+    dueLabel: {
+        ...text.body,
+        color: theme.text.secondary,
+    },
+    dueValue: {
+        ...text.money,
+        fontSize: theme.fontSize.lg,
+        lineHeight: theme.lineHeight.lg,
+        color: theme.intent.caution.fg,
+    },
+    grandRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: theme.border.base,
+        paddingTop: theme.space.md,
+        marginTop: theme.space.sm,
+    },
+    grandLabel: {
+        ...text.sectionLabel,
+        color: theme.text.primary,
+    },
+    grandValue: {
+        ...text.money,
         fontSize: theme.fontSize.xl,
         lineHeight: theme.lineHeight.xl,
+    },
+    grandNote: {
+        ...text.caption,
+        marginTop: theme.space.sm,
     },
     actions: {
         marginTop: theme.space.md,

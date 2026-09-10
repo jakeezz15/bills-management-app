@@ -19,6 +19,11 @@ export interface Debt extends Timestamps {
     remarks?: string;
     minimumPayment: number;
     type: string;
+    /**
+     * Schedule a due-day reminder for this debt. Missing on old records
+     * means on (`remind !== false`).
+     */
+    remind?: boolean;
 
     /** @deprecated Prefer DebtPayment rows. Kept for old backups / migration. */
     isPaid?: boolean;

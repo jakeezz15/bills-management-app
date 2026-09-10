@@ -1,19 +1,25 @@
 import { useDateRange } from "@/app/contexts/DateRangeContext";
-import { useDueAction } from "@/app/contexts/DueActionContext";
 import { subscribeToDueReminderTaps } from "@/services/reminders";
+import { router } from "expo-router";
 import { useEffect } from "react";
 
-/** Opens the matching bill/debt form when the user taps a due-day notification. */
+/**
+ * Tapping a due-day alert opens that plan’s page (log + history).
+ * Home’s period resets to this month so leftover/available stay in sync.
+ */
 export function NotificationTapHandler() {
-    const { openDueItem } = useDueAction();
     const { resetToToday } = useDateRange();
 
     useEffect(() => {
         return subscribeToDueReminderTaps((payload) => {
             resetToToday();
-            openDueItem({ kind: payload.type, id: payload.id });
+            if (payload.type === "debt") {
+                router.navigate(`/debt/${payload.id}`);
+                return;
+            }
+            router.navigate(`/bill/${payload.id}`);
         });
-    }, [openDueItem, resetToToday]);
+    }, [resetToToday]);
 
     return null;
 }

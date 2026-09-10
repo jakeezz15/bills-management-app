@@ -98,7 +98,13 @@ const light = {
 
 export const schemes: { light: ColorScheme } = { light };
 
-/** 8px spacing scale. `xs` is only for icon-to-label and badge padding. */
+/**
+ * 8px spacing scale. `xs` is only for icon-to-label and badge padding.
+ *
+ * There is deliberately no `screenTop`: the space above screen chrome depends
+ * on the device's status bar, so it is measured by `useScreenTopPadding`
+ * rather than guessed at here.
+ */
 const space = {
     xs: 4,
     sm: 8,
@@ -107,7 +113,6 @@ const space = {
     xl: 32,
     xxl: 48,
     screenX: 16,
-    screenTop: 48,
 } as const;
 
 const radius = {

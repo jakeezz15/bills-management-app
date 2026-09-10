@@ -61,7 +61,7 @@ export function getDueNowItems(
     const items: DueNowItem[] = [];
 
     for (const bill of bills) {
-        if (isBillPaidAsOf(bill, billPayments, asOf)) {
+        if (isBillPaidAsOf(bill, billPayments, asOf, { anyDayInMonth: true })) {
             continue;
         }
         const urgency = urgencyFromOffset(

@@ -27,7 +27,7 @@ export function MonthGrid({
     const lead = mondayOffset(start);
     const todayIso = toIsoDate(new Date());
 
-    const cells: Array<number | null> = [];
+    const cells: (number | null)[] = [];
     for (let i = 0; i < lead; i += 1) {
         cells.push(null);
     }

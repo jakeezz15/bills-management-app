@@ -33,7 +33,13 @@ type BillsContextValue = {
         paymentAmount?: number
     ) => Promise<void>;
     deleteBill: (id: string) => Promise<void>;
-    toggleBillPaid: (id: string, asOfIso?: string) => Promise<void>;
+    toggleBillPaid: (
+        id: string,
+        asOfIso?: string,
+        amount?: number
+    ) => Promise<void>;
+    /** Remove one ledger row. `isPaid` follows whether this month still has a payment. */
+    removeBillPayment: (paymentId: string) => Promise<void>;
     reload: () => Promise<void>;
 };
 
@@ -107,7 +113,8 @@ export function BillsProvider({ children }: { children: React.ReactNode }) {
                 const currentlyPaid = isBillPaidAsOf(
                     existing,
                     payments,
-                    asOf
+                    asOf,
+                    { anyDayInMonth: true }
                 );
 
                 if (currentlyPaid && !updates.isPaid) {
@@ -145,7 +152,8 @@ export function BillsProvider({ children }: { children: React.ReactNode }) {
                     const existingPayment = getBillPaymentInMonth(
                         id,
                         payments,
-                        asOf
+                        asOf,
+                        { anyDayInMonth: true }
                     );
                     if (existingPayment) {
                         nextPayments = payments.map((payment) =>
@@ -193,7 +201,7 @@ export function BillsProvider({ children }: { children: React.ReactNode }) {
     );
 
     const toggleBillPaid = useCallback(
-        async (id: string, asOfIso?: string) => {
+        async (id: string, asOfIso?: string, amount?: number) => {
             const asOf = parseIsoDate(asOfIso ?? toIsoDate(new Date()));
             if (!asOf) {
                 return;
@@ -204,7 +212,9 @@ export function BillsProvider({ children }: { children: React.ReactNode }) {
                 return;
             }
 
-            const currentlyPaid = isBillPaidAsOf(bill, payments, asOf);
+            const currentlyPaid = isBillPaidAsOf(bill, payments, asOf, {
+                anyDayInMonth: true,
+            });
 
             let nextPayments: BillPayment[];
             if (currentlyPaid) {
@@ -222,10 +232,14 @@ export function BillsProvider({ children }: { children: React.ReactNode }) {
                     );
                 });
             } else {
+                const paymentAmount = amount ?? bill.amount;
+                if (!(paymentAmount > 0)) {
+                    return;
+                }
                 const payment: BillPayment = {
                     id: `${Date.now()}-${id}`,
                     billId: id,
-                    amount: bill.amount,
+                    amount: paymentAmount,
                     date: toIsoDate(asOf),
                     ...stampCreate(),
                 };
@@ -240,6 +254,53 @@ export function BillsProvider({ children }: { children: React.ReactNode }) {
                           ...stampUpdate(),
                       }
                     : item
+            );
+
+            setPayments(nextPayments);
+            setBills(nextBills);
+            await Promise.all([
+                saveBillPayments(nextPayments),
+                saveBills(nextBills),
+            ]);
+        },
+        [bills, payments]
+    );
+
+    const removeBillPayment = useCallback(
+        async (paymentId: string) => {
+            const payment = payments.find((item) => item.id === paymentId);
+            if (!payment) {
+                return;
+            }
+            if (!bills.some((bill) => bill.id === payment.billId)) {
+                return;
+            }
+
+            const nextPayments = payments.filter(
+                (item) => item.id !== paymentId
+            );
+            const today = new Date();
+            const stillPaidThisMonth = nextPayments.some((item) => {
+                if (item.billId !== payment.billId) {
+                    return false;
+                }
+                const paidOn = parseIsoDate(item.date);
+                if (!paidOn) {
+                    return false;
+                }
+                return (
+                    paidOn.getFullYear() === today.getFullYear() &&
+                    paidOn.getMonth() === today.getMonth()
+                );
+            });
+            const nextBills = bills.map((bill) =>
+                bill.id === payment.billId
+                    ? {
+                          ...bill,
+                          isPaid: stillPaidThisMonth,
+                          ...stampUpdate(),
+                      }
+                    : bill
             );
 
             setPayments(nextPayments);
@@ -273,6 +334,7 @@ export function BillsProvider({ children }: { children: React.ReactNode }) {
                 updateBill,
                 deleteBill,
                 toggleBillPaid,
+                removeBillPayment,
                 reload,
             }}
         >

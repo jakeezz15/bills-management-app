@@ -1,8 +1,11 @@
 import { DashboardEmpty } from "@/components/DashboardEmpty";
+import { SearchField } from "@/components/SearchField";
+import { StickyHeroBar } from "@/components/StickyHeroBar";
 import {
     DashboardHero,
     DashboardHeroCompact,
 } from "@/components/DashboardHero";
+import { CategoryPicker } from "@/components/CategoryPicker";
 import ExpenseForm from "@/components/ExpenseForm";
 import { FloatingAddButton } from "@/components/FloatingAddButton";
 import { HeroPeriodNav } from "@/components/HeroPeriodNav";
@@ -13,11 +16,16 @@ import {
     groupByLedgerDate,
 } from "@/components/LedgerList";
 import { PageHeader } from "@/components/ui";
-import { LoadingScreen } from "@/components/LoadingScreen";
+import { DashboardSkeleton } from "@/components/DashboardSkeleton";
+import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
+import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
 import { useStickyHero } from "@/hooks/useStickyHero";
+import { EXPENSE_CATEGORIES } from "@/constants/categories";
 import { dashboard } from "@/styles/dashboard";
-import { Expense } from "@/types/expense";
+import { form } from "@/styles/form";
 import { isIsoInRange } from "@/utils/date";
+import { filterByCategory, filterBySearch } from "@/utils/filters";
+import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import { ScrollView, View } from "react-native";
 import { useDateRange } from "../contexts/DateRangeContext";
@@ -31,11 +39,17 @@ type ExpensesScreenProps = {
 export default function ExpensesScreen({
     embedded = false,
 }: ExpensesScreenProps) {
+    // Standalone deep link shows the dark hero band; when embedded the
+    // host tab owns the bar.
+    useStatusBarStyle(embedded ? null : "light");
+    const topPadding = useScreenTopPadding();
+
     const { formatMoney } = useLocale();
     const { expenses, loading } = useExpenses();
     const { range, label, shiftPeriod, resetToToday } = useDateRange();
     const [isOpen, setIsOpen] = useState(false);
-    const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+    const [query, setQuery] = useState("");
+    const [category, setCategory] = useState<string | null>(null);
 
     const inPeriod = useMemo(
         () =>
@@ -43,6 +57,12 @@ export default function ExpensesScreen({
                 .filter((expense) => isIsoInRange(expense.date, range))
                 .sort((a, b) => b.date.localeCompare(a.date)),
         [expenses, range]
+    );
+
+    const listed = useMemo(
+        () =>
+            filterBySearch(filterByCategory(inPeriod, category), query),
+        [inPeriod, category, query]
     );
 
     const total = inPeriod.reduce((sum, expense) => sum + expense.amount, 0);
@@ -62,10 +82,9 @@ export default function ExpensesScreen({
         return best;
     }, [inPeriod]);
 
-    const dayGroups = useMemo(() => groupByLedgerDate(inPeriod), [inPeriod]);
+    const dayGroups = useMemo(() => groupByLedgerDate(listed), [listed]);
 
     const openAdd = () => {
-        setEditingExpense(null);
         setIsOpen(true);
     };
 
@@ -83,23 +102,23 @@ export default function ExpensesScreen({
 
     return (
         <View style={dashboard.screen}>
-            {loading && <LoadingScreen />}
-
             {showHero && collapsed ? (
-                <View style={dashboard.heroCompactSticky}>
+                <StickyHeroBar>
                     <DashboardHeroCompact
                         kicker="Spent"
                         value={heroValue}
                         pace={periodNav(true)}
                     />
-                </View>
+                </StickyHeroBar>
             ) : null}
 
             <ScrollView
                 style={dashboard.list}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
                 contentContainerStyle={[
                     dashboard.listContent,
-                    !embedded && { paddingTop: 48 },
+                    !embedded && { paddingTop: topPadding },
                 ]}
                 {...scrollProps}
             >
@@ -110,7 +129,9 @@ export default function ExpensesScreen({
                     />
                 ) : null}
 
-                {showHero ? (
+                {loading ? (
+                    <DashboardSkeleton />
+                ) : showHero ? (
                     <DashboardHero
                         kicker="Spent"
                         value={heroValue}
@@ -134,10 +155,27 @@ export default function ExpensesScreen({
                     visible={isOpen}
                     onClose={() => {
                         setIsOpen(false);
-                        setEditingExpense(null);
                     }}
-                    expense={editingExpense ?? undefined}
                 />
+
+                {showHero && !loading ? (
+                    <>
+                        <SearchField
+                            value={query}
+                            onChange={setQuery}
+                            placeholder="Search spending"
+                            accessibilityLabel="Search spending"
+                        />
+                        <View style={form.field}>
+                            <CategoryPicker
+                                options={EXPENSE_CATEGORIES}
+                                selected={category}
+                                onSelect={setCategory}
+                                noneLabel="All"
+                            />
+                        </View>
+                    </>
+                ) : null}
 
                 {expenses.length === 0 && !loading && (
                     <DashboardEmpty
@@ -159,6 +197,19 @@ export default function ExpensesScreen({
                     />
                 )}
 
+                {inPeriod.length > 0 && listed.length === 0 && (
+                    <DashboardEmpty
+                        icon="search-outline"
+                        title="No matching spending"
+                        text="Nothing in this period matches that search or category."
+                        actionLabel="Clear filters"
+                        onAction={() => {
+                            setQuery("");
+                            setCategory(null);
+                        }}
+                    />
+                )}
+
                 {dayGroups.map((group) => (
                     <LedgerDayGroup key={group.date} label={group.label}>
                         {group.items.map((expense, index) => {
@@ -175,8 +226,7 @@ export default function ExpensesScreen({
                                     accentColor={accentForLabel(category)}
                                     isLast={index === group.items.length - 1}
                                     onPress={() => {
-                                        setEditingExpense(expense);
-                                        setIsOpen(true);
+                                        router.push(`/expense/${expense.id}`);
                                     }}
                                 />
                             );
@@ -184,10 +234,12 @@ export default function ExpensesScreen({
                     </LedgerDayGroup>
                 ))}
             </ScrollView>
-            <FloatingAddButton
-                onPress={openAdd}
-                accessibilityLabel="Add expense"
-            />
+            {!loading ? (
+                <FloatingAddButton
+                    onPress={openAdd}
+                    accessibilityLabel="Add expense"
+                />
+            ) : null}
         </View>
     );
 }

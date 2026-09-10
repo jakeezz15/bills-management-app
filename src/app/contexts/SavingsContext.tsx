@@ -32,6 +32,8 @@ type SavingsContextValue = {
         date?: string
     ) => Promise<void>;
     undoContribution: (savingsId: string, asOfIso?: string) => Promise<void>;
+    /** Undo one contribution row by id (lowers saved). */
+    removeContribution: (contributionId: string) => Promise<void>;
     reload: () => Promise<void>;
 };
 
@@ -140,7 +142,8 @@ export function SavingsProvider({ children }: { children: React.ReactNode }) {
             const latest = getLatestSavingsContributionInMonth(
                 savingsId,
                 contributions,
-                asOf
+                asOf,
+                { anyDayInMonth: true }
             );
             if (!latest) {
                 return;
@@ -159,6 +162,47 @@ export function SavingsProvider({ children }: { children: React.ReactNode }) {
                         0,
                         Math.round((item.currentAmount - latest.amount) * 100) /
                             100
+                    ),
+                    ...stampUpdate(),
+                };
+            });
+
+            setContributions(updatedContributions);
+            setSavings(updatedSavings);
+            await Promise.all([
+                saveSavingsContributions(updatedContributions),
+                saveSavings(updatedSavings),
+            ]);
+        },
+        [contributions, savings]
+    );
+
+    const removeContribution = useCallback(
+        async (contributionId: string) => {
+            const contribution = contributions.find(
+                (item) => item.id === contributionId
+            );
+            if (!contribution) {
+                return;
+            }
+            if (!savings.some((item) => item.id === contribution.savingsId)) {
+                return;
+            }
+
+            const updatedContributions = contributions.filter(
+                (item) => item.id !== contributionId
+            );
+            const updatedSavings = savings.map((item) => {
+                if (item.id !== contribution.savingsId) {
+                    return item;
+                }
+                return {
+                    ...item,
+                    currentAmount: Math.max(
+                        0,
+                        Math.round(
+                            (item.currentAmount - contribution.amount) * 100
+                        ) / 100
                     ),
                     ...stampUpdate(),
                 };
@@ -197,6 +241,7 @@ export function SavingsProvider({ children }: { children: React.ReactNode }) {
                 deleteSavings,
                 addContribution,
                 undoContribution,
+                removeContribution,
             }}
         >
             {children}

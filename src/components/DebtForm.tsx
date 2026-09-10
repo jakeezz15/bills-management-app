@@ -2,20 +2,18 @@ import { useDebt } from "@/app/contexts/DebtsContext";
 import { useLocale } from "@/app/contexts/LocaleContext";
 import { DateField } from "@/components/DateField";
 import { FormDialog } from "@/components/FormDialog";
-import { buttonStyle } from "@/styles/button-style";
 import { form, formColors } from "@/styles/form";
 import { Debt } from "@/types/debt";
 import { parseIsoDate, todayIsoDate } from "@/utils/date";
-import { isDebtInstallmentPaidAsOf } from "@/utils/filters";
 import { currencySymbol } from "@/utils/money";
-import { useEffect, useMemo, useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { useFormSession } from "@/hooks/useFormSession";
+import { useState } from "react";
+import { Pressable, Switch, Text, TextInput, View } from "react-native";
 
 type DebtFormProps = {
     visible: boolean;
     onClose: () => void;
     debt?: Debt;
-    paymentDate?: string;
 };
 
 const LOAN_TYPES = [
@@ -27,26 +25,31 @@ const LOAN_TYPES = [
     "Personal Loan",
 ] as const;
 
-export default function DebtForm({
-    visible,
-    onClose,
-    debt,
-    paymentDate,
-}: DebtFormProps) {
-    const { addDebt, updateDebt, deleteDebt, recordPayment, undoPayment, payments } =
-        useDebt();
-    const { currency, formatMoney } = useLocale();
+export default function DebtForm(props: DebtFormProps) {
+    const session = useFormSession(props.visible, props.debt?.id);
+    return <DebtEditor key={session} {...props} />;
+}
+
+function DebtEditor({ visible, onClose, debt }: DebtFormProps) {
+    const { addDebt, updateDebt, deleteDebt } = useDebt();
+    const { currency } = useLocale();
     const symbol = currencySymbol(currency);
 
-    const [name, setName] = useState("");
-    const [balance, setBalance] = useState("");
-    const [minimumPayment, setMinimumPayment] = useState("");
-    const [dueDay, setDueDay] = useState("");
-    const [startDate, setStartDate] = useState(todayIsoDate());
-    const [type, setType] = useState("");
+    const [name, setName] = useState(debt?.name ?? "");
+    const [balance, setBalance] = useState(
+        debt ? String(debt.balance) : ""
+    );
+    const [minimumPayment, setMinimumPayment] = useState(
+        debt ? String(debt.minimumPayment) : ""
+    );
+    const [dueDay, setDueDay] = useState(debt ? String(debt.dueDay) : "");
+    const [startDate, setStartDate] = useState(
+        debt?.startDate || todayIsoDate()
+    );
+    const [type, setType] = useState(debt?.type ?? "");
+    const [remind, setRemind] = useState(debt?.remind !== false);
     const [focusedInput, setFocusedInput] = useState<string | null>(null);
     const [showErrors, setShowErrors] = useState(false);
-    const [busy, setBusy] = useState(false);
 
     const nameHasError = showErrors && name.trim() === "";
     const balanceHasError = showErrors && balance.trim() === "";
@@ -56,66 +59,6 @@ export default function DebtForm({
         (dueDay.trim() === "" || Number(dueDay) < 1 || Number(dueDay) > 31);
     const startDateHasError = showErrors && parseIsoDate(startDate) === null;
     const typeHasError = showErrors && type.trim() === "";
-
-    const asOf = useMemo(
-        () => parseIsoDate(paymentDate ?? todayIsoDate()) ?? new Date(),
-        [paymentDate]
-    );
-
-    const monthPaymentAmount = useMemo(() => {
-        if (!debt) {
-            return 0;
-        }
-        const monthPayments = payments.filter((payment) => {
-            if (payment.debtId !== debt.id) {
-                return false;
-            }
-            const paidOn = parseIsoDate(payment.date);
-            if (!paidOn) {
-                return false;
-            }
-            return (
-                paidOn.getFullYear() === asOf.getFullYear() &&
-                paidOn.getMonth() === asOf.getMonth() &&
-                paidOn.getTime() <= asOf.getTime()
-            );
-        });
-        return monthPayments.reduce((sum, payment) => sum + payment.amount, 0);
-    }, [debt, payments, asOf]);
-
-    // Prefer ledger rows so we can undo; ignore “paid off forever” for this control.
-    const paidThisPeriod = useMemo(() => {
-        if (!debt) {
-            return false;
-        }
-        if (monthPaymentAmount > 0) {
-            return true;
-        }
-        if (debt.balance <= 0) {
-            return false;
-        }
-        return isDebtInstallmentPaidAsOf(debt, asOf, payments);
-    }, [debt, asOf, payments, monthPaymentAmount]);
-
-    useEffect(() => {
-        if (debt) {
-            setName(debt.name);
-            setBalance(String(debt.balance));
-            setMinimumPayment(String(debt.minimumPayment));
-            setDueDay(String(debt.dueDay));
-            setStartDate(debt.startDate || todayIsoDate());
-            setType(debt.type);
-        } else {
-            setName("");
-            setBalance("");
-            setMinimumPayment("");
-            setDueDay("");
-            setStartDate(todayIsoDate());
-            setType("");
-        }
-        setShowErrors(false);
-        setBusy(false);
-    }, [debt, visible]);
 
     const handleSubmit = async () => {
         if (
@@ -144,6 +87,7 @@ export default function DebtForm({
                 dueDay: dueDayNumber,
                 startDate: startDate.trim(),
                 type,
+                remind,
             });
         } else {
             await addDebt({
@@ -154,13 +98,8 @@ export default function DebtForm({
                 dueDay: dueDayNumber,
                 startDate: startDate.trim(),
                 type,
+                remind,
             });
-            setName("");
-            setBalance("");
-            setMinimumPayment("");
-            setDueDay("");
-            setStartDate(todayIsoDate());
-            setType("");
         }
 
         setShowErrors(false);
@@ -173,32 +112,6 @@ export default function DebtForm({
         }
         await deleteDebt(debt.id);
         onClose();
-    };
-
-    const handleRecordPayment = async () => {
-        if (!debt || debt.balance <= 0 || paidThisPeriod || busy) {
-            return;
-        }
-        setBusy(true);
-        try {
-            await recordPayment(debt.id, undefined, paymentDate);
-            onClose();
-        } finally {
-            setBusy(false);
-        }
-    };
-
-    const handleUndoPayment = async () => {
-        if (!debt || !paidThisPeriod || busy) {
-            return;
-        }
-        setBusy(true);
-        try {
-            await undoPayment(debt.id, paymentDate);
-            onClose();
-        } finally {
-            setBusy(false);
-        }
     };
 
     return (
@@ -215,68 +128,6 @@ export default function DebtForm({
             deleteMessage="This removes this debt and its payment history from the device."
             onDelete={debt ? handleDelete : undefined}
         >
-            {debt && debt.balance <= 0 && !paidThisPeriod ? (
-                <View style={form.banner}>
-                    <Text style={form.bannerText}>
-                        Paid off — remaining balance is {formatMoney(0)}
-                    </Text>
-                </View>
-            ) : null}
-
-            {debt && paidThisPeriod ? (
-                <View style={[form.actionCard, form.actionCardLead]}>
-                    <Text style={form.actionCardTitle}>
-                        Paid this period
-                    </Text>
-                    <Text style={form.actionCardCaption}>
-                        Recorded {formatMoney(monthPaymentAmount || debt.minimumPayment)}.
-                        Undo if you marked this by mistake.
-                    </Text>
-                    <Pressable
-                        style={({ pressed }) => [
-                            form.actionCardButton,
-                            pressed && buttonStyle.buttonPressed,
-                            busy && { opacity: 0.6 },
-                        ]}
-                        disabled={busy}
-                        onPress={() => {
-                            void handleUndoPayment();
-                        }}
-                    >
-                        <Text style={buttonStyle.buttonText}>
-                            Undo payment
-                        </Text>
-                    </Pressable>
-                </View>
-            ) : null}
-
-            {debt && debt.balance > 0 && !paidThisPeriod ? (
-                <View style={[form.actionCard, form.actionCardLead]}>
-                    <Text style={form.actionCardTitle}>
-                        Record this period’s payment
-                    </Text>
-                    <Text style={form.actionCardCaption}>
-                        Lowers remaining balance by{" "}
-                        {formatMoney(debt.minimumPayment)}
-                    </Text>
-                    <Pressable
-                        style={({ pressed }) => [
-                            form.actionCardButton,
-                            pressed && buttonStyle.buttonPressed,
-                            busy && { opacity: 0.6 },
-                        ]}
-                        disabled={busy}
-                        onPress={() => {
-                            void handleRecordPayment();
-                        }}
-                    >
-                        <Text style={buttonStyle.buttonText}>
-                            Record {formatMoney(debt.minimumPayment)}
-                        </Text>
-                    </Pressable>
-                </View>
-            ) : null}
-
             <View style={form.field}>
                 <Text style={form.label}>Name</Text>
                 <TextInput
@@ -321,6 +172,26 @@ export default function DebtForm({
                 )}
             </View>
 
+            <View style={form.switchRow}>
+                <View style={form.switchCopy}>
+                    <Text style={form.switchTitle}>Remind me</Text>
+                    <Text style={form.switchCaption}>
+                        {remind
+                            ? "Uses the time and lead from Settings"
+                            : "No alert for this debt"}
+                    </Text>
+                </View>
+                <Switch
+                    value={remind}
+                    onValueChange={setRemind}
+                    trackColor={{
+                        false: formColors.switchTrackOff,
+                        true: formColors.switchTrackOn,
+                    }}
+                    thumbColor={formColors.switchThumb}
+                />
+            </View>
+
             <View style={form.field}>
                 <DateField
                     label="Start date"
@@ -340,16 +211,19 @@ export default function DebtForm({
                             <Pressable
                                 key={loanType}
                                 onPress={() => setType(loanType)}
-                                style={[
+                                accessibilityRole="button"
+                                accessibilityLabel={loanType}
+                                accessibilityState={{ selected }}
+                                style={({ pressed }) => [
                                     form.chip,
                                     selected && form.chipSelected,
+                                    pressed && form.chipPressed,
                                 ]}
                             >
                                 <Text
                                     style={[
                                         form.chipText,
-                                        selected &&
-                                            form.chipTextSelected,
+                                        selected && form.chipTextSelected,
                                     ]}
                                 >
                                     {loanType}

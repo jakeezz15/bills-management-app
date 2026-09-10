@@ -30,10 +30,34 @@ export const dashboard = StyleSheet.create({
         marginBottom: theme.space.lg,
         overflow: "hidden",
     },
+    heroNav: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingHorizontal: theme.space.sm,
+        minHeight: theme.size.tap,
+    },
+    heroNavSide: {
+        flexDirection: "row",
+        alignItems: "center",
+        minHeight: theme.size.tap,
+        paddingHorizontal: theme.space.sm,
+        gap: theme.space.xs,
+    },
+    heroNavLabel: {
+        color: theme.text.inverse,
+        fontSize: theme.fontSize.sm,
+        lineHeight: theme.lineHeight.sm,
+        fontWeight: theme.fontWeight.semibold,
+    },
     heroDisplay: {
         overflow: "hidden",
         paddingHorizontal: theme.space.md,
         paddingVertical: theme.space.md,
+    },
+    heroTitle: {
+        ...text.dialogTitle,
+        marginBottom: theme.space.sm,
     },
     heroEyebrow: {
         flexDirection: "row",
@@ -270,9 +294,9 @@ export const dashboard = StyleSheet.create({
     },
     emptyButtonText: text.button,
 
+    // paddingTop comes from useScreenTopPadding at the call site.
     tabHeader: {
         paddingHorizontal: theme.space.screenX,
-        paddingTop: theme.space.screenTop,
         paddingBottom: theme.space.sm,
         backgroundColor: theme.bg.surface,
         borderBottomWidth: StyleSheet.hairlineWidth,

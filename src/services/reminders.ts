@@ -1,14 +1,72 @@
 import { Bill } from "@/types/bill";
 import { Debt } from "@/types/debt";
+import { isDevToolsBuild } from "@/utils/dev-tools";
 import { formatMoney, getStoredCurrency } from "@/utils/money";
+import {
+    capReminderFires,
+    DEFAULT_REMINDER_HOUR,
+    DEFAULT_REMINDER_LEAD_DAYS,
+    itemWantsReminder,
+    REMINDER_HOUR_OPTIONS,
+    REMINDER_LEAD_OPTIONS,
+    upcomingReminderFires,
+    type ReminderFire,
+    type ReminderHour,
+    type ReminderKind,
+    type ReminderLeadDays,
+} from "@/utils/reminder-schedule";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { isRunningInExpoGo } from "expo";
 import { Platform } from "react-native";
 
 const ENABLED_KEY = "dueRemindersEnabled";
+const HOUR_KEY = "dueReminderHour";
+const LEAD_KEY = "dueReminderLeadDays";
 const CHANNEL_ID = "due-reminders";
-const REMINDER_HOUR = 9;
-const REMINDER_MINUTE = 0;
+
+export type ReminderPrefs = {
+    hour: ReminderHour;
+    leadDays: ReminderLeadDays;
+};
+
+function parseHour(raw: string | null): ReminderHour {
+    const value = Number(raw);
+    return (REMINDER_HOUR_OPTIONS as readonly number[]).includes(value)
+        ? (value as ReminderHour)
+        : DEFAULT_REMINDER_HOUR;
+}
+
+function parseLeadDays(raw: string | null): ReminderLeadDays {
+    const value = Number(raw);
+    return (REMINDER_LEAD_OPTIONS as readonly number[]).includes(value)
+        ? (value as ReminderLeadDays)
+        : DEFAULT_REMINDER_LEAD_DAYS;
+}
+
+export async function getReminderPrefs(): Promise<ReminderPrefs> {
+    const [hourRaw, leadRaw] = await Promise.all([
+        AsyncStorage.getItem(HOUR_KEY),
+        AsyncStorage.getItem(LEAD_KEY),
+    ]);
+    return {
+        hour: parseHour(hourRaw),
+        leadDays: parseLeadDays(leadRaw),
+    };
+}
+
+export async function setReminderPrefs(
+    prefs: ReminderPrefs
+): Promise<ReminderPrefs> {
+    const next: ReminderPrefs = {
+        hour: parseHour(String(prefs.hour)),
+        leadDays: parseLeadDays(String(prefs.leadDays)),
+    };
+    await Promise.all([
+        AsyncStorage.setItem(HOUR_KEY, String(next.hour)),
+        AsyncStorage.setItem(LEAD_KEY, String(next.leadDays)),
+    ]);
+    return next;
+}
 
 type NotificationsModule = typeof import("expo-notifications");
 
@@ -132,16 +190,29 @@ export function parseDueReminderData(
     return null;
 }
 
-function clampDueDay(dueDay: number): number {
-    return Math.min(Math.max(Math.floor(dueDay), 1), 28);
+function reminderTitle(
+    type: DueReminderPayload["type"],
+    kind: ReminderKind,
+    leadDays: number
+): string {
+    if (kind === "due") {
+        return type === "bill" ? "Bill due today" : "Debt payment due";
+    }
+    const when =
+        leadDays === 7
+            ? "in 1 week"
+            : leadDays === 1
+              ? "in 1 day"
+              : `in ${leadDays} days`;
+    return type === "bill" ? `Bill due ${when}` : `Debt payment due ${when}`;
 }
 
-async function scheduleMonthly(
+async function scheduleAt(
     Notifications: NotificationsModule,
     identifier: string,
     title: string,
     body: string,
-    dueDay: number,
+    at: Date,
     data: DueReminderPayload
 ): Promise<void> {
     await Notifications.scheduleNotificationAsync({
@@ -154,10 +225,8 @@ async function scheduleMonthly(
             ...(Platform.OS === "android" ? { channelId: CHANNEL_ID } : {}),
         },
         trigger: {
-            type: Notifications.SchedulableTriggerInputTypes.MONTHLY,
-            day: clampDueDay(dueDay),
-            hour: REMINDER_HOUR,
-            minute: REMINDER_MINUTE,
+            type: Notifications.SchedulableTriggerInputTypes.DATE,
+            date: at,
             ...(Platform.OS === "android" ? { channelId: CHANNEL_ID } : {}),
         },
     });
@@ -171,9 +240,17 @@ export async function cancelAllDueReminders(): Promise<void> {
     await Notifications.cancelAllScheduledNotificationsAsync();
 }
 
+type PlannedFire = ReminderFire & {
+    identifier: string;
+    type: DueReminderPayload["type"];
+    id: string;
+    body: string;
+};
+
 /**
- * Rebuild monthly due-day alerts from current bills and debts.
- * Only schedules when the preference is on and permission is granted.
+ * Rebuild due-day alerts from current bills and debts.
+ * Schedules a lead ping and a due-day ping for the next few months, then
+ * ReminderSync refreshes the window the next time the app opens.
  */
 export async function syncDueReminders(
     bills: Bill[],
@@ -203,36 +280,58 @@ export async function syncDueReminders(
 
     await ensureAndroidChannel(Notifications);
     const currency = await getStoredCurrency();
-    let scheduled = 0;
+    const prefs = await getReminderPrefs();
+    const schedule = { hour: prefs.hour, leadDays: prefs.leadDays };
+    const now = new Date();
+    const planned: PlannedFire[] = [];
 
     for (const bill of bills) {
-        await scheduleMonthly(
-            Notifications,
-            `bill-${bill.id}`,
-            "Bill due today",
-            `${bill.name} · ${formatMoney(bill.amount, currency, { compact: true })}`,
-            bill.dueDay,
-            { type: "bill", id: bill.id }
-        );
-        scheduled += 1;
+        if (!itemWantsReminder(bill)) {
+            continue;
+        }
+        const body = bill.amountVaries
+            ? `${bill.name} · amount varies`
+            : `${bill.name} · ${formatMoney(bill.amount, currency, { compact: true })}`;
+        for (const fire of upcomingReminderFires(bill.dueDay, now, schedule)) {
+            planned.push({
+                ...fire,
+                identifier: `bill-${bill.id}-${fire.kind}-${fire.periodKey}`,
+                type: "bill",
+                id: bill.id,
+                body,
+            });
+        }
     }
 
     for (const debt of debts) {
-        if (debt.balance <= 0 || debt.paidOffDate) {
+        if (debt.balance <= 0 || debt.paidOffDate || !itemWantsReminder(debt)) {
             continue;
         }
-        await scheduleMonthly(
-            Notifications,
-            `debt-${debt.id}`,
-            "Debt payment due",
-            `${debt.name} · min ${formatMoney(debt.minimumPayment, currency, { compact: true })}`,
-            debt.dueDay,
-            { type: "debt", id: debt.id }
-        );
-        scheduled += 1;
+        const body = `${debt.name} · min ${formatMoney(debt.minimumPayment, currency, { compact: true })}`;
+        for (const fire of upcomingReminderFires(debt.dueDay, now, schedule)) {
+            planned.push({
+                ...fire,
+                identifier: `debt-${debt.id}-${fire.kind}-${fire.periodKey}`,
+                type: "debt",
+                id: debt.id,
+                body,
+            });
+        }
     }
 
-    return { scheduled };
+    const toSchedule = capReminderFires(planned);
+    for (const fire of toSchedule) {
+        await scheduleAt(
+            Notifications,
+            fire.identifier,
+            reminderTitle(fire.type, fire.kind, prefs.leadDays),
+            fire.body,
+            fire.at,
+            { type: fire.type, id: fire.id }
+        );
+    }
+
+    return { scheduled: toSchedule.length };
 }
 
 export async function enableDueReminders(
@@ -263,11 +362,35 @@ export async function disableDueReminders(): Promise<void> {
     await cancelAllDueReminders();
 }
 
+/** First bill or active debt the test banner can open on tap. */
+export function pickTestReminderTarget(
+    bills: Bill[],
+    debts: Debt[]
+): DueReminderPayload | null {
+    const bill = bills.find((item) => itemWantsReminder(item));
+    if (bill) {
+        return { type: "bill", id: bill.id };
+    }
+    const debt = debts.find(
+        (item) =>
+            item.balance > 0 && !item.paidOffDate && itemWantsReminder(item)
+    );
+    if (debt) {
+        return { type: "debt", id: debt.id };
+    }
+    return null;
+}
+
 /** Fires in a few seconds so you can verify alerts on a device. */
-export async function sendTestReminder(): Promise<{
-    ok: boolean;
-    reason?: string;
-}> {
+export async function sendTestReminder(
+    payload?: DueReminderPayload | null
+): Promise<{ ok: boolean; reason?: string }> {
+    if (!isDevToolsBuild()) {
+        return {
+            ok: false,
+            reason: "Test reminders are only available in a development build.",
+        };
+    }
     const blocked = remindersUnavailableReason();
     if (blocked) {
         return { ok: false, reason: blocked };
@@ -290,8 +413,11 @@ export async function sendTestReminder(): Promise<{
     await Notifications.scheduleNotificationAsync({
         content: {
             title: "Test reminder",
-            body: "Due-day alerts are working on this device.",
+            body: payload
+                ? "Tap this banner to open Home and log it."
+                : "Due-day alerts are working on this device.",
             sound: true,
+            ...(payload ? { data: payload } : {}),
             ...(Platform.OS === "android" ? { channelId: CHANNEL_ID } : {}),
         },
         trigger: {
@@ -314,7 +440,8 @@ type NotificationResponseLike = {
 
 /**
  * Cold start + in-app taps on due-day reminders.
- * Test reminders have no payload and are ignored.
+ * A test banner with no payload is ignored; tests that include a bill
+ * or debt id follow the same path as a real due-day alert.
  */
 export function subscribeToDueReminderTaps(
     onTap: (payload: DueReminderPayload) => void

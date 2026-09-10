@@ -7,12 +7,4 @@ export const screenStyles = StyleSheet.create({
         ...text.caption,
         marginTop: theme.space.xs,
     },
-    loading: {
-        flex: 1,
-        alignItems: "center",
-        justifyContent: "center",
-        gap: theme.space.md,
-        backgroundColor: theme.bg.canvas,
-    },
-    loadingText: text.bodyMuted,
 });

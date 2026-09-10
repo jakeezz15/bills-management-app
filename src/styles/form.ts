@@ -101,7 +101,7 @@ export const form = StyleSheet.create({
     chip: {
         paddingHorizontal: theme.space.md,
         paddingVertical: theme.space.sm,
-        minHeight: theme.size.control,
+        minHeight: theme.size.tap,
         justifyContent: "center",
         borderWidth: 1,
         borderColor: theme.border.subtle,
@@ -111,6 +111,9 @@ export const form = StyleSheet.create({
     chipSelected: {
         borderColor: theme.border.focus,
         backgroundColor: theme.intent.info.bg,
+    },
+    chipPressed: {
+        opacity: 0.7,
     },
     chipText: {
         color: theme.text.secondary,

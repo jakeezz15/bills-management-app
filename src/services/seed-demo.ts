@@ -20,6 +20,7 @@ import { Income } from "@/types/income";
 import { SavingsGoal } from "@/types/savings";
 import { SavingsContribution } from "@/types/savings-contribution";
 import { toIsoDate } from "@/utils/date";
+import { isDevToolsBuild } from "@/utils/dev-tools";
 import { stampCreate } from "@/utils/timestamps";
 
 type DemoSeedResult = {
@@ -122,6 +123,9 @@ const EXPENSE_CATALOG: {
 export async function seedDemoData(
     today = new Date()
 ): Promise<DemoSeedResult> {
+    if (!isDevToolsBuild()) {
+        throw new Error("Demo seed is only available in a development build.");
+    }
     const rng = createRng(
         today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate()
     );

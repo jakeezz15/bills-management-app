@@ -1,5 +1,6 @@
 import { SegmentControl } from "@/components/SegmentControl";
 import { TabScaffold } from "@/components/ui";
+import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
 import ExpensesScreen from "./expenses";
@@ -10,6 +11,9 @@ type Section = (typeof SECTIONS)[number];
 const STORAGE_KEY = "activitySection";
 
 export default function ActivityScreen() {
+    // TabScaffold's header is a light surface.
+    useStatusBarStyle("dark");
+
     const [section, setSection] = useState<Section>("Income");
 
     useEffect(() => {

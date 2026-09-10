@@ -1,4 +1,5 @@
 import { DashboardEmpty } from "@/components/DashboardEmpty";
+import { StickyHeroBar } from "@/components/StickyHeroBar";
 import {
     DashboardHero,
     DashboardHeroCompact,
@@ -12,12 +13,16 @@ import {
     accentForLabel,
     groupByLedgerDate,
 } from "@/components/LedgerList";
+import { SearchField } from "@/components/SearchField";
 import { PageHeader } from "@/components/ui";
-import { LoadingScreen } from "@/components/LoadingScreen";
+import { DashboardSkeleton } from "@/components/DashboardSkeleton";
+import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
+import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
 import { useStickyHero } from "@/hooks/useStickyHero";
 import { dashboard } from "@/styles/dashboard";
-import { Income } from "@/types/income";
 import { isIsoInRange } from "@/utils/date";
+import { filterBySearch } from "@/utils/filters";
+import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import { ScrollView, View } from "react-native";
 import { useDateRange } from "../contexts/DateRangeContext";
@@ -29,11 +34,16 @@ type IncomeScreenProps = {
 };
 
 export default function IncomeScreen({ embedded = false }: IncomeScreenProps) {
+    // Standalone deep link shows the dark hero band; when embedded the
+    // host tab owns the bar.
+    useStatusBarStyle(embedded ? null : "light");
+    const topPadding = useScreenTopPadding();
+
     const { formatMoney } = useLocale();
     const { income, loading } = useIncome();
     const { range, label, shiftPeriod, resetToToday } = useDateRange();
     const [isOpen, setIsOpen] = useState(false);
-    const [editingEntry, setEditingEntry] = useState<Income | null>(null);
+    const [query, setQuery] = useState("");
 
     const inPeriod = useMemo(
         () =>
@@ -43,14 +53,18 @@ export default function IncomeScreen({ embedded = false }: IncomeScreenProps) {
         [income, range]
     );
 
+    const listed = useMemo(
+        () => filterBySearch(inPeriod, query),
+        [inPeriod, query]
+    );
+
     const net = inPeriod.reduce((sum, entry) => sum + entry.net, 0);
     const gross = inPeriod.reduce((sum, entry) => sum + entry.gross, 0);
     const takeHome = gross > 0 ? Math.round((net / gross) * 100) : 0;
 
-    const dayGroups = useMemo(() => groupByLedgerDate(inPeriod), [inPeriod]);
+    const dayGroups = useMemo(() => groupByLedgerDate(listed), [listed]);
 
     const openAdd = () => {
-        setEditingEntry(null);
         setIsOpen(true);
     };
 
@@ -69,23 +83,23 @@ export default function IncomeScreen({ embedded = false }: IncomeScreenProps) {
 
     return (
         <View style={dashboard.screen}>
-            {loading && <LoadingScreen />}
-
             {showHero && collapsed ? (
-                <View style={dashboard.heroCompactSticky}>
+                <StickyHeroBar>
                     <DashboardHeroCompact
                         kicker="Take-home"
                         value={heroValue}
                         pace={periodNav(true)}
                     />
-                </View>
+                </StickyHeroBar>
             ) : null}
 
             <ScrollView
                 style={dashboard.list}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
                 contentContainerStyle={[
                     dashboard.listContent,
-                    !embedded && { paddingTop: 48 },
+                    !embedded && { paddingTop: topPadding },
                 ]}
                 {...scrollProps}
             >
@@ -96,7 +110,9 @@ export default function IncomeScreen({ embedded = false }: IncomeScreenProps) {
                     />
                 ) : null}
 
-                {showHero ? (
+                {loading ? (
+                    <DashboardSkeleton />
+                ) : showHero ? (
                     <DashboardHero
                         kicker="Take-home"
                         value={heroValue}
@@ -118,10 +134,17 @@ export default function IncomeScreen({ embedded = false }: IncomeScreenProps) {
                     visible={isOpen}
                     onClose={() => {
                         setIsOpen(false);
-                        setEditingEntry(null);
                     }}
-                    entry={editingEntry ?? undefined}
                 />
+
+                {showHero && !loading ? (
+                    <SearchField
+                        value={query}
+                        onChange={setQuery}
+                        placeholder="Search source"
+                        accessibilityLabel="Search income"
+                    />
+                ) : null}
 
                 {income.length === 0 && !loading && (
                     <DashboardEmpty
@@ -143,6 +166,16 @@ export default function IncomeScreen({ embedded = false }: IncomeScreenProps) {
                     />
                 )}
 
+                {inPeriod.length > 0 && listed.length === 0 && (
+                    <DashboardEmpty
+                        icon="search-outline"
+                        title="No matching income"
+                        text="Nothing in this period matches that search."
+                        actionLabel="Clear search"
+                        onAction={() => setQuery("")}
+                    />
+                )}
+
                 {dayGroups.map((group) => (
                     <LedgerDayGroup key={group.date} label={group.label}>
                         {group.items.map((entry, index) => {
@@ -161,8 +194,7 @@ export default function IncomeScreen({ embedded = false }: IncomeScreenProps) {
                                     accentColor={accentForLabel(entry.source)}
                                     isLast={index === group.items.length - 1}
                                     onPress={() => {
-                                        setEditingEntry(entry);
-                                        setIsOpen(true);
+                                        router.push(`/paycheck/${entry.id}`);
                                     }}
                                 />
                             );
@@ -170,10 +202,12 @@ export default function IncomeScreen({ embedded = false }: IncomeScreenProps) {
                     </LedgerDayGroup>
                 ))}
             </ScrollView>
-            <FloatingAddButton
-                onPress={openAdd}
-                accessibilityLabel="Add income"
-            />
+            {!loading ? (
+                <FloatingAddButton
+                    onPress={openAdd}
+                    accessibilityLabel="Add income"
+                />
+            ) : null}
         </View>
     );
 }

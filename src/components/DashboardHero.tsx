@@ -1,5 +1,6 @@
 import { dashboard } from "@/styles/dashboard";
 import { theme } from "@/design";
+import { AnimatedMoneyText } from "@/components/AnimatedMoneyText";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
@@ -8,8 +9,11 @@ type DashboardHeroProps = {
     kicker: string;
     value: string;
     caption: string;
+    /** Plan name on a detail page — read before the money. */
+    title?: string;
     percent?: number;
     pace?: ReactNode;
+    header?: ReactNode;
     onAdd?: () => void;
     addAccessibilityLabel?: string;
 };
@@ -18,24 +22,35 @@ export function DashboardHero({
     kicker,
     value,
     caption,
+    title,
     percent,
     pace,
+    header,
     onAdd,
     addAccessibilityLabel = "Add",
 }: DashboardHeroProps) {
     const fill = Math.max(0, Math.min(100, percent ?? 0));
     const showProgress = percent !== undefined;
+    const spoken = [title, kicker, value, showProgress ? `${fill} percent` : null, caption]
+        .filter(Boolean)
+        .join(", ");
 
     return (
         <View style={dashboard.hero}>
+            {header}
             <View
                 style={dashboard.heroDisplay}
-                accessibilityLabel={
-                    showProgress
-                        ? `${kicker}, ${value}, ${fill} percent`
-                        : undefined
-                }
+                accessibilityLabel={spoken}
             >
+                {title ? (
+                    <Text
+                        style={dashboard.heroTitle}
+                        accessibilityRole="header"
+                        numberOfLines={2}
+                    >
+                        {title}
+                    </Text>
+                ) : null}
                 <View style={dashboard.heroEyebrow}>
                     <Text style={dashboard.heroKicker}>{kicker}</Text>
                     {showProgress ? (
@@ -112,6 +127,8 @@ export function DashboardHero({
 type DashboardHeroCompactProps = {
     kicker: string;
     value: string;
+    amount?: number;
+    formatAmount?: (amount: number) => string;
     pace?: ReactNode;
     onAdd?: () => void;
     addAccessibilityLabel?: string;
@@ -121,10 +138,25 @@ type DashboardHeroCompactProps = {
 export function DashboardHeroCompact({
     kicker,
     value,
+    amount,
+    formatAmount,
     pace,
     onAdd,
     addAccessibilityLabel = "Add",
 }: DashboardHeroCompactProps) {
+    const figure =
+        amount != null && formatAmount ? (
+            <AnimatedMoneyText
+                amount={amount}
+                format={formatAmount}
+                style={dashboard.heroCompactValue}
+                numberOfLines={1}
+            />
+        ) : (
+            <Text style={dashboard.heroCompactValue} numberOfLines={1}>
+                {value}
+            </Text>
+        );
     return (
         <View style={dashboard.heroCompact} accessibilityRole="summary">
             <View style={dashboard.heroCompactTop}>
@@ -132,9 +164,7 @@ export function DashboardHeroCompact({
                     <Text style={dashboard.heroCompactKicker} numberOfLines={1}>
                         {kicker}
                     </Text>
-                    <Text style={dashboard.heroCompactValue} numberOfLines={1}>
-                        {value}
-                    </Text>
+                    {figure}
                 </View>
                 {onAdd ? (
                     <Pressable

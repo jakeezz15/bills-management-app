@@ -1,28 +1,32 @@
 import { CompactPlanRow, PlanGroup } from "@/components/CompactPlanRow";
 import { DashboardEmpty } from "@/components/DashboardEmpty";
+import { SearchField } from "@/components/SearchField";
+import { StickyHeroBar } from "@/components/StickyHeroBar";
 import {
     DashboardHero,
     DashboardHeroCompact,
 } from "@/components/DashboardHero";
 import DebtForm from "@/components/DebtForm";
 import { FloatingAddButton } from "@/components/FloatingAddButton";
-import { HeroPeriodNav } from "@/components/HeroPeriodNav";
-import { LoadingScreen } from "@/components/LoadingScreen";
+import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import { PageHeader } from "@/components/ui";
+import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
+import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
 import { useStickyHero } from "@/hooks/useStickyHero";
 import { dashboard } from "@/styles/dashboard";
 import { Debt } from "@/types/debt";
-import { DebtPayment } from "@/types/debt-payment";
-import { parseIsoDate, toIsoDate } from "@/utils/date";
+import { formatDisplayDate, ordinalDay } from "@/utils/date";
 import {
-    billDueStatusReference,
-    filterDebtsVisibleAsOf,
-    getBillDueOffset,
+    dueCatalogLabel,
+    dueCatalogStatus,
+    filterBySearch,
+    isDebtFullyPaidOff,
     isDebtInstallmentPaidAsOf,
+    isDebtNotStartedAsOf,
 } from "@/utils/filters";
+import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
-import { useDateRange } from "../contexts/DateRangeContext";
 import { useDebt } from "../contexts/DebtsContext";
 import { useLocale } from "../contexts/LocaleContext";
 
@@ -30,299 +34,164 @@ type DebtsScreenProps = {
     embedded?: boolean;
 };
 
-type DueDayGroup = {
-    dueDay: number;
-    label: string;
-    debts: Debt[];
-};
-
-const MONTHS = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-];
-
-function isFullyPaidOff(debt: Debt) {
-    return debt.balance <= 0 || Boolean(debt.paidOffDate);
-}
-
-function dueDayLabel(dueDay: number, asOf: Date) {
-    const daysInMonth = new Date(
-        asOf.getFullYear(),
-        asOf.getMonth() + 1,
-        0
-    ).getDate();
-    const day = Math.min(Math.max(dueDay, 1), daysInMonth);
-    return `${MONTHS[asOf.getMonth()]} ${day}`;
-}
-
-function hasPaymentThisPeriod(
-    debtId: string,
-    payments: DebtPayment[],
-    asOf: Date
-) {
-    return payments.some((payment) => {
-        if (payment.debtId !== debtId) {
-            return false;
-        }
-        const paidOn = parseIsoDate(payment.date);
-        if (!paidOn) {
-            return false;
-        }
-        return (
-            paidOn.getFullYear() === asOf.getFullYear() &&
-            paidOn.getMonth() === asOf.getMonth() &&
-            paidOn.getTime() <= asOf.getTime()
-        );
-    });
-}
-
-function debtMeta(
-    debt: Debt,
-    installmentPaid: boolean,
-    asOf: Date,
-    dueRef: Date
-): { label: string; tone: "overdue" | "due-soon" | "default" } {
-    if (isFullyPaidOff(debt)) {
-        return { label: "Paid off", tone: "default" };
-    }
-    if (installmentPaid) {
-        return { label: "Paid", tone: "default" };
-    }
-    const offset = getBillDueOffset(debt.dueDay, asOf, dueRef);
-    if (offset < 0) {
-        return { label: "Overdue", tone: "overdue" };
-    }
-    if (offset <= 3) {
-        return { label: "Soon", tone: "due-soon" };
-    }
-    return { label: "Upcoming", tone: "default" };
-}
-
-function sortDebtInGroup(
-    a: Debt,
-    b: Debt,
-    payments: DebtPayment[],
-    asOf: Date
-) {
-    const rank = (debt: Debt) => {
-        if (isFullyPaidOff(debt)) {
-            return 2;
-        }
-        if (isDebtInstallmentPaidAsOf(debt, asOf, payments)) {
-            return 1;
-        }
-        return 0;
-    };
-    const diff = rank(a) - rank(b);
-    if (diff !== 0) {
-        return diff;
+function sortByDueDayThenName(a: Debt, b: Debt) {
+    const due = a.dueDay - b.dueDay;
+    if (due !== 0) {
+        return due;
     }
     return a.name.localeCompare(b.name);
 }
 
-function groupDebtsByDueDay(
-    debts: Debt[],
-    payments: DebtPayment[],
-    asOf: Date
-): DueDayGroup[] {
-    const map = new Map<number, Debt[]>();
-
-    for (const debt of debts) {
-        const day = Math.min(Math.max(debt.dueDay, 1), 31);
-        const list = map.get(day) ?? [];
-        list.push(debt);
-        map.set(day, list);
-    }
-
-    return [...map.entries()]
-        .sort(([a], [b]) => a - b)
-        .map(([dueDay, groupDebts]) => ({
-            dueDay,
-            label: dueDayLabel(dueDay, asOf),
-            debts: [...groupDebts].sort((a, b) =>
-                sortDebtInGroup(a, b, payments, asOf)
-            ),
-        }));
+function openDebt(id: string) {
+    router.push(`/debt/${id}`);
 }
 
 export default function DebtsScreen({ embedded = false }: DebtsScreenProps) {
+    // Standalone deep link shows the dark hero band; when embedded the
+    // host tab owns the bar.
+    useStatusBarStyle(embedded ? null : "light");
+    const topPadding = useScreenTopPadding();
+
     const { formatMoney } = useLocale();
     const [isOpen, setIsOpen] = useState(false);
-    const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
-    const { debts, payments, loading, recordPayment, undoPayment } = useDebt();
-    const { range, label, shiftPeriod, resetToToday } = useDateRange();
+    const [query, setQuery] = useState("");
+    const { debts, payments, loading } = useDebt();
+    const today = useMemo(() => new Date(), []);
 
-    const asOf = range.end;
-    const asOfIso = toIsoDate(asOf);
-    const dueRef = billDueStatusReference(asOf);
-
-    const visibleDebts = useMemo(
-        () => filterDebtsVisibleAsOf(debts, asOf),
-        [debts, asOf]
+    const activeDebts = useMemo(
+        () =>
+            debts.filter(
+                (debt) =>
+                    !isDebtFullyPaidOff(debt) &&
+                    !isDebtNotStartedAsOf(debt, today)
+            ),
+        [debts, today]
     );
 
-    const unpaid = visibleDebts.filter(
-        (debt) =>
-            !isFullyPaidOff(debt) &&
-            !isDebtInstallmentPaidAsOf(debt, asOf, payments)
-    );
-    const paidThisMonth = visibleDebts.filter(
-        (debt) =>
-            !isFullyPaidOff(debt) &&
-            isDebtInstallmentPaidAsOf(debt, asOf, payments)
+    const listedDebts = useMemo(
+        () => filterBySearch(debts, query),
+        [debts, query]
     );
 
-    const dueDayGroups = useMemo(
-        () => groupDebtsByDueDay(visibleDebts, payments, asOf),
-        [visibleDebts, payments, asOf]
-    );
+    const activeListed = listedDebts
+        .filter(
+            (debt) =>
+                !isDebtFullyPaidOff(debt) && !isDebtNotStartedAsOf(debt, today)
+        )
+        .sort(sortByDueDayThenName);
+    const upcomingListed = listedDebts
+        .filter(
+            (debt) =>
+                isDebtNotStartedAsOf(debt, today) && !isDebtFullyPaidOff(debt)
+        )
+        .sort(sortByDueDayThenName);
+    const paidOffListed = listedDebts
+        .filter(isDebtFullyPaidOff)
+        .sort((a, b) => a.name.localeCompare(b.name));
 
-    const remaining = visibleDebts.reduce(
+    const remaining = activeDebts.reduce(
         (sum, debt) => sum + Math.max(debt.balance, 0),
         0
     );
-    const active = unpaid.length + paidThisMonth.length;
-    const paidShare =
-        active > 0 ? Math.round((paidThisMonth.length / active) * 100) : 0;
-    const monthlyDue = unpaid.reduce(
+    const monthlyDue = activeDebts.reduce(
         (sum, debt) => sum + debt.minimumPayment,
         0
     );
-    const hiddenPaidOffCount = debts.length - visibleDebts.length;
 
     const openAdd = () => {
-        setEditingDebt(null);
         setIsOpen(true);
     };
 
     const { collapsed, scrollProps } = useStickyHero();
     const heroValue = formatMoney(remaining, { compact: true });
     const showHero = debts.length > 0;
-    const periodNav = (forCompact: boolean) => (
-        <HeroPeriodNav
-            label={label}
-            onShift={shiftPeriod}
-            onResetToToday={resetToToday}
-            style={forCompact ? { marginTop: 8 } : undefined}
-        />
-    );
+
+    const heroCaption =
+        activeDebts.length > 0
+            ? `${activeDebts.length} plan${activeDebts.length === 1 ? "" : "s"} · ${formatMoney(monthlyDue, { compact: true })} / month`
+            : paidOffListed.length > 0 && upcomingListed.length === 0
+              ? "All plans paid off"
+              : upcomingListed.length > 0
+                ? `${upcomingListed.length} starting later`
+                : "No active installment plans";
 
     const renderDebt = (debt: Debt) => {
-        const fullyPaidOff = isFullyPaidOff(debt);
-        const installmentPaid = isDebtInstallmentPaidAsOf(
-            debt,
-            asOf,
-            payments
-        );
-        const canUndo = hasPaymentThisPeriod(debt.id, payments, asOf);
-        const done = fullyPaidOff || installmentPaid;
-        const meta = debtMeta(debt, installmentPaid, asOf, dueRef);
+        const paidOff = isDebtFullyPaidOff(debt);
+        const notStarted = isDebtNotStartedAsOf(debt, today);
+        const dueLabel = `Due the ${ordinalDay(debt.dueDay)}`;
+        const paidThisMonth =
+            !paidOff &&
+            !notStarted &&
+            isDebtInstallmentPaidAsOf(debt, today, payments);
+        const status =
+            paidOff || notStarted
+                ? null
+                : dueCatalogStatus(debt.dueDay, paidThisMonth, today);
+        const meta = paidOff
+            ? "Paid off"
+            : notStarted
+              ? `Starts ${formatDisplayDate(debt.startDate)}`
+              : [status ? dueCatalogLabel(status) : null, dueLabel, debt.type]
+                    .filter(Boolean)
+                    .join(" · ");
 
         return (
             <CompactPlanRow
                 key={debt.id}
                 title={debt.name}
-                meta={meta.label}
+                meta={meta}
                 amountLabel={formatMoney(Math.max(debt.balance, 0), {
                     compact: true,
                 })}
-                amountHint="balance"
-                actionAmountLabel={
-                    !done
-                        ? formatMoney(debt.minimumPayment, { compact: true })
-                        : undefined
+                amountHint="remaining"
+                done={paidOff}
+                metaTone={
+                    paidOff
+                        ? "paid"
+                        : notStarted
+                          ? "default"
+                          : status ?? "default"
                 }
-                done={done}
-                metaTone={meta.tone}
-                onPress={() => {
-                    setEditingDebt(debt);
-                    setIsOpen(true);
-                }}
-                onToggle={
-                    canUndo
-                        ? () => {
-                            void undoPayment(debt.id, asOfIso);
-                        }
-                        : !fullyPaidOff && !installmentPaid
-                            ? () => {
-                                void recordPayment(
-                                    debt.id,
-                                    undefined,
-                                    asOfIso
-                                );
-                            }
-                            : undefined
-                }
-                toggleAccessibilityLabel={
-                    canUndo
-                        ? "Undo payment"
-                        : !fullyPaidOff
-                            ? `Record ${formatMoney(debt.minimumPayment, { compact: true })}`
-                            : undefined
-                }
+                onPress={() => openDebt(debt.id)}
             />
         );
     };
 
-    const heroCaption =
-        unpaid.length > 0
-            ? `${unpaid.length} unpaid · ${formatMoney(monthlyDue, { compact: true })} due this period`
-            : paidThisMonth.length > 0
-                ? "All current installments paid"
-                : hiddenPaidOffCount > 0
-                    ? `${hiddenPaidOffCount} paid-off hidden from this date`
-                    : "No active installments on this date";
-
     return (
         <View style={dashboard.screen}>
-            {loading && <LoadingScreen />}
-
             {showHero && collapsed ? (
-                <View style={dashboard.heroCompactSticky}>
+                <StickyHeroBar>
                     <DashboardHeroCompact
                         kicker="Remaining"
                         value={heroValue}
-                        pace={periodNav(true)}
                     />
-                </View>
+                </StickyHeroBar>
             ) : null}
 
             <ScrollView
                 style={dashboard.list}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
                 contentContainerStyle={[
                     dashboard.listContent,
-                    !embedded && { paddingTop: 48 },
+                    !embedded && { paddingTop: topPadding },
                 ]}
                 {...scrollProps}
             >
                 {!embedded ? (
                     <PageHeader
                         title="Debts"
-                        subtitle="Grouped by due day this period"
+                        subtitle="Installment plans — tap one to log or edit"
                     />
                 ) : null}
 
-                {showHero ? (
+                {loading ? (
+                    <DashboardSkeleton />
+                ) : showHero ? (
                     <DashboardHero
                         kicker="Remaining"
                         value={heroValue}
                         caption={heroCaption}
-                        percent={
-                            active > 0
-                                ? paidShare
-                                : fullyPaidHeroPercent(visibleDebts)
-                        }
-                        pace={periodNav(false)}
                     />
                 ) : null}
 
@@ -330,11 +199,17 @@ export default function DebtsScreen({ embedded = false }: DebtsScreenProps) {
                     visible={isOpen}
                     onClose={() => {
                         setIsOpen(false);
-                        setEditingDebt(null);
                     }}
-                    debt={editingDebt ?? undefined}
-                    paymentDate={asOfIso}
                 />
+
+                {showHero && !loading ? (
+                    <SearchField
+                        value={query}
+                        onChange={setQuery}
+                        placeholder="Search debts"
+                        accessibilityLabel="Search debts"
+                    />
+                ) : null}
 
                 {debts.length === 0 && !loading && (
                     <DashboardEmpty
@@ -346,37 +221,43 @@ export default function DebtsScreen({ embedded = false }: DebtsScreenProps) {
                     />
                 )}
 
-                {debts.length > 0 && visibleDebts.length === 0 && !loading && (
+                {debts.length > 0 && listedDebts.length === 0 && (
                     <DashboardEmpty
-                        icon="calendar-outline"
-                        title="Nothing for this date"
-                        text="Paid-off plans hide after payoff day. Step the date back to see history."
-                        actionLabel="Jump to today"
-                        onAction={resetToToday}
+                        icon="search-outline"
+                        title="No matching debts"
+                        text="Nothing matches that search."
+                        actionLabel="Clear search"
+                        onAction={() => setQuery("")}
                     />
                 )}
 
-                {dueDayGroups.map((group) => (
-                    <View key={group.dueDay}>
-                        <Text style={dashboard.sectionLabel}>{group.label}</Text>
-                        <PlanGroup>
-                            {group.debts.map(renderDebt)}
-                        </PlanGroup>
+                {activeListed.length > 0 ? (
+                    <View>
+                        <Text style={dashboard.sectionLabel}>Active</Text>
+                        <PlanGroup>{activeListed.map(renderDebt)}</PlanGroup>
                     </View>
-                ))}
+                ) : null}
+
+                {upcomingListed.length > 0 ? (
+                    <View>
+                        <Text style={dashboard.sectionLabel}>Starts later</Text>
+                        <PlanGroup>{upcomingListed.map(renderDebt)}</PlanGroup>
+                    </View>
+                ) : null}
+
+                {paidOffListed.length > 0 ? (
+                    <View>
+                        <Text style={dashboard.sectionLabel}>Paid off</Text>
+                        <PlanGroup>{paidOffListed.map(renderDebt)}</PlanGroup>
+                    </View>
+                ) : null}
             </ScrollView>
-            <FloatingAddButton
-                onPress={openAdd}
-                accessibilityLabel="Add debt"
-            />
+            {!loading ? (
+                <FloatingAddButton
+                    onPress={openAdd}
+                    accessibilityLabel="Add debt"
+                />
+            ) : null}
         </View>
     );
-}
-
-function fullyPaidHeroPercent(visibleDebts: Debt[]) {
-    if (visibleDebts.length === 0) {
-        return 0;
-    }
-    const paidOffCount = visibleDebts.filter(isFullyPaidOff).length;
-    return Math.round((paidOffCount / visibleDebts.length) * 100);
 }

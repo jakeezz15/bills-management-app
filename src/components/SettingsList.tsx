@@ -142,6 +142,21 @@ export function SettingsDivider() {
     return <View style={styles.divider} />;
 }
 
+type SettingsInsetProps = {
+    title: string;
+    children: ReactNode;
+};
+
+/** Extra controls nested under a switch row (chip pickers, captions). */
+export function SettingsInset({ title, children }: SettingsInsetProps) {
+    return (
+        <View style={styles.inset}>
+            <Text style={styles.insetTitle}>{title}</Text>
+            {children}
+        </View>
+    );
+}
+
 const styles = StyleSheet.create({
     section: {
         marginBottom: theme.space.lg,
@@ -216,5 +231,16 @@ const styles = StyleSheet.create({
         backgroundColor: theme.border.subtle,
         // Starts where the row copy starts: row padding + icon + gap.
         marginLeft: theme.space.md * 2 + theme.size.control,
+    },
+    inset: {
+        paddingHorizontal: theme.space.md,
+        paddingBottom: theme.space.md,
+        paddingTop: theme.space.xs,
+        gap: theme.space.sm,
+    },
+    insetTitle: {
+        ...text.caption,
+        fontWeight: theme.fontWeight.semibold,
+        color: theme.text.secondary,
     },
 });

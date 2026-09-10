@@ -12,7 +12,7 @@ type CompactPlanRowProps = {
     /** When set and unpaid, the toggle is a pay chip (e.g. debt monthly). */
     actionAmountLabel?: string;
     done?: boolean;
-    metaTone?: "overdue" | "due-soon" | "default";
+    metaTone?: "overdue" | "due-soon" | "upcoming" | "paid" | "default";
     onPress: () => void;
     onToggle?: () => void;
     toggleAccessibilityLabel?: string;
@@ -33,22 +33,26 @@ export function CompactPlanRow({
     onToggle,
     toggleAccessibilityLabel,
 }: CompactPlanRowProps) {
-    // Status only — blue is reserved for interaction, so "nothing due" is neutral.
-    const accent = done
+    // Accent bar is a status light. Buttons stay blue; this strip can be too.
+    const accent = done || metaTone === "paid"
         ? theme.intent.positive.solid
         : metaTone === "overdue"
-            ? theme.intent.negative.fg
+            ? theme.intent.negative.solid
             : metaTone === "due-soon"
-                ? theme.intent.caution.fg
-                : theme.border.base;
+                ? theme.intent.caution.solid
+                : metaTone === "upcoming"
+                    ? theme.intent.info.solid
+                    : theme.border.base;
 
-    const metaColor = done
+    const metaColor = done || metaTone === "paid"
         ? theme.intent.positive.fg
         : metaTone === "overdue"
             ? theme.intent.negative.fg
             : metaTone === "due-soon"
                 ? theme.intent.caution.fg
-                : theme.text.secondary;
+                : metaTone === "upcoming"
+                    ? theme.intent.info.fg
+                    : theme.text.secondary;
 
     const showPayChip = Boolean(actionAmountLabel) && !done;
     const spokenAmount = amountHint

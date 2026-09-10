@@ -6,7 +6,8 @@ import { form, formColors } from "@/styles/form";
 import { Income } from "@/types/income";
 import { parseIsoDate, todayIsoDate } from "@/utils/date";
 import { currencySymbol } from "@/utils/money";
-import { useEffect, useState } from "react";
+import { useFormSession } from "@/hooks/useFormSession";
+import { useState } from "react";
 import { Text, TextInput, View } from "react-native";
 
 type IncomeFormProps = {
@@ -15,40 +16,26 @@ type IncomeFormProps = {
     entry?: Income;
 };
 
-export default function IncomeForm({
-    visible,
-    onClose,
-    entry,
-}: IncomeFormProps) {
+export default function IncomeForm(props: IncomeFormProps) {
+    const session = useFormSession(props.visible, props.entry?.id);
+    return <IncomeEditor key={session} {...props} />;
+}
+
+function IncomeEditor({ visible, onClose, entry }: IncomeFormProps) {
     const { addIncome, updateIncome, deleteIncome } = useIncome();
     const { currency } = useLocale();
     const symbol = currencySymbol(currency);
 
-    const [source, setSource] = useState("");
-    const [net, setNet] = useState("");
-    const [gross, setGross] = useState("");
-    const [date, setDate] = useState(todayIsoDate());
+    const [source, setSource] = useState(entry?.source ?? "");
+    const [net, setNet] = useState(entry ? String(entry.net) : "");
+    const [gross, setGross] = useState(entry ? String(entry.gross) : "");
+    const [date, setDate] = useState(entry?.date ?? todayIsoDate());
     const [focusedInput, setFocusedInput] = useState<string | null>(null);
     const [showErrors, setShowErrors] = useState(false);
 
     const sourceHasError = showErrors && source.trim() === "";
     const netHasError = showErrors && net.trim() === "";
     const dateHasError = showErrors && parseIsoDate(date) === null;
-
-    useEffect(() => {
-        if (entry) {
-            setSource(entry.source);
-            setNet(String(entry.net));
-            setGross(String(entry.gross));
-            setDate(entry.date);
-        } else {
-            setSource("");
-            setNet("");
-            setGross("");
-            setDate(todayIsoDate());
-        }
-        setShowErrors(false);
-    }, [entry, visible]);
 
     const handleSubmit = async () => {
         if (!source || !net || parseIsoDate(date) === null) {
@@ -72,10 +59,6 @@ export default function IncomeForm({
                 id: Date.now().toString(),
                 ...payload,
             });
-            setSource("");
-            setNet("");
-            setGross("");
-            setDate(todayIsoDate());
         }
 
         setShowErrors(false);

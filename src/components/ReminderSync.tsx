@@ -4,7 +4,11 @@ import { useLocale } from "@/app/contexts/LocaleContext";
 import { remindersSupported, syncDueReminders } from "@/services/reminders";
 import { useEffect } from "react";
 
-/** Keeps monthly due-day notifications in sync when bills, debts, or currency change. */
+/**
+ * Keeps the rolling due-day reminder window in sync when plans or currency
+ * change. Time and lead live in AsyncStorage and are read inside
+ * `syncDueReminders`.
+ */
 export function ReminderSync() {
     const { bills, loading: billsLoading } = useBills();
     const { debts, loading: debtsLoading } = useDebt();

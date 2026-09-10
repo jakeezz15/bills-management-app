@@ -11,4 +11,9 @@ export interface Bill extends Timestamps {
     isRecurring: boolean;
     /** Water, electricity, etc. — enter the real amount when marking paid. */
     amountVaries?: boolean;
+    /**
+     * Schedule a due-day reminder for this bill. Missing on old records
+     * means on (`remind !== false`).
+     */
+    remind?: boolean;
 }

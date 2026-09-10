@@ -5,7 +5,12 @@ import { Debt } from "@/types/debt";
 import { DebtPayment } from "@/types/debt-payment";
 import { Expense } from "@/types/expense";
 import { SavingsContribution } from "@/types/savings-contribution";
-import { parseIsoDate, startOfDay, toIsoDate } from "@/utils/date";
+import {
+    isSameCalendarMonth,
+    parseIsoDate,
+    startOfDay,
+    toIsoDate,
+} from "@/utils/date";
 import { debtStartDate } from "@/utils/timestamps";
 
 export function filterByCategory<T extends { category?: string }>(
@@ -85,6 +90,14 @@ export function filterDebtsVisibleAsOf(debts: Debt[], asOf: Date): Debt[] {
     return debts.filter((debt) => isDebtVisibleAsOf(debt, asOf));
 }
 
+export function isDebtFullyPaidOff(debt: Debt): boolean {
+    return debt.balance <= 0 || Boolean(debt.paidOffDate);
+}
+
+export function isDebtNotStartedAsOf(debt: Debt, asOf: Date): boolean {
+    return toIsoDate(asOf) < debtStartDate(debt);
+}
+
 export function getDebtTotalPaid(
     debtId: string,
     payments: DebtPayment[]
@@ -115,11 +128,10 @@ export function isDebtInstallmentPaidAsOf(
         if (!paidOn) {
             return false;
         }
-        return (
-            paidOn.getFullYear() === asOfDay.getFullYear() &&
-            paidOn.getMonth() === asOfDay.getMonth() &&
-            paidOn.getTime() <= asOfDay.getTime()
-        );
+        // One installment per calendar month. Do not require the payment
+        // date to be on or before `asOf`: the Debts screen stamps the
+        // period end (e.g. Sep 30) while Due now checks today (Sep 10).
+        return isSameCalendarMonth(paidOn, asOfDay);
     });
 
     if (monthPayments.length > 0) {
@@ -135,19 +147,17 @@ export function isDebtInstallmentPaidAsOf(
         return false;
     }
 
-    return (
-        paidOn.getFullYear() === asOfDay.getFullYear() &&
-        paidOn.getMonth() === asOfDay.getMonth() &&
-        paidOn.getTime() <= asOfDay.getTime()
-    );
+    return isSameCalendarMonth(paidOn, asOfDay);
 }
 
 export function isBillPaidAsOf(
     bill: Bill,
     payments: BillPayment[],
-    asOf: Date
+    asOf: Date,
+    options?: { anyDayInMonth?: boolean }
 ): boolean {
     const asOfDay = startOfDay(asOf);
+    const anyDayInMonth = options?.anyDayInMonth === true;
     const hasPayment = payments.some((payment) => {
         if (payment.billId !== bill.id) {
             return false;
@@ -156,11 +166,13 @@ export function isBillPaidAsOf(
         if (!paidOn) {
             return false;
         }
-        return (
-            paidOn.getFullYear() === asOfDay.getFullYear() &&
-            paidOn.getMonth() === asOfDay.getMonth() &&
-            paidOn.getTime() <= asOfDay.getTime()
-        );
+        if (!isSameCalendarMonth(paidOn, asOfDay)) {
+            return false;
+        }
+        if (anyDayInMonth) {
+            return true;
+        }
+        return paidOn.getTime() <= asOfDay.getTime();
     });
 
     if (hasPayment) {
@@ -171,13 +183,24 @@ export function isBillPaidAsOf(
     return !billHasHistory && bill.isPaid;
 }
 
+export function getBillTotalPaid(
+    billId: string,
+    payments: BillPayment[]
+): number {
+    return payments
+        .filter((payment) => payment.billId === billId)
+        .reduce((sum, payment) => sum + payment.amount, 0);
+}
+
 /** Payment recorded for this bill in `asOf`'s calendar month, if any. */
 export function getBillPaymentInMonth(
     billId: string,
     payments: BillPayment[],
-    asOf: Date
+    asOf: Date,
+    options?: { anyDayInMonth?: boolean }
 ): BillPayment | undefined {
     const asOfDay = startOfDay(asOf);
+    const anyDayInMonth = options?.anyDayInMonth === true;
     return payments.find((payment) => {
         if (payment.billId !== billId) {
             return false;
@@ -186,11 +209,13 @@ export function getBillPaymentInMonth(
         if (!paidOn) {
             return false;
         }
-        return (
-            paidOn.getFullYear() === asOfDay.getFullYear() &&
-            paidOn.getMonth() === asOfDay.getMonth() &&
-            paidOn.getTime() <= asOfDay.getTime()
-        );
+        if (!isSameCalendarMonth(paidOn, asOfDay)) {
+            return false;
+        }
+        if (anyDayInMonth) {
+            return true;
+        }
+        return paidOn.getTime() <= asOfDay.getTime();
     });
 }
 
@@ -198,9 +223,11 @@ export function getBillPaymentInMonth(
 export function getLatestSavingsContributionInMonth(
     savingsId: string,
     contributions: SavingsContribution[],
-    asOf: Date
+    asOf: Date,
+    options?: { anyDayInMonth?: boolean }
 ): SavingsContribution | undefined {
     const asOfDay = startOfDay(asOf);
+    const anyDayInMonth = options?.anyDayInMonth === true;
     return contributions
         .filter((item) => {
             if (item.savingsId !== savingsId) {
@@ -210,11 +237,13 @@ export function getLatestSavingsContributionInMonth(
             if (!loggedOn) {
                 return false;
             }
-            return (
-                loggedOn.getFullYear() === asOfDay.getFullYear() &&
-                loggedOn.getMonth() === asOfDay.getMonth() &&
-                loggedOn.getTime() <= asOfDay.getTime()
-            );
+            if (!isSameCalendarMonth(loggedOn, asOfDay)) {
+                return false;
+            }
+            if (anyDayInMonth) {
+                return true;
+            }
+            return loggedOn.getTime() <= asOfDay.getTime();
         })
         .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id))[0];
 }
@@ -270,6 +299,44 @@ export function billDueStatusReference(
 }
 
 export type BillDueStatus = "paid" | "overdue" | "due-soon" | "upcoming";
+
+/**
+ * This-month due state vs today. Catalogs use this for the row accent:
+ * paid / overdue / soon / upcoming — not a second paid flag.
+ */
+export function dueCatalogStatus(
+    dueDay: number,
+    paid: boolean,
+    asOf: Date = new Date(),
+    soonWithinDays = 3
+): BillDueStatus {
+    if (paid) {
+        return "paid";
+    }
+
+    const offset = getBillDueOffset(dueDay, asOf, asOf);
+    if (offset < 0) {
+        return "overdue";
+    }
+    if (offset <= soonWithinDays) {
+        return "due-soon";
+    }
+    return "upcoming";
+}
+
+/** Short cue for catalog meta. Upcoming stays unlabeled so the due day can lead. */
+export function dueCatalogLabel(status: BillDueStatus): string | null {
+    if (status === "paid") {
+        return "Paid";
+    }
+    if (status === "overdue") {
+        return "Overdue";
+    }
+    if (status === "due-soon") {
+        return "Soon";
+    }
+    return null;
+}
 
 export function getBillDueStatus(
     bill: Bill,

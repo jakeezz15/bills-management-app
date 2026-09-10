@@ -12,6 +12,11 @@ import {
     isIsoInRange,
     rangeThrough,
 } from "@/utils/date";
+import {
+    filterDebtsVisibleAsOf,
+    isBillPaidAsOf,
+    isDebtInstallmentPaidAsOf,
+} from "@/utils/filters";
 
 export function getTotalIncome(income: Income[]) {
     return income.reduce((sum, item) => sum + item.net, 0);
@@ -113,6 +118,70 @@ export function getTotalsForRange(
             billsTotal -
             debtTotal -
             savingsTotal,
+    };
+}
+
+export type CommittedTotals = {
+    bills: number;
+    debts: number;
+    total: number;
+    /** Unpaid obligations included in `total`. */
+    count: number;
+    /**
+     * Unpaid variable bills. Their amount is unknown until logged, so they are
+     * excluded from `total` rather than guessed at — callers should disclose
+     * this so the remaining figure isn't read as complete.
+     */
+    unknownCount: number;
+};
+
+/**
+ * Money still owed for the calendar month containing `asOf`.
+ *
+ * Scoped to a month rather than to the selected period because "paid" is itself
+ * tracked per calendar month: a bill is settled for January or it isn't. That
+ * keeps the figure meaningful whichever period the user is viewing.
+ */
+export function getCommittedForMonth(
+    asOf: Date,
+    bills: Bill[],
+    billPayments: BillPayment[],
+    debts: Debt[],
+    debtPayments: DebtPayment[]
+): CommittedTotals {
+    let billsTotal = 0;
+    let count = 0;
+    let unknownCount = 0;
+
+    for (const bill of bills) {
+        if (isBillPaidAsOf(bill, billPayments, asOf)) {
+            continue;
+        }
+        if (bill.amountVaries) {
+            unknownCount += 1;
+            continue;
+        }
+        count += 1;
+        billsTotal += Math.max(bill.amount, 0);
+    }
+
+    let debtsTotal = 0;
+
+    for (const debt of filterDebtsVisibleAsOf(debts, asOf)) {
+        if (isDebtInstallmentPaidAsOf(debt, asOf, debtPayments)) {
+            continue;
+        }
+        count += 1;
+        // Never claim more is owed than the balance itself.
+        debtsTotal += Math.max(Math.min(debt.minimumPayment, debt.balance), 0);
+    }
+
+    return {
+        bills: billsTotal,
+        debts: debtsTotal,
+        total: billsTotal + debtsTotal,
+        count,
+        unknownCount,
     };
 }
 

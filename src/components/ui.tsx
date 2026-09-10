@@ -1,3 +1,4 @@
+import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
 import { dashboard } from "@/styles/dashboard";
 import { screenStyles } from "@/styles/screen";
 import { theme } from "@/design";
@@ -33,9 +34,11 @@ export function TabScaffold({
     children,
     segments,
 }: TabScaffoldProps) {
+    const topPadding = useScreenTopPadding();
+
     return (
         <View style={dashboard.screen}>
-            <View style={dashboard.tabHeader}>
+            <View style={[dashboard.tabHeader, { paddingTop: topPadding }]}>
                 <Text style={screenStyles.title}>{title}</Text>
                 <Text
                     style={[

@@ -44,6 +44,27 @@ export function startOfDay(date: Date): Date {
     return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
+export function isSameCalendarMonth(a: Date, b: Date): boolean {
+    return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
+}
+
+/**
+ * When the period picker is on "this month", `range.end` is the 30th/31st.
+ * Logging a payment on that future date makes Due now (which uses today)
+ * miss it. Stamp today instead when as-of is later in the current month.
+ */
+export function paymentDateForAsOf(asOf: Date, today = new Date()): Date {
+    const asOfDay = startOfDay(asOf);
+    const todayDay = startOfDay(today);
+    if (
+        isSameCalendarMonth(asOfDay, todayDay) &&
+        asOfDay.getTime() > todayDay.getTime()
+    ) {
+        return todayDay;
+    }
+    return asOfDay;
+}
+
 export function endOfDay(date: Date): Date {
     return new Date(
         date.getFullYear(),
@@ -101,29 +122,40 @@ export function getRangeForPeriod(anchor: Date, unit: PeriodUnit): DateRange {
     }
 }
 
+/**
+ * Month arithmetic that clamps the day instead of overflowing.
+ * `setMonth` would turn Jan 31 + 1 month into Mar 3, skipping February.
+ */
+function shiftMonths(anchor: Date, months: number): Date {
+    const year = anchor.getFullYear();
+    const month = anchor.getMonth() + months;
+    const daysInTarget = new Date(year, month + 1, 0).getDate();
+    return startOfDay(
+        new Date(year, month, Math.min(anchor.getDate(), daysInTarget))
+    );
+}
+
 export function shiftAnchor(
     anchor: Date,
     unit: PeriodUnit,
     delta: -1 | 1
 ): Date {
-    const next = new Date(anchor);
-
     switch (unit) {
-        case "day":
+        case "day": {
+            const next = new Date(anchor);
             next.setDate(next.getDate() + delta);
-            break;
-        case "week":
+            return startOfDay(next);
+        }
+        case "week": {
+            const next = new Date(anchor);
             next.setDate(next.getDate() + delta * 7);
-            break;
+            return startOfDay(next);
+        }
         case "month":
-            next.setMonth(next.getMonth() + delta);
-            break;
+            return shiftMonths(anchor, delta);
         case "year":
-            next.setFullYear(next.getFullYear() + delta);
-            break;
+            return shiftMonths(anchor, delta * 12);
     }
-
-    return startOfDay(next);
 }
 
 export function isInRange(date: Date, range: DateRange): boolean {
@@ -209,6 +241,24 @@ export function formatDisplayDate(iso: string): string {
         day: "numeric",
         year: "numeric",
     });
+}
+
+/** `15` → `15th`. Clamps to 1–31 because due days are calendar days. */
+export function ordinalDay(day: number): string {
+    const n = Math.min(Math.max(Math.trunc(day), 1), 31);
+    const mod100 = n % 100;
+    const mod10 = n % 10;
+    const suffix =
+        mod100 >= 11 && mod100 <= 13
+            ? "th"
+            : mod10 === 1
+              ? "st"
+              : mod10 === 2
+                ? "nd"
+                : mod10 === 3
+                  ? "rd"
+                  : "th";
+    return `${n}${suffix}`;
 }
 
 export function formatPeriodLabel(anchor: Date, unit: PeriodUnit): string {

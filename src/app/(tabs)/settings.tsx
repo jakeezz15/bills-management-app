@@ -1,22 +1,39 @@
+import { ChoiceChips } from "@/components/ChoiceChips";
 import { CurrencyPickerModal } from "@/components/CurrencyPickerModal";
 import {
     SettingsDivider,
+    SettingsInset,
     SettingsRow,
     SettingsSection,
 } from "@/components/SettingsList";
-import { dashboard } from "@/styles/dashboard";
 import { text, theme } from "@/design";
+import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
+import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
 import { exportBackup, importBackup } from "@/services/backup";
 import {
     areDueRemindersEnabled,
     disableDueReminders,
     enableDueReminders,
+    getReminderPrefs,
+    pickTestReminderTarget,
     remindersUnavailableReason,
     sendTestReminder,
+    setReminderPrefs,
+    syncDueReminders,
+    type ReminderPrefs,
 } from "@/services/reminders";
-import { clearAllData } from "@/services/storage";
 import { seedDemoData } from "@/services/seed-demo";
+import { clearAllData } from "@/services/storage";
+import { dashboard } from "@/styles/dashboard";
+import { isDevToolsBuild } from "@/utils/dev-tools";
 import { currencyLabel } from "@/utils/money";
+import {
+    formatReminderHour,
+    formatReminderLead,
+    formatReminderScheduleCaption,
+    REMINDER_HOUR_OPTIONS,
+    REMINDER_LEAD_OPTIONS,
+} from "@/utils/reminder-schedule";
 import Constants from "expo-constants";
 import { useEffect, useState } from "react";
 import { Alert, ScrollView, Text, View } from "react-native";
@@ -28,6 +45,10 @@ import { useLocale } from "../contexts/LocaleContext";
 import { useSavings } from "../contexts/SavingsContext";
 
 export default function SettingsScreen() {
+    // Plain canvas at the top, no dark band.
+    useStatusBarStyle("dark");
+    const topPadding = useScreenTopPadding();
+
     const { currency, setCurrency, formatMoney } = useLocale();
     const { reload: reloadIncome } = useIncome();
     const { reload: reloadExpenses } = useExpenses();
@@ -37,12 +58,28 @@ export default function SettingsScreen() {
     const [busy, setBusy] = useState(false);
     const [remindersOn, setRemindersOn] = useState(false);
     const [reminderBusy, setReminderBusy] = useState(false);
+    const [reminderPrefs, setReminderPrefsState] = useState<ReminderPrefs>({
+        hour: 9,
+        leadDays: 3,
+    });
     const [currencyOpen, setCurrencyOpen] = useState(false);
     const remindersBlocked = remindersUnavailableReason();
     const version = Constants.expoConfig?.version ?? "1.0.0";
+    const scheduleCaption = formatReminderScheduleCaption(
+        reminderPrefs.hour,
+        reminderPrefs.leadDays
+    );
+    const hourLabels = REMINDER_HOUR_OPTIONS.map(formatReminderHour);
+    const leadLabels = REMINDER_LEAD_OPTIONS.map(formatReminderLead);
 
     useEffect(() => {
-        void areDueRemindersEnabled().then(setRemindersOn);
+        void Promise.all([
+            areDueRemindersEnabled(),
+            getReminderPrefs(),
+        ]).then(([enabled, prefs]) => {
+            setRemindersOn(enabled);
+            setReminderPrefsState(prefs);
+        });
     }, []);
 
     const reloadAll = async () => {
@@ -129,6 +166,9 @@ export default function SettingsScreen() {
     };
 
     const handleSeedDemo = () => {
+        if (!isDevToolsBuild()) {
+            return;
+        }
         Alert.alert(
             "Load demo data?",
             "Replaces all finance data with realistic entries from July through today (income, spending, bills, debts, savings). For development only.",
@@ -184,7 +224,7 @@ export default function SettingsScreen() {
                     "Reminders on",
                     result.scheduled === 0
                         ? "No bills or debts to remind about yet. Add one and we will schedule it."
-                        : `${result.scheduled} monthly reminders set for 9:00 AM on due days.`
+                        : `${result.scheduled} reminders set: ${scheduleCaption}.`
                 );
             } else {
                 await disableDueReminders();
@@ -195,10 +235,47 @@ export default function SettingsScreen() {
         }
     };
 
-    const handleTestReminder = async () => {
+    const applyReminderPrefs = async (next: ReminderPrefs) => {
+        setReminderPrefsState(next);
         setReminderBusy(true);
         try {
-            const result = await sendTestReminder();
+            await setReminderPrefs(next);
+            if (remindersOn) {
+                await syncDueReminders(bills, debts);
+            }
+        } finally {
+            setReminderBusy(false);
+        }
+    };
+
+    const handleHourChange = (label: string) => {
+        const hour = REMINDER_HOUR_OPTIONS.find(
+            (option) => formatReminderHour(option) === label
+        );
+        if (hour == null || hour === reminderPrefs.hour) {
+            return;
+        }
+        void applyReminderPrefs({ ...reminderPrefs, hour });
+    };
+
+    const handleLeadChange = (label: string) => {
+        const leadDays = REMINDER_LEAD_OPTIONS.find(
+            (option) => formatReminderLead(option) === label
+        );
+        if (leadDays == null || leadDays === reminderPrefs.leadDays) {
+            return;
+        }
+        void applyReminderPrefs({ ...reminderPrefs, leadDays });
+    };
+
+    const handleTestReminder = async () => {
+        if (!isDevToolsBuild()) {
+            return;
+        }
+        setReminderBusy(true);
+        try {
+            const target = pickTestReminderTarget(bills, debts);
+            const result = await sendTestReminder(target);
             if (!result.ok) {
                 Alert.alert(
                     "Could not send test",
@@ -206,7 +283,12 @@ export default function SettingsScreen() {
                 );
                 return;
             }
-            Alert.alert("Test scheduled", "You should see an alert in a few seconds.");
+            Alert.alert(
+                "Test scheduled",
+                target
+                    ? "Leave the app or lock the phone. In a few seconds tap the banner — it should open Home and that bill or debt."
+                    : "You should see a banner in a few seconds. Add a bill or debt to also test that tapping it opens the form."
+            );
         } finally {
             setReminderBusy(false);
         }
@@ -216,7 +298,10 @@ export default function SettingsScreen() {
         <View style={dashboard.screen}>
             <ScrollView
                 style={dashboard.list}
-                contentContainerStyle={styles.content}
+                contentContainerStyle={[
+                    styles.content,
+                    { paddingTop: topPadding },
+                ]}
             >
                 <Text style={styles.pageTitle}>Settings</Text>
 
@@ -236,9 +321,7 @@ export default function SettingsScreen() {
                         icon="notifications-outline"
                         title="Due-day reminders"
                         subtitle={
-                            remindersBlocked
-                                ? remindersBlocked
-                                : "9:00 AM on bill and debt due days"
+                            remindersBlocked ? remindersBlocked : scheduleCaption
                         }
                         disabled={
                             reminderBusy || busy || Boolean(remindersBlocked)
@@ -248,19 +331,30 @@ export default function SettingsScreen() {
                             void handleToggleReminders(value);
                         }}
                     />
-                    <SettingsDivider />
-                    <SettingsRow
-                        icon="flash-outline"
-                        title="Send test reminder"
-                        subtitle="Schedules a local alert in a few seconds"
-                        disabled={
-                            reminderBusy || busy || Boolean(remindersBlocked)
-                        }
-                        showChevron
-                        onPress={() => {
-                            void handleTestReminder();
-                        }}
-                    />
+                    {remindersBlocked ? null : (
+                        <>
+                            <SettingsDivider />
+                            <SettingsInset title="Time">
+                                <ChoiceChips
+                                    options={hourLabels}
+                                    selected={formatReminderHour(
+                                        reminderPrefs.hour
+                                    )}
+                                    onSelect={handleHourChange}
+                                />
+                            </SettingsInset>
+                            <SettingsDivider />
+                            <SettingsInset title="Lead">
+                                <ChoiceChips
+                                    options={leadLabels}
+                                    selected={formatReminderLead(
+                                        reminderPrefs.leadDays
+                                    )}
+                                    onSelect={handleLeadChange}
+                                />
+                            </SettingsInset>
+                        </>
+                    )}
                 </SettingsSection>
 
                 <SettingsSection title="Data & privacy">
@@ -295,8 +389,23 @@ export default function SettingsScreen() {
                     />
                 </SettingsSection>
 
-                {__DEV__ ? (
+                {isDevToolsBuild() ? (
                     <SettingsSection title="Development">
+                        <SettingsRow
+                            icon="flash-outline"
+                            title="Send test reminder"
+                            subtitle="Banner in a few seconds — tap it to open Home"
+                            disabled={
+                                reminderBusy ||
+                                busy ||
+                                Boolean(remindersBlocked)
+                            }
+                            showChevron
+                            onPress={() => {
+                                void handleTestReminder();
+                            }}
+                        />
+                        <SettingsDivider />
                         <SettingsRow
                             icon="flask-outline"
                             title="Seed demo data"
@@ -323,9 +432,7 @@ export default function SettingsScreen() {
                     />
                 </SettingsSection>
 
-                <Text style={styles.footer}>
-                    {currencyLabel(currency)} · example {formatMoney(1234.5)}
-                </Text>
+
             </ScrollView>
 
             <CurrencyPickerModal
@@ -341,9 +448,9 @@ export default function SettingsScreen() {
 }
 
 const styles = {
+    // paddingTop comes from useScreenTopPadding at the call site.
     content: {
         paddingHorizontal: theme.space.screenX,
-        paddingTop: theme.space.screenTop,
         paddingBottom: theme.space.xl,
     },
     pageTitle: {
