@@ -21,6 +21,9 @@ import {
     getDebtTotalPaid,
     isDebtFullyPaidOff,
     isDebtInstallmentPaidAsOf,
+    isDebtNotStartedAsOf,
+    dueCatalogLabel,
+    dueCatalogStatus,
 } from "@/utils/filters";
 import { hapticConfirm, hapticUndo } from "@/utils/haptics";
 import { goBackOrReplace, paramId } from "@/utils/navigation";
@@ -63,6 +66,7 @@ export default function DebtDetailScreen() {
         ? isDebtInstallmentPaidAsOf(debt, today, payments)
         : false;
     const paidOff = debt ? isDebtFullyPaidOff(debt) : false;
+    const notStarted = debt ? isDebtNotStartedAsOf(debt, today) : false;
     const totalPaid = id ? getDebtTotalPaid(id, payments) : 0;
     const remaining = Math.max(debt?.balance ?? 0, 0);
     const original = remaining + totalPaid;
@@ -102,11 +106,20 @@ export default function DebtDetailScreen() {
         `Due the ${ordinalDay(debt.dueDay)}`,
         debt.type,
     ].filter(Boolean);
+    const status =
+        paidOff || notStarted
+            ? null
+            : dueCatalogStatus(debt.dueDay, paidThisMonth, today);
     const heroCaption = paidOff
         ? debt.paidOffDate
             ? `Paid off ${formatDisplayDate(debt.paidOffDate)}`
             : "Paid off"
-        : captionParts.join(" · ");
+        : notStarted
+          ? `Starts ${formatDisplayDate(debt.startDate)}`
+          : [status ? dueCatalogLabel(status) : null, ...captionParts]
+                .filter(Boolean)
+                .join(" · ");
+    const statusTone = paidOff ? "paid" : (status ?? undefined);
 
     const handleRecord = async () => {
         if (paidOff || paidThisMonth || busy) {
@@ -149,6 +162,7 @@ export default function DebtDetailScreen() {
                     value={formatMoney(remaining, { compact: true })}
                     caption={heroCaption}
                     percent={percent}
+                    statusTone={statusTone}
                     header={
                         <DetailHeroNav
                             backLabel="Debts"

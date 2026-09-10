@@ -24,6 +24,8 @@ import {
     todayIsoDate,
 } from "@/utils/date";
 import {
+    dueCatalogLabel,
+    dueCatalogStatus,
     getBillTotalPaid,
     isBillPaidAsOf,
 } from "@/utils/filters";
@@ -127,6 +129,10 @@ export default function BillDetailScreen() {
         `Due the ${ordinalDay(bill.dueDay)}`,
         bill.amountVaries ? "Varies" : bill.category,
     ].filter(Boolean);
+    const status = dueCatalogStatus(bill.dueDay, paidThisMonth, today);
+    const heroCaption = [dueCatalogLabel(status), ...captionParts]
+        .filter(Boolean)
+        .join(" · ");
     const heroValue = paidThisMonth
         ? formatMoney(monthPayment?.amount ?? 0, { compact: true })
         : bill.amountVaries
@@ -137,9 +143,6 @@ export default function BillDetailScreen() {
         : bill.amountVaries
           ? "This month"
           : "Typical";
-    const heroCaption = paidThisMonth
-        ? `Logged · ${captionParts.join(" · ")}`
-        : captionParts.join(" · ");
 
     const handleLog = async () => {
         if (paidThisMonth || busy) {
@@ -216,6 +219,7 @@ export default function BillDetailScreen() {
                     kicker={heroKicker}
                     value={heroValue}
                     caption={heroCaption}
+                    statusTone={status}
                     header={
                         <DetailHeroNav
                             backLabel="Bills"

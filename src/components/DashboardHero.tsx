@@ -1,6 +1,11 @@
 import { dashboard } from "@/styles/dashboard";
 import { theme } from "@/design";
 import { AnimatedMoneyText } from "@/components/AnimatedMoneyText";
+import {
+    PlanStatusTone,
+    planStatusAccent,
+    planStatusOnInverse,
+} from "@/components/plan-status";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
@@ -14,6 +19,8 @@ type DashboardHeroProps = {
     percent?: number;
     pace?: ReactNode;
     header?: ReactNode;
+    /** Due-status light on bill/debt detail. Omit on catalogs and receipts. */
+    statusTone?: PlanStatusTone;
     onAdd?: () => void;
     addAccessibilityLabel?: string;
 };
@@ -26,6 +33,7 @@ export function DashboardHero({
     percent,
     pace,
     header,
+    statusTone,
     onAdd,
     addAccessibilityLabel = "Add",
 }: DashboardHeroProps) {
@@ -34,14 +42,25 @@ export function DashboardHero({
     const spoken = [title, kicker, value, showProgress ? `${fill} percent` : null, caption]
         .filter(Boolean)
         .join(", ");
+    const accent = statusTone ? planStatusAccent(statusTone) : null;
+    const captionColor = statusTone
+        ? planStatusOnInverse(statusTone)
+        : undefined;
 
     return (
-        <View style={dashboard.hero}>
-            {header}
-            <View
-                style={dashboard.heroDisplay}
-                accessibilityLabel={spoken}
-            >
+        <View style={[dashboard.hero, accent ? dashboard.heroWithStatus : null]}>
+            {accent ? (
+                <View
+                    style={[dashboard.heroAccent, { backgroundColor: accent }]}
+                    accessibilityElementsHidden
+                />
+            ) : null}
+            <View style={accent ? dashboard.heroMain : undefined}>
+                {header}
+                <View
+                    style={dashboard.heroDisplay}
+                    accessibilityLabel={spoken}
+                >
                 {title ? (
                     <Text
                         style={dashboard.heroTitle}
@@ -66,7 +85,14 @@ export function DashboardHero({
                 >
                     {value}
                 </Text>
-                <Text style={dashboard.heroCaption}>{caption}</Text>
+                <Text
+                    style={[
+                        dashboard.heroCaption,
+                        captionColor ? { color: captionColor } : null,
+                    ]}
+                >
+                    {caption}
+                </Text>
 
                 {showProgress ? (
                     <View
@@ -120,6 +146,7 @@ export function DashboardHero({
                     ) : null}
                 </View>
             ) : null}
+            </View>
         </View>
     );
 }

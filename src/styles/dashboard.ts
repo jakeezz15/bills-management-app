@@ -30,6 +30,17 @@ export const dashboard = StyleSheet.create({
         marginBottom: theme.space.lg,
         overflow: "hidden",
     },
+    heroWithStatus: {
+        flexDirection: "row",
+        alignItems: "stretch",
+    },
+    heroAccent: {
+        width: 4,
+    },
+    heroMain: {
+        flex: 1,
+        minWidth: 0,
+    },
     heroNav: {
         flexDirection: "row",
         alignItems: "center",
