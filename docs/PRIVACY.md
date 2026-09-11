@@ -2,7 +2,7 @@
 
 **Last updated:** 9 September 2026  
 **Developer:** Jake Durante  
-**App:** On Hand (`com.jakedurante.financemanager`)  
+**App:** On Hand (`com.durantetechsolutions.onhand`)  
 **Store listing title:** On Hand: What's left?
 
 This policy is for the mobile app On Hand. It is written for a public store listing. Host this page at a stable URL (GitHub, a personal site, or similar) and paste that URL into Play Console / App Store Connect.

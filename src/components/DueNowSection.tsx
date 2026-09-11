@@ -41,14 +41,34 @@ function hasTrackedPlans(bills: Bill[], debts: Debt[]): boolean {
     return debts.some((debt) => debt.balance > 0 && !debt.paidOffDate);
 }
 
-export function DueNowSection() {
+type DueNowSectionProps = {
+    title?: string;
+    caption?: string;
+    clearCaption?: string;
+    soonWithinDays?: number;
+};
+
+export function DueNowSection({
+    title = "Due now",
+    caption = "Log these to drop leftover. Overdue, due today, and due in 3 days.",
+    clearCaption = "Nothing waiting in the next 3 days.",
+    soonWithinDays,
+}: DueNowSectionProps) {
     const { formatMoney } = useLocale();
     const { bills, payments: billPayments, toggleBillPaid } = useBills();
     const { debts, payments: debtPayments, recordPayment } = useDebt();
 
     const items = useMemo(
-        () => getDueNowItems(bills, billPayments, debts, debtPayments),
-        [bills, billPayments, debts, debtPayments]
+        () =>
+            getDueNowItems(
+                bills,
+                billPayments,
+                debts,
+                debtPayments,
+                new Date(),
+                soonWithinDays
+            ),
+        [bills, billPayments, debts, debtPayments, soonWithinDays]
     );
     const showClear = items.length === 0 && hasTrackedPlans(bills, debts);
 
@@ -60,11 +80,9 @@ export function DueNowSection() {
 
     return (
         <Animated.View layout={layout} style={styles.wrap}>
-            <Text style={dashboard.sectionLabel}>Due now</Text>
+            <Text style={dashboard.sectionLabel}>{title}</Text>
             <Text style={styles.caption}>
-                {showClear
-                    ? "Nothing waiting in the next 3 days."
-                    : "Log these to drop leftover. Overdue, due today, and due in 3 days."}
+                {showClear ? clearCaption : caption}
             </Text>
 
             <View style={[styles.list, items.length === 0 && styles.listIdle]}>

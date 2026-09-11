@@ -126,13 +126,19 @@ export function getRangeForPeriod(anchor: Date, unit: PeriodUnit): DateRange {
  * Month arithmetic that clamps the day instead of overflowing.
  * `setMonth` would turn Jan 31 + 1 month into Mar 3, skipping February.
  */
-function shiftMonths(anchor: Date, months: number): Date {
+export function shiftMonths(anchor: Date, months: number): Date {
     const year = anchor.getFullYear();
     const month = anchor.getMonth() + months;
     const daysInTarget = new Date(year, month + 1, 0).getDate();
     return startOfDay(
         new Date(year, month, Math.min(anchor.getDate(), daysInTarget))
     );
+}
+
+export function addDays(date: Date, days: number): Date {
+    const next = startOfDay(date);
+    next.setDate(next.getDate() + days);
+    return startOfDay(next);
 }
 
 export function shiftAnchor(
@@ -172,14 +178,13 @@ export function isIsoInRange(iso: string, range: DateRange): boolean {
 }
 
 /**
- * True when a monthly due-day falls on any calendar day inside the range
- * (Option A for bills/debts that only store `dueDay`).
- * Iterates by month (not day) so long "as of" ranges stay cheap.
+ * First calendar date for `dueDay` that lands inside `range`.
+ * Iterates by month so long "as of" ranges stay cheap.
  */
-export function dueDayFallsInRange(
+export function firstDueDateInRange(
     dueDay: number,
     range: DateRange
-): boolean {
+): Date | null {
     const day = Math.min(Math.max(dueDay, 1), 31);
     const cursor = startOfMonth(range.start);
     const lastMonth = startOfMonth(range.end);
@@ -199,13 +204,31 @@ export function dueDayFallsInRange(
         );
 
         if (isInRange(dueDate, range)) {
-            return true;
+            return dueDate;
         }
 
         cursor.setMonth(cursor.getMonth() + 1);
     }
 
-    return false;
+    return null;
+}
+
+/**
+ * True when a monthly due-day falls on any calendar day inside the range
+ * (Option A for bills/debts that only store `dueDay`).
+ */
+export function dueDayFallsInRange(
+    dueDay: number,
+    range: DateRange
+): boolean {
+    return firstDueDateInRange(dueDay, range) !== null;
+}
+
+/** Whole calendar days from `from` to `to` (local midnight). */
+export function calendarDaysBetween(from: Date, to: Date): number {
+    const a = startOfDay(from).getTime();
+    const b = startOfDay(to).getTime();
+    return Math.round((b - a) / 86400000);
 }
 
 /** Cumulative window: beginning of history through `asOf` (inclusive). */

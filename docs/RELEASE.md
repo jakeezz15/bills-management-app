@@ -4,7 +4,7 @@ Copy from this file into Play Console (and later App Store). Do not use `PLAN.md
 
 **Launcher / icon name:** On Hand  
 **Store title:** On Hand: What's left?  
-**Package:** `com.jakedurante.financemanager` (do not change this after first public listing)  
+**Package:** `com.durantetechsolutions.onhand` (do not change this after first public listing)  
 **Public version:** `1.0.0` (from `app.json`; Settings → About reads the same value)
 
 ---

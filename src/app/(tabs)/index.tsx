@@ -20,6 +20,7 @@ import {
     markFirstRunComplete,
 } from "@/services/storage";
 import {
+    calendarDaysBetween,
     PERIOD_UNITS,
     PERIOD_UNIT_LABELS,
     parseIsoDate,
@@ -27,13 +28,15 @@ import {
 } from "@/utils/date";
 import {
     getCommittedForMonth,
+    getCommittedInRange,
     getExpenseSpendByCategory,
     getMonthlyTrend,
     getTotalsForRange,
 } from "@/utils/finance";
+import { resolvePayCycle } from "@/utils/pay-cycle";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { router } from "expo-router";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useBills } from "../contexts/BillsContext";
 import { useDateRange } from "../contexts/DateRangeContext";
@@ -43,7 +46,10 @@ import { useIncome } from "../contexts/IncomeContext";
 import { useLocale } from "../contexts/LocaleContext";
 import { useSavings } from "../contexts/SavingsContext";
 
-const UNIT_OPTIONS = PERIOD_UNITS.map((unit) => PERIOD_UNIT_LABELS[unit]);
+const UNIT_OPTIONS = [
+    ...PERIOD_UNITS.map((unit) => PERIOD_UNIT_LABELS[unit]),
+    "Payday",
+];
 
 export default function HomeScreen() {
     // The masthead is a dark band, so the clock needs to be light.
@@ -69,6 +75,8 @@ export default function HomeScreen() {
         selectDay,
         anchorIso,
     } = useDateRange();
+    const [payMode, setPayMode] = useState(false);
+    const [payOffset, setPayOffset] = useState(0);
 
     const loading =
         incomeLoading ||
@@ -77,10 +85,16 @@ export default function HomeScreen() {
         debtsLoading ||
         savingsLoading;
 
+    const payCycle = useMemo(
+        () => (payMode ? resolvePayCycle(income, new Date(), payOffset) : null),
+        [payMode, income, payOffset]
+    );
+    const homeRange = payCycle?.range ?? range;
+
     const totals = useMemo(
         () =>
             getTotalsForRange(
-                range,
+                homeRange,
                 expenses,
                 bills,
                 debts,
@@ -91,7 +105,7 @@ export default function HomeScreen() {
                 savingsContributions
             ),
         [
-            range,
+            homeRange,
             expenses,
             bills,
             debts,
@@ -103,17 +117,32 @@ export default function HomeScreen() {
         ]
     );
 
-    const committed = useMemo(
-        () =>
-            getCommittedForMonth(
-                range.end,
+    const committed = useMemo(() => {
+        if (payCycle) {
+            return getCommittedInRange(
+                payCycle.range,
                 bills,
                 billPayments,
                 debts,
-                debtPayments
-            ),
-        [range.end, bills, billPayments, debts, debtPayments]
-    );
+                debtPayments,
+                new Date()
+            );
+        }
+        return getCommittedForMonth(
+            range.end,
+            bills,
+            billPayments,
+            debts,
+            debtPayments
+        );
+    }, [
+        payCycle,
+        range.end,
+        bills,
+        billPayments,
+        debts,
+        debtPayments,
+    ]);
 
     const lines: {
         label: string;
@@ -223,11 +252,37 @@ export default function HomeScreen() {
     const leftoverLabel = formatMoney(totals.leftover, { compact: true });
     const availableLabel = formatMoney(available, { compact: true });
     const needsFirstPaycheck = !loading && income.length === 0;
+    const usingPayNav = Boolean(payMode && payCycle);
+    const payLabel = payCycle
+        ? `Until ${payCycle.nextPayday.toLocaleDateString(undefined, {
+              weekday: "short",
+              month: "short",
+              day: "numeric",
+          })}`
+        : label;
+    const daysUntilPayday = payCycle
+        ? Math.max(1, calendarDaysBetween(new Date(), payCycle.nextPayday))
+        : 0;
+    const dailyAvailable =
+        daysUntilPayday > 0 ? available / daysUntilPayday : 0;
+    const dailyLabel = formatMoney(dailyAvailable, { compact: true });
     const periodNav = (forCompact: boolean) => (
         <HeroPeriodNav
-            label={label}
-            onShift={shiftPeriod}
-            onResetToToday={resetToToday}
+            label={usingPayNav ? payLabel : label}
+            onShift={
+                usingPayNav
+                    ? (delta) => {
+                          setPayOffset((offset) => offset + delta);
+                      }
+                    : shiftPeriod
+            }
+            onResetToToday={
+                usingPayNav
+                    ? () => {
+                          setPayOffset(0);
+                      }
+                    : resetToToday
+            }
             style={
                 forCompact
                     ? { marginTop: theme.space.sm }
@@ -237,12 +292,25 @@ export default function HomeScreen() {
     );
 
     const selectUnit = (value: string) => {
+        if (value === "Payday") {
+            setPayMode(true);
+            setPayOffset(0);
+            return;
+        }
+        setPayMode(false);
+        setPayOffset(0);
         const next = PERIOD_UNITS.find(
             (unit) => PERIOD_UNIT_LABELS[unit] === value
         );
         if (next) {
             setPeriodUnit(next);
         }
+    };
+
+    const pickDay = (iso: string) => {
+        setPayMode(false);
+        setPayOffset(0);
+        selectDay(iso);
     };
 
     const okay = available >= 0;
@@ -258,17 +326,26 @@ export default function HomeScreen() {
             : "";
 
     const heroCaption = (() => {
-        if (bills.length === 0 && debts.length === 0) {
-            return okay
-                ? "Income covers everything logged so far"
-                : "Outflows are higher than income received so far";
+        if (payMode && !payCycle) {
+            return "Set weekly, every 2 weeks, or monthly on a paycheck.";
         }
+        const dailyBit =
+            payCycle && daysUntilPayday > 0 ? ` · ${dailyLabel} / day` : "";
+        if (bills.length === 0 && debts.length === 0) {
+            return (
+                (okay
+                    ? "Income covers everything logged so far"
+                    : "Outflows are higher than income received so far") +
+                dailyBit
+            );
+        }
+        const dueWindow = payCycle ? "before payday" : "this month";
         if (committed.total > 0) {
             return `After ${formatMoney(committed.total, {
                 compact: true,
-            })} still due this month${unknownNote}`;
+            })} still due ${dueWindow}${unknownNote}${dailyBit}`;
         }
-        return `Everything due this month is paid${unknownNote}`;
+        return `Everything due ${dueWindow} is paid${unknownNote}${dailyBit}`;
     })();
 
     return (
@@ -363,7 +440,9 @@ export default function HomeScreen() {
                         <>
                     <SegmentControl
                         options={UNIT_OPTIONS}
-                        selected={PERIOD_UNIT_LABELS[periodUnit]}
+                        selected={
+                            payMode ? "Payday" : PERIOD_UNIT_LABELS[periodUnit]
+                        }
                         onSelect={selectUnit}
                         compact
                     />
@@ -380,7 +459,34 @@ export default function HomeScreen() {
                         </View>
                     ) : null}
 
-                    <DueNowSection />
+                    <DueNowSection
+                        title={
+                            payMode && payCycle && payOffset === 0
+                                ? "Due before payday"
+                                : undefined
+                        }
+                        caption={
+                            payMode && payCycle && payOffset === 0
+                                ? "Unpaid plans that land before your next check."
+                                : undefined
+                        }
+                        clearCaption={
+                            payMode && payCycle && payOffset === 0
+                                ? "Nothing waiting before this payday."
+                                : undefined
+                        }
+                        soonWithinDays={
+                            payMode && payCycle && payOffset === 0
+                                ? Math.max(
+                                      0,
+                                      calendarDaysBetween(
+                                          new Date(),
+                                          payCycle.nextPayday
+                                      ) - 1
+                                  )
+                                : undefined
+                        }
+                    />
 
                     <Text style={[dashboard.sectionLabel, styles.calLabel]}>
                         Calendar
@@ -393,7 +499,7 @@ export default function HomeScreen() {
                             periodUnit === "day" ? anchorIso : undefined
                         }
                         markedIso={markedIso}
-                        onSelectDay={selectDay}
+                        onSelectDay={pickDay}
                     />
 
                     <View style={styles.statement}>
@@ -465,7 +571,9 @@ export default function HomeScreen() {
                             <Pressable
                                 onPress={() => router.push("/(tabs)/plans")}
                                 accessibilityRole="button"
-                                accessibilityLabel={`Still due this month, ${formatMoney(
+                                accessibilityLabel={`Still due ${
+                                    payCycle ? "this cycle" : "this month"
+                                }, ${formatMoney(
                                     committed.total,
                                     { compact: true, sign: "−" }
                                 )}`}
@@ -475,7 +583,9 @@ export default function HomeScreen() {
                                 ]}
                             >
                                 <Text style={styles.dueLabel}>
-                                    Still due this month
+                                    {payCycle
+                                        ? "Still due this cycle"
+                                        : "Still due this month"}
                                 </Text>
                                 <Text style={styles.dueValue}>
                                     {formatMoney(committed.total, {

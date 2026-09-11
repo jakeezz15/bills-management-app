@@ -14,6 +14,7 @@ import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
 import { dashboard } from "@/styles/dashboard";
 import { formatDisplayDate } from "@/utils/date";
 import { goBackOrReplace, paramId } from "@/utils/navigation";
+import { chipFromPayCadence } from "@/utils/pay-cycle";
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { ScrollView, View } from "react-native";
@@ -75,7 +76,7 @@ export default function IncomeReceiptScreen() {
                     title={entry.source}
                     kicker="Take-home"
                     value={formatMoney(entry.net, { compact: true })}
-                    caption={formatDisplayDate(entry.date)}
+                    caption={`${formatDisplayDate(entry.date)} · ${chipFromPayCadence(entry.payCadence)}`}
                     percent={takeHome}
                     header={
                         <DetailHeroNav
@@ -104,6 +105,11 @@ export default function IncomeReceiptScreen() {
                     />
                     <SettingsDivider />
                     <SettingsRow title="Kept" value={`${takeHome}%`} />
+                    <SettingsDivider />
+                    <SettingsRow
+                        title="Pay cycle"
+                        value={chipFromPayCadence(entry.payCadence)}
+                    />
                 </SettingsSection>
             </ScrollView>
 

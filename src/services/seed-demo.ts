@@ -251,6 +251,7 @@ export async function seedDemoData(
             gross,
             net,
             source: "Salary",
+            payCadence: "monthly",
             ...ts(payDay),
         });
 

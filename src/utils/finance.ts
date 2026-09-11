@@ -8,9 +8,12 @@ import { SavingsGoal } from "@/types/savings";
 import { SavingsContribution } from "@/types/savings-contribution";
 import {
     DateRange,
+    endOfMonth,
+    firstDueDateInRange,
     getRangeForPeriod,
     isIsoInRange,
     rangeThrough,
+    startOfMonth,
 } from "@/utils/date";
 import {
     filterDebtsVisibleAsOf,
@@ -135,6 +138,57 @@ export type CommittedTotals = {
     unknownCount: number;
 };
 
+export function getCommittedInRange(
+    range: DateRange,
+    bills: Bill[],
+    billPayments: BillPayment[],
+    debts: Debt[],
+    debtPayments: DebtPayment[],
+    visibleAsOf: Date = range.end
+): CommittedTotals {
+    let billsTotal = 0;
+    let count = 0;
+    let unknownCount = 0;
+
+    for (const bill of bills) {
+        const dueOn = firstDueDateInRange(bill.dueDay, range);
+        if (!dueOn) {
+            continue;
+        }
+        if (isBillPaidAsOf(bill, billPayments, dueOn, { anyDayInMonth: true })) {
+            continue;
+        }
+        if (bill.amountVaries) {
+            unknownCount += 1;
+            continue;
+        }
+        count += 1;
+        billsTotal += Math.max(bill.amount, 0);
+    }
+
+    let debtsTotal = 0;
+
+    for (const debt of filterDebtsVisibleAsOf(debts, visibleAsOf)) {
+        const dueOn = firstDueDateInRange(debt.dueDay, range);
+        if (!dueOn) {
+            continue;
+        }
+        if (isDebtInstallmentPaidAsOf(debt, dueOn, debtPayments)) {
+            continue;
+        }
+        count += 1;
+        debtsTotal += Math.max(Math.min(debt.minimumPayment, debt.balance), 0);
+    }
+
+    return {
+        bills: billsTotal,
+        debts: debtsTotal,
+        total: billsTotal + debtsTotal,
+        count,
+        unknownCount,
+    };
+}
+
 /**
  * Money still owed for the calendar month containing `asOf`.
  *
@@ -149,40 +203,14 @@ export function getCommittedForMonth(
     debts: Debt[],
     debtPayments: DebtPayment[]
 ): CommittedTotals {
-    let billsTotal = 0;
-    let count = 0;
-    let unknownCount = 0;
-
-    for (const bill of bills) {
-        if (isBillPaidAsOf(bill, billPayments, asOf)) {
-            continue;
-        }
-        if (bill.amountVaries) {
-            unknownCount += 1;
-            continue;
-        }
-        count += 1;
-        billsTotal += Math.max(bill.amount, 0);
-    }
-
-    let debtsTotal = 0;
-
-    for (const debt of filterDebtsVisibleAsOf(debts, asOf)) {
-        if (isDebtInstallmentPaidAsOf(debt, asOf, debtPayments)) {
-            continue;
-        }
-        count += 1;
-        // Never claim more is owed than the balance itself.
-        debtsTotal += Math.max(Math.min(debt.minimumPayment, debt.balance), 0);
-    }
-
-    return {
-        bills: billsTotal,
-        debts: debtsTotal,
-        total: billsTotal + debtsTotal,
-        count,
-        unknownCount,
-    };
+    return getCommittedInRange(
+        { start: startOfMonth(asOf), end: endOfMonth(asOf) },
+        bills,
+        billPayments,
+        debts,
+        debtPayments,
+        asOf
+    );
 }
 
 export type CategorySpend = {

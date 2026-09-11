@@ -10,6 +10,7 @@ export const dashboard = StyleSheet.create({
         flex: 1,
     },
     listContent: {
+        flexGrow: 1,
         width: "100%",
         maxWidth: theme.size.readable,
         alignSelf: "center",
@@ -178,7 +179,7 @@ export const dashboard = StyleSheet.create({
     periodRow: {
         flexDirection: "row",
         alignItems: "center",
-        height: theme.size.tap,
+        minHeight: theme.size.tap,
     },
     periodChevron: {
         width: theme.size.tap,
@@ -188,10 +189,11 @@ export const dashboard = StyleSheet.create({
     },
     periodLabelHit: {
         flex: 1,
-        height: theme.size.tap,
+        minHeight: theme.size.tap,
         alignItems: "center",
         justifyContent: "center",
         paddingHorizontal: theme.space.xs,
+        gap: 2,
     },
     periodLabel: {
         color: theme.text.inverseSecondary,
@@ -201,6 +203,14 @@ export const dashboard = StyleSheet.create({
         textAlign: "center",
         includeFontPadding: false,
         textAlignVertical: "center",
+    },
+    periodToday: {
+        color: theme.text.inverseTertiary,
+        fontSize: theme.fontSize.xs,
+        lineHeight: theme.lineHeight.xs,
+        fontWeight: theme.fontWeight.semibold,
+        textAlign: "center",
+        includeFontPadding: false,
     },
 
     sectionLabel: {
@@ -278,12 +288,13 @@ export const dashboard = StyleSheet.create({
     },
 
     emptyCard: {
+        alignSelf: "stretch",
         backgroundColor: theme.bg.surface,
         borderRadius: theme.radius.md,
         padding: theme.space.lg,
         borderWidth: StyleSheet.hairlineWidth,
         borderColor: theme.border.subtle,
-        alignItems: "center",
+        alignItems: "stretch",
     },
     emptyTitle: {
         ...text.itemTitle,
@@ -296,14 +307,21 @@ export const dashboard = StyleSheet.create({
         textAlign: "center",
     },
     emptyButton: {
+        alignSelf: "stretch",
         backgroundColor: theme.action.primary.bg,
         minHeight: theme.size.tap,
         borderRadius: theme.radius.sm,
         alignItems: "center",
         justifyContent: "center",
         paddingHorizontal: theme.space.md,
+        paddingVertical: theme.space.sm,
+        overflow: "visible",
     },
-    emptyButtonText: text.button,
+    emptyButtonText: {
+        ...text.button,
+        width: "100%",
+        textAlign: "center",
+    },
 
     // paddingTop comes from useScreenTopPadding at the call site.
     tabHeader: {

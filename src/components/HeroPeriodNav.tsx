@@ -10,7 +10,7 @@ type HeroPeriodNavProps = {
     style?: StyleProp<ViewStyle>;
 };
 
-/** Period strip: previous / label (tap = today) / next. No full-screen swipe. */
+/** Period strip: previous / label + Today (tap = today) / next. */
 export function HeroPeriodNav({
     label,
     onShift,
@@ -39,6 +39,9 @@ export function HeroPeriodNav({
             >
                 <Text style={dashboard.periodLabel} numberOfLines={1}>
                     {label}
+                </Text>
+                <Text style={dashboard.periodToday} numberOfLines={1}>
+                    Today
                 </Text>
             </Pressable>
             <Pressable

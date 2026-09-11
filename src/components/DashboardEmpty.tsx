@@ -41,7 +41,14 @@ export function DashboardEmpty({
                     pressed && { opacity: 0.9 },
                 ]}
             >
-                <Text style={dashboard.emptyButtonText}>{actionLabel}</Text>
+                <Text
+                    style={dashboard.emptyButtonText}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.7}
+                >
+                    {actionLabel}
+                </Text>
             </Pressable>
         </View>
     );

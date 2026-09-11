@@ -32,14 +32,17 @@ const URGENCY_RANK: Record<DueNowUrgency, number> = {
     "due-soon": 2,
 };
 
-function urgencyFromOffset(offset: number): DueNowUrgency | null {
+function urgencyFromOffset(
+    offset: number,
+    soonWithinDays = SOON_DAYS
+): DueNowUrgency | null {
     if (offset < 0) {
         return "overdue";
     }
     if (offset === 0) {
         return "due-today";
     }
-    if (offset <= SOON_DAYS) {
+    if (offset <= soonWithinDays) {
         return "due-soon";
     }
     return null;
@@ -55,7 +58,8 @@ export function getDueNowItems(
     billPayments: BillPayment[],
     debts: Debt[],
     debtPayments: DebtPayment[],
-    today = new Date()
+    today = new Date(),
+    soonWithinDays = SOON_DAYS
 ): DueNowItem[] {
     const asOf = startOfDay(today);
     const items: DueNowItem[] = [];
@@ -65,7 +69,8 @@ export function getDueNowItems(
             continue;
         }
         const urgency = urgencyFromOffset(
-            getBillDueOffset(bill.dueDay, asOf, asOf)
+            getBillDueOffset(bill.dueDay, asOf, asOf),
+            soonWithinDays
         );
         if (!urgency) {
             continue;
@@ -92,7 +97,8 @@ export function getDueNowItems(
             continue;
         }
         const urgency = urgencyFromOffset(
-            getBillDueOffset(debt.dueDay, asOf, asOf)
+            getBillDueOffset(debt.dueDay, asOf, asOf),
+            soonWithinDays
         );
         if (!urgency) {
             continue;

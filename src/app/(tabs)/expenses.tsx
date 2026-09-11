@@ -1,11 +1,10 @@
+import { CategoryPicker } from "@/components/CategoryPicker";
 import { DashboardEmpty } from "@/components/DashboardEmpty";
-import { SearchField } from "@/components/SearchField";
-import { StickyHeroBar } from "@/components/StickyHeroBar";
 import {
     DashboardHero,
     DashboardHeroCompact,
 } from "@/components/DashboardHero";
-import { CategoryPicker } from "@/components/CategoryPicker";
+import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import ExpenseForm from "@/components/ExpenseForm";
 import { FloatingAddButton } from "@/components/FloatingAddButton";
 import { HeroPeriodNav } from "@/components/HeroPeriodNav";
@@ -15,12 +14,13 @@ import {
     accentForLabel,
     groupByLedgerDate,
 } from "@/components/LedgerList";
+import { SearchField } from "@/components/SearchField";
+import { StickyHeroBar } from "@/components/StickyHeroBar";
 import { PageHeader } from "@/components/ui";
-import { DashboardSkeleton } from "@/components/DashboardSkeleton";
+import { EXPENSE_CATEGORIES } from "@/constants/categories";
 import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
 import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
 import { useStickyHero } from "@/hooks/useStickyHero";
-import { EXPENSE_CATEGORIES } from "@/constants/categories";
 import { dashboard } from "@/styles/dashboard";
 import { form } from "@/styles/form";
 import { isIsoInRange } from "@/utils/date";
@@ -139,8 +139,8 @@ export default function ExpensesScreen({
                             inPeriod.length === 0
                                 ? "Nothing recorded in this period"
                                 : topCategory
-                                  ? `${inPeriod.length} purchases · ${topCategory.category} is largest`
-                                  : `${inPeriod.length} purchases this period`
+                                    ? `${inPeriod.length} purchases · ${topCategory.category} is largest`
+                                    : `${inPeriod.length} purchases this period`
                         }
                         percent={
                             inPeriod.length > 0 && topCategory && total > 0
@@ -191,8 +191,8 @@ export default function ExpensesScreen({
                     <DashboardEmpty
                         icon="calendar-outline"
                         title="Nothing in this period"
-                        text="Step the date, or jump to today, to find purchases you already logged."
-                        actionLabel="Jump to today"
+                        text="Step the date, or jump back to this month, to find purchases you already logged."
+                        actionLabel="Back to current month"
                         onAction={resetToToday}
                     />
                 )}

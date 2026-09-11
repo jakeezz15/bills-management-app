@@ -9,10 +9,10 @@
     "userInterfaceStyle": "light",
     "ios": {
       "icon": "./assets/expo.icon",
-      "bundleIdentifier": "com.jakedurante.financemanager"
+      "bundleIdentifier": "com.durantetechsolutions.onhand"
     },
     "android": {
-      "package": "com.jakedurante.financemanager",
+      "package": "com.durantetechsolutions.onhand",
       "adaptiveIcon": {
         "backgroundColor": "#0F172A",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

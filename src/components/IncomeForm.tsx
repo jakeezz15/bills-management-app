@@ -1,11 +1,18 @@
 import { useIncome } from "@/app/contexts/IncomeContext";
 import { useLocale } from "@/app/contexts/LocaleContext";
+import { ChoiceChips } from "@/components/ChoiceChips";
 import { DateField } from "@/components/DateField";
 import { FormDialog } from "@/components/FormDialog";
 import { form, formColors } from "@/styles/form";
 import { Income } from "@/types/income";
 import { parseIsoDate, todayIsoDate } from "@/utils/date";
 import { currencySymbol } from "@/utils/money";
+import {
+    chipFromPayCadence,
+    PAY_CADENCE_CHIPS,
+    payCadenceFromChip,
+    PayCadenceChip,
+} from "@/utils/pay-cycle";
 import { useFormSession } from "@/hooks/useFormSession";
 import { useState } from "react";
 import { Text, TextInput, View } from "react-native";
@@ -30,6 +37,9 @@ function IncomeEditor({ visible, onClose, entry }: IncomeFormProps) {
     const [net, setNet] = useState(entry ? String(entry.net) : "");
     const [gross, setGross] = useState(entry ? String(entry.gross) : "");
     const [date, setDate] = useState(entry?.date ?? todayIsoDate());
+    const [cadenceChip, setCadenceChip] = useState<PayCadenceChip>(
+        chipFromPayCadence(entry?.payCadence)
+    );
     const [focusedInput, setFocusedInput] = useState<string | null>(null);
     const [showErrors, setShowErrors] = useState(false);
 
@@ -50,6 +60,7 @@ function IncomeEditor({ visible, onClose, entry }: IncomeFormProps) {
             net: netNumber,
             gross: grossNumber,
             date: date.trim(),
+            payCadence: payCadenceFromChip(cadenceChip),
         };
 
         if (entry) {
@@ -115,6 +126,20 @@ function IncomeEditor({ visible, onClose, entry }: IncomeFormProps) {
                     hasError={dateHasError}
                     errorMessage="Choose a valid pay date."
                 />
+            </View>
+
+            <View style={form.field}>
+                <Text style={form.label}>Pay cycle</Text>
+                <ChoiceChips
+                    options={PAY_CADENCE_CHIPS}
+                    selected={cadenceChip}
+                    onSelect={setCadenceChip}
+                />
+                <Text style={form.helper}>
+                    {cadenceChip === "Once"
+                        ? "A one-off deposit. Home payday needs a repeating cycle."
+                        : "Home can count leftover until the next payday on this cycle."}
+                </Text>
             </View>
 
             <View style={form.field}>

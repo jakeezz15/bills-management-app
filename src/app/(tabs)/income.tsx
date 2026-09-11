@@ -1,9 +1,9 @@
 import { DashboardEmpty } from "@/components/DashboardEmpty";
-import { StickyHeroBar } from "@/components/StickyHeroBar";
 import {
     DashboardHero,
     DashboardHeroCompact,
 } from "@/components/DashboardHero";
+import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import { FloatingAddButton } from "@/components/FloatingAddButton";
 import { HeroPeriodNav } from "@/components/HeroPeriodNav";
 import IncomeForm from "@/components/IncomeForm";
@@ -14,8 +14,8 @@ import {
     groupByLedgerDate,
 } from "@/components/LedgerList";
 import { SearchField } from "@/components/SearchField";
+import { StickyHeroBar } from "@/components/StickyHeroBar";
 import { PageHeader } from "@/components/ui";
-import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
 import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
 import { useStickyHero } from "@/hooks/useStickyHero";
@@ -119,11 +119,10 @@ export default function IncomeScreen({ embedded = false }: IncomeScreenProps) {
                         caption={
                             inPeriod.length === 0
                                 ? "Nothing recorded in this period"
-                                : `of ${formatMoney(gross, { compact: true })} gross · ${inPeriod.length} ${
-                                      inPeriod.length === 1
-                                          ? "paycheck"
-                                          : "paychecks"
-                                  }`
+                                : `of ${formatMoney(gross, { compact: true })} gross · ${inPeriod.length} ${inPeriod.length === 1
+                                    ? "paycheck"
+                                    : "paychecks"
+                                }`
                         }
                         percent={inPeriod.length > 0 ? takeHome : 0}
                         pace={periodNav(false)}
@@ -160,8 +159,8 @@ export default function IncomeScreen({ embedded = false }: IncomeScreenProps) {
                     <DashboardEmpty
                         icon="calendar-outline"
                         title="Nothing in this period"
-                        text="Step the date, or jump to today, to find paychecks you already logged."
-                        actionLabel="Jump to today"
+                        text="Step the date, or jump back to this month, to find paychecks you already logged."
+                        actionLabel="Back to current month"
                         onAction={resetToToday}
                     />
                 )}

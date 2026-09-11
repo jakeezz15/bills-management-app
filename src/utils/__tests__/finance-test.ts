@@ -1,6 +1,7 @@
 import { getRangeForPeriod } from "@/utils/date";
 import {
     getCommittedForMonth,
+    getCommittedInRange,
     getExpenseSpendByCategory,
     getMonthlyTrend,
     getTotalsForRange,
@@ -249,6 +250,29 @@ describe("getCommittedForMonth", () => {
         expect(committed.total).toBe(0);
         expect(committed.count).toBe(0);
         expect(committed.unknownCount).toBe(0);
+    });
+});
+
+describe("getCommittedInRange", () => {
+    it("only counts dues that land inside the pay cycle", () => {
+        const cycle = {
+            start: new Date(2026, 8, 1),
+            end: new Date(2026, 8, 14, 23, 59, 59, 999),
+        };
+
+        const committed = getCommittedInRange(
+            cycle,
+            [
+                makeBill({ dueDay: 10, amount: 100 }),
+                makeBill({ dueDay: 20, amount: 999 }),
+            ],
+            [],
+            [],
+            []
+        );
+
+        expect(committed.total).toBe(100);
+        expect(committed.count).toBe(1);
     });
 });
 
