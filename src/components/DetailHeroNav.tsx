@@ -10,6 +10,8 @@ type DetailHeroNavProps = {
     fallbackHref: Href;
     onEdit: () => void;
     editAccessibilityLabel: string;
+    /** When set, used instead of the default back/replace behavior. */
+    onBack?: () => void;
 };
 
 /**
@@ -20,11 +22,14 @@ export function DetailHeroNav({
     fallbackHref,
     onEdit,
     editAccessibilityLabel,
+    onBack,
 }: DetailHeroNavProps) {
     return (
         <View style={dashboard.heroNav}>
             <Pressable
-                onPress={() => goBackOrReplace(fallbackHref)}
+                onPress={() =>
+                    onBack ? onBack() : goBackOrReplace(fallbackHref)
+                }
                 style={({ pressed }) => [
                     dashboard.heroNavSide,
                     pressed && styles.pressed,

@@ -20,7 +20,7 @@ import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
 import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
 import { useStickyHero } from "@/hooks/useStickyHero";
 import { dashboard } from "@/styles/dashboard";
-import { isIsoInRange } from "@/utils/date";
+import { isIsoInRange, isViewingCurrentPeriod } from "@/utils/date";
 import { filterBySearch } from "@/utils/filters";
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
@@ -41,7 +41,8 @@ export default function IncomeScreen({ embedded = false }: IncomeScreenProps) {
 
     const { formatMoney } = useLocale();
     const { income, loading } = useIncome();
-    const { range, label, shiftPeriod, resetToToday } = useDateRange();
+    const { range, label, periodUnit, shiftPeriod, resetToToday } =
+        useDateRange();
     const [isOpen, setIsOpen] = useState(false);
     const [query, setQuery] = useState("");
 
@@ -57,6 +58,8 @@ export default function IncomeScreen({ embedded = false }: IncomeScreenProps) {
         () => filterBySearch(inPeriod, query),
         [inPeriod, query]
     );
+
+    const viewingCurrentPeriod = isViewingCurrentPeriod(range, periodUnit);
 
     const net = inPeriod.reduce((sum, entry) => sum + entry.net, 0);
     const gross = inPeriod.reduce((sum, entry) => sum + entry.gross, 0);
@@ -77,6 +80,7 @@ export default function IncomeScreen({ embedded = false }: IncomeScreenProps) {
             label={label}
             onShift={shiftPeriod}
             onResetToToday={resetToToday}
+            isCurrentPeriod={viewingCurrentPeriod}
             style={forCompact ? { marginTop: 8 } : undefined}
         />
     );
@@ -157,11 +161,25 @@ export default function IncomeScreen({ embedded = false }: IncomeScreenProps) {
 
                 {income.length > 0 && inPeriod.length === 0 && (
                     <DashboardEmpty
-                        icon="calendar-outline"
+                        icon={
+                            viewingCurrentPeriod
+                                ? "cash-outline"
+                                : "calendar-outline"
+                        }
                         title="Nothing in this period"
-                        text="Step the date, or jump back to this month, to find paychecks you already logged."
-                        actionLabel="Back to current month"
-                        onAction={resetToToday}
+                        text={
+                            viewingCurrentPeriod
+                                ? "No paychecks land in this period yet. Add one, or step the date to find older entries."
+                                : "Step the date, or jump back to this month, to find paychecks you already logged."
+                        }
+                        actionLabel={
+                            viewingCurrentPeriod
+                                ? "Add income"
+                                : "Back to current month"
+                        }
+                        onAction={
+                            viewingCurrentPeriod ? openAdd : resetToToday
+                        }
                     />
                 )}
 

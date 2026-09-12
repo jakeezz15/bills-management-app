@@ -2,7 +2,7 @@ import { theme } from "@/design";
 import { form } from "@/styles/form";
 import { parseIsoDate, toIsoDate } from "@/utils/date";
 import DateTimePicker, {
-    DateTimePickerEvent,
+    DateTimePickerChangeEvent,
 } from "@react-native-community/datetimepicker";
 import { useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
@@ -37,19 +37,18 @@ export function DateField({
     const [open, setOpen] = useState(false);
     const selected = parseIsoDate(value) ?? new Date();
 
-    const handleChange = (event: DateTimePickerEvent, date?: Date) => {
+    const handleValueChange = (
+        _event: DateTimePickerChangeEvent,
+        date: Date
+    ) => {
         if (Platform.OS === "android") {
             setOpen(false);
         }
+        onChange(toIsoDate(date));
+    };
 
-        if (event.type === "dismissed") {
-            setOpen(false);
-            return;
-        }
-
-        if (date) {
-            onChange(toIsoDate(date));
-        }
+    const handleDismiss = () => {
+        setOpen(false);
     };
 
     return (
@@ -73,13 +72,18 @@ export function DateField({
                 <Text style={form.error}>{errorMessage}</Text>
             ) : null}
 
-            {open && (
+            {open && Platform.OS !== "web" ? (
                 <View style={styles.picker}>
                     <DateTimePicker
                         value={selected}
                         mode="date"
                         display={Platform.OS === "ios" ? "spinner" : "default"}
-                        onChange={handleChange}
+                        // iOS follows the *device* appearance for spinner text.
+                        // Dark-mode phones + our light form = invisible white text.
+                        themeVariant="light"
+                        textColor={theme.text.primary}
+                        onValueChange={handleValueChange}
+                        onDismiss={handleDismiss}
                     />
                     {Platform.OS === "ios" && (
                         <Pressable
@@ -90,7 +94,14 @@ export function DateField({
                         </Pressable>
                     )}
                 </View>
-            )}
+            ) : null}
+
+            {open && Platform.OS === "web" ? (
+                <Text style={form.helper}>
+                    Date picking isn’t supported in the browser. Use Expo Go or
+                    a device build.
+                </Text>
+            ) : null}
         </View>
     );
 }

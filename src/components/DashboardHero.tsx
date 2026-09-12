@@ -159,6 +159,8 @@ type DashboardHeroCompactProps = {
     pace?: ReactNode;
     onAdd?: () => void;
     addAccessibilityLabel?: string;
+    /** Optional control on the right (e.g. Due now badge). */
+    trailing?: ReactNode;
 };
 
 /** Slim sticky summary: total + optional period nav / add. */
@@ -170,6 +172,7 @@ export function DashboardHeroCompact({
     pace,
     onAdd,
     addAccessibilityLabel = "Add",
+    trailing,
 }: DashboardHeroCompactProps) {
     const figure =
         amount != null && formatAmount ? (
@@ -193,6 +196,7 @@ export function DashboardHeroCompact({
                     </Text>
                     {figure}
                 </View>
+                {trailing}
                 {onAdd ? (
                     <Pressable
                         onPress={onAdd}

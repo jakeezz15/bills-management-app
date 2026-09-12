@@ -23,7 +23,7 @@ import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
 import { useStickyHero } from "@/hooks/useStickyHero";
 import { dashboard } from "@/styles/dashboard";
 import { form } from "@/styles/form";
-import { isIsoInRange } from "@/utils/date";
+import { isIsoInRange, isViewingCurrentPeriod } from "@/utils/date";
 import { filterByCategory, filterBySearch } from "@/utils/filters";
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
@@ -46,7 +46,8 @@ export default function ExpensesScreen({
 
     const { formatMoney } = useLocale();
     const { expenses, loading } = useExpenses();
-    const { range, label, shiftPeriod, resetToToday } = useDateRange();
+    const { range, label, periodUnit, shiftPeriod, resetToToday } =
+        useDateRange();
     const [isOpen, setIsOpen] = useState(false);
     const [query, setQuery] = useState("");
     const [category, setCategory] = useState<string | null>(null);
@@ -64,6 +65,8 @@ export default function ExpensesScreen({
             filterBySearch(filterByCategory(inPeriod, category), query),
         [inPeriod, category, query]
     );
+
+    const viewingCurrentPeriod = isViewingCurrentPeriod(range, periodUnit);
 
     const total = inPeriod.reduce((sum, expense) => sum + expense.amount, 0);
 
@@ -96,6 +99,7 @@ export default function ExpensesScreen({
             label={label}
             onShift={shiftPeriod}
             onResetToToday={resetToToday}
+            isCurrentPeriod={viewingCurrentPeriod}
             style={forCompact ? { marginTop: 8 } : undefined}
         />
     );
@@ -172,6 +176,7 @@ export default function ExpensesScreen({
                                 selected={category}
                                 onSelect={setCategory}
                                 noneLabel="All"
+                                title="Category"
                             />
                         </View>
                     </>
@@ -189,11 +194,25 @@ export default function ExpensesScreen({
 
                 {expenses.length > 0 && inPeriod.length === 0 && (
                     <DashboardEmpty
-                        icon="calendar-outline"
+                        icon={
+                            viewingCurrentPeriod
+                                ? "bag-handle-outline"
+                                : "calendar-outline"
+                        }
                         title="Nothing in this period"
-                        text="Step the date, or jump back to this month, to find purchases you already logged."
-                        actionLabel="Back to current month"
-                        onAction={resetToToday}
+                        text={
+                            viewingCurrentPeriod
+                                ? "No spending in this period yet. Add some, or step the date to find older entries."
+                                : "Step the date, or jump back to this month, to find purchases you already logged."
+                        }
+                        actionLabel={
+                            viewingCurrentPeriod
+                                ? "Add expense"
+                                : "Back to current month"
+                        }
+                        onAction={
+                            viewingCurrentPeriod ? openAdd : resetToToday
+                        }
                     />
                 )}
 

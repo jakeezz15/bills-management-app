@@ -1,5 +1,6 @@
 import { getRangeForPeriod } from "@/utils/date";
 import {
+    getActivityForRange,
     getCommittedForMonth,
     getCommittedInRange,
     getExpenseSpendByCategory,
@@ -114,6 +115,49 @@ describe("getTotalsForRange", () => {
 
         expect(totals.bills).toBe(0);
         expect(totals.leftover).toBe(4000);
+    });
+});
+
+describe("getActivityForRange", () => {
+    it("only counts cash that lands inside the period", () => {
+        const activity = getActivityForRange(
+            february,
+            [makeExpense({ date: "2026-02-14", amount: 500 })],
+            [],
+            [],
+            [makeSavingsGoal()],
+            [
+                makeIncome({ date: "2026-01-01", net: 4000 }),
+                makeIncome({ date: "2026-02-01", net: 4000 }),
+            ],
+            [],
+            [],
+            []
+        );
+
+        expect(activity.income).toBe(4000);
+        expect(activity.expenses).toBe(500);
+        expect(activity.leftover).toBe(3500);
+    });
+
+    it("ignores earlier savings contributions outside the window", () => {
+        const activity = getActivityForRange(
+            february,
+            [],
+            [],
+            [],
+            [makeSavingsGoal()],
+            [makeIncome({ date: "2026-02-01", net: 1000 })],
+            [],
+            [],
+            [
+                makeSavingsContribution({ date: "2026-01-15", amount: 200 }),
+                makeSavingsContribution({ date: "2026-02-10", amount: 100 }),
+            ]
+        );
+
+        expect(activity.savings).toBe(100);
+        expect(activity.leftover).toBe(900);
     });
 });
 

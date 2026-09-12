@@ -1,18 +1,20 @@
 import { AppButton } from "@/components/AppButton";
 import { DashboardEmpty } from "@/components/DashboardEmpty";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
-import { DueNowSection } from "@/components/DueNowSection";
 import { Bone } from "@/components/Skeleton";
 import { DashboardHeroCompact } from "@/components/DashboardHero";
 import { AnimatedMoneyText } from "@/components/AnimatedMoneyText";
 import { StickyHeroBar } from "@/components/StickyHeroBar";
 import { HeroPeriodNav } from "@/components/HeroPeriodNav";
+import { DueNowBadgeButton, DueNowModal } from "@/components/DueNowModal";
+import { FirstRunCoach } from "@/components/FirstRunCoach";
 import { MonthGrid } from "@/components/MonthGrid";
 import { MonthTrendChart, SpendByCategoryChart } from "@/components/HomeCharts";
 import { SegmentControl } from "@/components/SegmentControl";
 import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
 import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
 import { useStickyHero } from "@/hooks/useStickyHero";
+import { useDueNowInbox } from "@/hooks/useDueNowInbox";
 import { dashboard } from "@/styles/dashboard";
 import { text, theme } from "@/design";
 import {
@@ -21,22 +23,25 @@ import {
 } from "@/services/storage";
 import {
     calendarDaysBetween,
+    isViewingCurrentPeriod,
     PERIOD_UNITS,
     PERIOD_UNIT_LABELS,
     parseIsoDate,
     startOfMonth,
 } from "@/utils/date";
 import {
+    getActivityForRange,
     getCommittedForMonth,
     getCommittedInRange,
     getExpenseSpendByCategory,
     getMonthlyTrend,
     getTotalsForRange,
 } from "@/utils/finance";
+import { takeOpenDuesOnHome } from "@/utils/navigation";
 import { resolvePayCycle } from "@/utils/pay-cycle";
 import Ionicons from "@react-native-vector-icons/ionicons";
-import { router } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useBills } from "../contexts/BillsContext";
 import { useDateRange } from "../contexts/DateRangeContext";
@@ -77,6 +82,8 @@ export default function HomeScreen() {
     } = useDateRange();
     const [payMode, setPayMode] = useState(false);
     const [payOffset, setPayOffset] = useState(0);
+    const [duesOpen, setDuesOpen] = useState(false);
+    const [coachOpen, setCoachOpen] = useState(false);
 
     const loading =
         incomeLoading ||
@@ -94,6 +101,32 @@ export default function HomeScreen() {
     const totals = useMemo(
         () =>
             getTotalsForRange(
+                homeRange,
+                expenses,
+                bills,
+                debts,
+                savings,
+                income,
+                debtPayments,
+                billPayments,
+                savingsContributions
+            ),
+        [
+            homeRange,
+            expenses,
+            bills,
+            debts,
+            savings,
+            income,
+            debtPayments,
+            billPayments,
+            savingsContributions,
+        ]
+    );
+
+    const activity = useMemo(
+        () =>
+            getActivityForRange(
                 homeRange,
                 expenses,
                 bills,
@@ -152,31 +185,31 @@ export default function HomeScreen() {
     }[] = [
         {
             label: "Income",
-            value: totals.income,
+            value: activity.income,
             sign: "+" as const,
             href: "/(tabs)/activity",
         },
         {
             label: "Spending",
-            value: totals.expenses,
+            value: activity.expenses,
             sign: "−" as const,
             href: "/(tabs)/activity",
         },
         {
             label: "Bills",
-            value: totals.bills,
+            value: activity.bills,
             sign: "−" as const,
             href: "/(tabs)/plans",
         },
         {
             label: "Debt payments",
-            value: totals.debtPayments,
+            value: activity.debtPayments,
             sign: "−" as const,
             href: "/(tabs)/plans",
         },
         {
             label: "Savings",
-            value: totals.savings,
+            value: activity.savings,
             sign: "−" as const,
             href: "/(tabs)/plans",
         },
@@ -202,8 +235,8 @@ export default function HomeScreen() {
     ]);
 
     const categorySpend = useMemo(
-        () => getExpenseSpendByCategory(expenses, range),
-        [expenses, range]
+        () => getExpenseSpendByCategory(expenses, homeRange),
+        [expenses, homeRange]
     );
 
     const monthTrend = useMemo(
@@ -233,13 +266,23 @@ export default function HomeScreen() {
         ]
     );
 
-    useEffect(() => {
-        void hasCompletedFirstRun().then((done) => {
-            if (!done) {
-                void markFirstRunComplete();
+    useFocusEffect(
+        useCallback(() => {
+            if (takeOpenDuesOnHome()) {
+                setDuesOpen(true);
             }
-        });
-    }, []);
+            void hasCompletedFirstRun().then((done) => {
+                if (!done) {
+                    setCoachOpen(true);
+                }
+            });
+        }, [])
+    );
+
+    const dismissCoach = () => {
+        setCoachOpen(false);
+        void markFirstRunComplete();
+    };
 
     const { collapsed, scrollProps } = useStickyHero({
         collapseAt: 140,
@@ -253,6 +296,15 @@ export default function HomeScreen() {
     const availableLabel = formatMoney(available, { compact: true });
     const needsFirstPaycheck = !loading && income.length === 0;
     const usingPayNav = Boolean(payMode && payCycle);
+    const dueSoonWithinDays =
+        payMode && payCycle && payOffset === 0
+            ? Math.max(
+                  0,
+                  calendarDaysBetween(new Date(), payCycle.nextPayday) - 1
+              )
+            : undefined;
+    const { count: dueCount } = useDueNowInbox(dueSoonWithinDays);
+    const openDues = () => setDuesOpen(true);
     const payLabel = payCycle
         ? `Until ${payCycle.nextPayday.toLocaleDateString(undefined, {
               weekday: "short",
@@ -263,9 +315,12 @@ export default function HomeScreen() {
     const daysUntilPayday = payCycle
         ? Math.max(1, calendarDaysBetween(new Date(), payCycle.nextPayday))
         : 0;
-    const dailyAvailable =
-        daysUntilPayday > 0 ? available / daysUntilPayday : 0;
-    const dailyLabel = formatMoney(dailyAvailable, { compact: true });
+    const dailyLeftover =
+        daysUntilPayday > 0 ? totals.leftover / daysUntilPayday : 0;
+    const dailyLabel = formatMoney(dailyLeftover, { compact: true });
+    const viewingCurrentPeriod = usingPayNav
+        ? payOffset === 0
+        : isViewingCurrentPeriod(range, periodUnit);
     const periodNav = (forCompact: boolean) => (
         <HeroPeriodNav
             label={usingPayNav ? payLabel : label}
@@ -283,6 +338,7 @@ export default function HomeScreen() {
                       }
                     : resetToToday
             }
+            isCurrentPeriod={viewingCurrentPeriod}
             style={
                 forCompact
                     ? { marginTop: theme.space.sm }
@@ -313,8 +369,19 @@ export default function HomeScreen() {
         selectDay(iso);
     };
 
-    const okay = available >= 0;
     const leftoverOkay = totals.leftover >= 0;
+    const availableOkay = available >= 0;
+    const activityNetOkay = activity.leftover >= 0;
+    const activityNetLabel = formatMoney(activity.leftover, { compact: true });
+    const activitySectionTitle = payCycle
+        ? "This pay cycle"
+        : periodUnit === "day"
+          ? "This day"
+          : periodUnit === "week"
+            ? "This week"
+            : periodUnit === "year"
+              ? "This year"
+              : "This month";
 
     // Variable bills carry no amount until they're logged, so say so rather
     // than let "available" read as the whole picture.
@@ -333,7 +400,7 @@ export default function HomeScreen() {
             payCycle && daysUntilPayday > 0 ? ` · ${dailyLabel} / day` : "";
         if (bills.length === 0 && debts.length === 0) {
             return (
-                (okay
+                (leftoverOkay
                     ? "Income covers everything logged so far"
                     : "Outflows are higher than income received so far") +
                 dailyBit
@@ -341,9 +408,9 @@ export default function HomeScreen() {
         }
         const dueWindow = payCycle ? "before payday" : "this month";
         if (committed.total > 0) {
-            return `After ${formatMoney(committed.total, {
+            return `${formatMoney(committed.total, {
                 compact: true,
-            })} still due ${dueWindow}${unknownNote}${dailyBit}`;
+            })} still due ${dueWindow} — not in leftover until paid${unknownNote}${dailyBit}`;
         }
         return `Everything due ${dueWindow} is paid${unknownNote}${dailyBit}`;
     })();
@@ -358,11 +425,18 @@ export default function HomeScreen() {
                     ]}
                 >
                     <DashboardHeroCompact
-                        kicker={okay ? "Available" : "Short"}
-                        value={availableLabel}
-                        amount={available}
+                        kicker="Leftover"
+                        value={leftoverLabel}
+                        amount={totals.leftover}
                         formatAmount={(n) =>
                             formatMoney(n, { compact: true })
+                        }
+                        trailing={
+                            <DueNowBadgeButton
+                                count={dueCount}
+                                onPress={openDues}
+                                tone="default"
+                            />
                         }
                         pace={periodNav(true)}
                     />
@@ -381,7 +455,7 @@ export default function HomeScreen() {
                             accessibilityLabel="Loading"
                         >
                             <View style={styles.mastEyebrow}>
-                                <Text style={styles.mastKicker}>On hand</Text>
+                                <Text style={styles.mastKicker}>Leftover</Text>
                             </View>
                             <Bone
                                 width="48%"
@@ -406,24 +480,22 @@ export default function HomeScreen() {
                     ) : (
                         <>
                     <View style={styles.mastEyebrow}>
-                        <Text style={styles.mastKicker}>On hand</Text>
-                        <Text
-                            style={[
-                                styles.mastStatus,
-                                {
-                                    color: okay
-                                        ? theme.intent.positive.bright
-                                        : theme.text.inverseSecondary,
-                                },
-                            ]}
-                        >
-                            {okay ? "Okay" : "Short"}
-                        </Text>
+                        <Text style={styles.mastKicker}>Leftover</Text>
+                        <DueNowBadgeButton
+                            count={dueCount}
+                            onPress={openDues}
+                            tone="inverse"
+                        />
                     </View>
                     <AnimatedMoneyText
-                        amount={available}
+                        amount={totals.leftover}
                         format={(n) => formatMoney(n, { compact: true })}
-                        style={styles.mastAmount}
+                        style={[
+                            styles.mastAmount,
+                            !leftoverOkay
+                                ? { color: theme.intent.negative.fg }
+                                : null,
+                        ]}
                         accessibilityRole="header"
                     />
                     <Text style={styles.mastCaption}>{heroCaption}</Text>
@@ -459,35 +531,6 @@ export default function HomeScreen() {
                         </View>
                     ) : null}
 
-                    <DueNowSection
-                        title={
-                            payMode && payCycle && payOffset === 0
-                                ? "Due before payday"
-                                : undefined
-                        }
-                        caption={
-                            payMode && payCycle && payOffset === 0
-                                ? "Unpaid plans that land before your next check."
-                                : undefined
-                        }
-                        clearCaption={
-                            payMode && payCycle && payOffset === 0
-                                ? "Nothing waiting before this payday."
-                                : undefined
-                        }
-                        soonWithinDays={
-                            payMode && payCycle && payOffset === 0
-                                ? Math.max(
-                                      0,
-                                      calendarDaysBetween(
-                                          new Date(),
-                                          payCycle.nextPayday
-                                      ) - 1
-                                  )
-                                : undefined
-                        }
-                    />
-
                     <Text style={[dashboard.sectionLabel, styles.calLabel]}>
                         Calendar
                     </Text>
@@ -504,7 +547,7 @@ export default function HomeScreen() {
 
                     <View style={styles.statement}>
                         <Text style={dashboard.sectionLabel}>
-                            Cash so far
+                            {activitySectionTitle}
                         </Text>
                         {lines.map((line, index) => (
                             <Pressable
@@ -552,18 +595,18 @@ export default function HomeScreen() {
                         ))}
 
                         <View style={styles.totalRow}>
-                            <Text style={styles.totalLabel}>Leftover</Text>
+                            <Text style={styles.totalLabel}>Net this period</Text>
                             <Text
                                 style={[
                                     styles.totalValue,
                                     {
-                                        color: leftoverOkay
+                                        color: activityNetOkay
                                             ? theme.intent.positive.fg
                                             : theme.intent.negative.fg,
                                     },
                                 ]}
                             >
-                                {leftoverLabel}
+                                {activityNetLabel}
                             </Text>
                         </View>
 
@@ -597,12 +640,12 @@ export default function HomeScreen() {
                         ) : null}
 
                         <View style={styles.grandRow}>
-                            <Text style={styles.grandLabel}>Available</Text>
+                            <Text style={styles.grandLabel}>After dues</Text>
                             <Text
                                 style={[
                                     styles.grandValue,
                                     {
-                                        color: okay
+                                        color: availableOkay
                                             ? theme.intent.positive.fg
                                             : theme.intent.negative.fg,
                                     },
@@ -659,6 +702,28 @@ export default function HomeScreen() {
                     )}
                 </View>
             </ScrollView>
+
+            <DueNowModal
+                visible={duesOpen}
+                onClose={() => setDuesOpen(false)}
+                title={
+                    payMode && payCycle && payOffset === 0
+                        ? "Due before payday"
+                        : "Due now"
+                }
+                caption={
+                    payMode && payCycle && payOffset === 0
+                        ? "Unpaid plans that land before your next check."
+                        : undefined
+                }
+                clearCaption={
+                    payMode && payCycle && payOffset === 0
+                        ? "Nothing waiting before this payday."
+                        : undefined
+                }
+                soonWithinDays={dueSoonWithinDays}
+            />
+            <FirstRunCoach visible={coachOpen} onDismiss={dismissCoach} />
         </View>
     );
 }
@@ -675,16 +740,12 @@ const styles = StyleSheet.create({
     },
     mastEyebrow: {
         flexDirection: "row",
-        alignItems: "baseline",
+        alignItems: "center",
         justifyContent: "space-between",
         gap: theme.space.md,
         marginBottom: theme.space.sm,
     },
     mastKicker: text.kicker,
-    mastStatus: {
-        ...text.kicker,
-        fontWeight: theme.fontWeight.bold,
-    },
     mastAmount: text.hero,
     mastCaption: {
         color: theme.text.inverseSecondary,

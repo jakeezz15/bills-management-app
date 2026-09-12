@@ -124,6 +124,54 @@ export function getTotalsForRange(
     };
 }
 
+/**
+ * Period-only cash activity: only rows whose dates fall **inside** `range`
+ * (Home “This period” bars). Not a running balance — see `getTotalsForRange`.
+ * `leftover` here means net for the period only.
+ */
+export function getActivityForRange(
+    range: DateRange,
+    expenses: Expense[],
+    bills: Bill[],
+    debts: Debt[],
+    savings: SavingsGoal[],
+    income: Income[],
+    debtPayments: DebtPayment[] = [],
+    billPayments: BillPayment[] = [],
+    savingsContributions: SavingsContribution[] = []
+): PeriodTotals {
+    void bills;
+    void debts;
+    void savings;
+
+    const incomeIn = income.filter((item) => isIsoInRange(item.date, range));
+    const expensesIn = expenses.filter((item) =>
+        isIsoInRange(item.date, range)
+    );
+
+    const incomeTotal = getTotalIncome(incomeIn);
+    const expensesTotal = getTotalExpenses(expensesIn);
+    const billsTotal = getTotalBillPayments(billPayments, range);
+    const debtTotal = getTotalDebtPayments(debtPayments, range);
+    const savingsTotal = savingsContributions
+        .filter((item) => isIsoInRange(item.date, range))
+        .reduce((sum, item) => sum + item.amount, 0);
+
+    return {
+        income: incomeTotal,
+        expenses: expensesTotal,
+        bills: billsTotal,
+        debtPayments: debtTotal,
+        savings: savingsTotal,
+        leftover:
+            incomeTotal -
+            expensesTotal -
+            billsTotal -
+            debtTotal -
+            savingsTotal,
+    };
+}
+
 export type CommittedTotals = {
     bills: number;
     debts: number;

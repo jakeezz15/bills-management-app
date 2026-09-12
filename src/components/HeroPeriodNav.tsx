@@ -7,14 +7,17 @@ type HeroPeriodNavProps = {
     label: string;
     onShift: (delta: -1 | 1) => void;
     onResetToToday: () => void;
+    /** Show the "Today" hint only while viewing the current period. */
+    isCurrentPeriod?: boolean;
     style?: StyleProp<ViewStyle>;
 };
 
-/** Period strip: previous / label + Today (tap = today) / next. */
+/** Period strip: previous / label (+ Today when current) / next. */
 export function HeroPeriodNav({
     label,
     onShift,
     onResetToToday,
+    isCurrentPeriod = false,
     style,
 }: HeroPeriodNavProps) {
     return (
@@ -34,15 +37,21 @@ export function HeroPeriodNav({
             <Pressable
                 onPress={onResetToToday}
                 accessibilityRole="button"
-                accessibilityLabel={`Current period ${label}. Tap to jump to today.`}
+                accessibilityLabel={
+                    isCurrentPeriod
+                        ? `Current period ${label}`
+                        : `Period ${label}. Tap to jump to today.`
+                }
                 style={dashboard.periodLabelHit}
             >
                 <Text style={dashboard.periodLabel} numberOfLines={1}>
                     {label}
                 </Text>
-                <Text style={dashboard.periodToday} numberOfLines={1}>
-                    Today
-                </Text>
+                {isCurrentPeriod ? (
+                    <Text style={dashboard.periodToday} numberOfLines={1}>
+                        Today
+                    </Text>
+                ) : null}
             </Pressable>
             <Pressable
                 onPress={() => onShift(1)}

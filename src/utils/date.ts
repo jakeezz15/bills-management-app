@@ -122,6 +122,19 @@ export function getRangeForPeriod(anchor: Date, unit: PeriodUnit): DateRange {
     }
 }
 
+/** True when `range` is the day/week/month/year that contains `today`. */
+export function isViewingCurrentPeriod(
+    range: DateRange,
+    unit: PeriodUnit,
+    today = new Date()
+): boolean {
+    const current = getRangeForPeriod(startOfDay(today), unit);
+    return (
+        toIsoDate(range.start) === toIsoDate(current.start) &&
+        toIsoDate(range.end) === toIsoDate(current.end)
+    );
+}
+
 /**
  * Month arithmetic that clamps the day instead of overflowing.
  * `setMonth` would turn Jan 31 + 1 month into Mar 3, skipping February.

@@ -3,6 +3,7 @@ import {
     dueDayFallsInRange,
     getRangeForPeriod,
     isIsoInRange,
+    isViewingCurrentPeriod,
     ordinalDay,
     paymentDateForAsOf,
     parseIsoDate,
@@ -57,6 +58,25 @@ describe("paymentDateForAsOf", () => {
         const today = new Date(2026, 8, 10);
 
         expect(toIsoDate(paymentDateForAsOf(viewed, today))).toBe("2026-08-31");
+    });
+});
+
+describe("isViewingCurrentPeriod", () => {
+    const today = new Date(2026, 8, 12);
+
+    it("is true for the month that contains today", () => {
+        const range = getRangeForPeriod(today, "month");
+        expect(isViewingCurrentPeriod(range, "month", today)).toBe(true);
+    });
+
+    it("is false for a previous month", () => {
+        const range = getRangeForPeriod(new Date(2026, 7, 1), "month");
+        expect(isViewingCurrentPeriod(range, "month", today)).toBe(false);
+    });
+
+    it("is false for a future month", () => {
+        const range = getRangeForPeriod(new Date(2026, 9, 1), "month");
+        expect(isViewingCurrentPeriod(range, "month", today)).toBe(false);
     });
 });
 
