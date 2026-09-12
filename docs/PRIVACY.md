@@ -1,6 +1,6 @@
 # Privacy Policy — On Hand
 
-**Last updated:** 9 September 2026  
+**Last updated:** 12 September 2026  
 **Developer:** Jake Durante  
 **App:** On Hand (`com.durantetechsolutions.onhand`)  
 **Store listing title:** On Hand: What's left?
@@ -32,7 +32,7 @@ If a store or OS shows a system dialog (notifications, file picker), that is the
 
 ## Notifications
 
-Optional **due-day reminders** are scheduled **locally** on your device (for example, 9:00 AM on a bill or debt due day). They are not push messages from our servers. You can turn them off in Settings.
+Optional **due-day reminders** are scheduled **locally** on your device. In Settings you choose the alert time and how many days before the due date to warn (plus a ping on the due day itself). They are not push messages from our servers. You can turn them off in Settings.
 
 ## Backups
 
@@ -62,4 +62,4 @@ If we add an account, cloud sync, or any service that receives your data, we wil
 
 ## Contact
 
-For privacy questions, use the support email listed on the app’s store page.
+For privacy questions, use the support email on the app’s store listing, or open an issue at [jakeezz15/bills-management-app](https://github.com/jakeezz15/bills-management-app/issues).

@@ -63,7 +63,7 @@ This app is a personal tracker, not a bank, tax tool, or financial advice.
 - Savings goals: target, start date, optional planned monthly (ETA only); log contributions with amount and date; undo latest contribution in the viewed month
 - Debts: balance, minimum, due day; log installment payments
 - Due status on bills and debts vs today (overdue / due soon)
-- Optional local reminders at 9:00 AM on bill and debt due days
+- Optional local due-day reminders (you pick the hour and lead days in Settings)
 - Display currency (formatting only — not FX conversion)
 - Export / import JSON backup; reset all finance data (stays empty)
 
@@ -119,8 +119,8 @@ Done in the app: seed hidden in production, version `1.0.0`.
 Still on you:
 
 1. Ship **preview/production** APK/AAB, not `--profile development`
-2. Host `docs/PRIVACY.md` at a public URL and paste that URL in Play Console
-3. Support email you actually check
+2. Privacy URL (public): `https://github.com/jakeezz15/bills-management-app/blob/main/docs/PRIVACY.md` — paste into Play Console if not already
+3. Support email you actually check (also linked from Settings → Contact support via GitHub Issues until you set a mailto)
 4. Test: empty first run → add income → log a bill payment → leftover moves → export backup → reset → import
 5. Dogfood one real payday cycle before inviting strangers
 

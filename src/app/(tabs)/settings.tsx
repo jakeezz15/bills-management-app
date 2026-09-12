@@ -6,6 +6,10 @@ import {
     SettingsRow,
     SettingsSection,
 } from "@/components/SettingsList";
+import {
+    PRIVACY_POLICY_URL,
+    SUPPORT_URL,
+} from "@/constants/support";
 import { text, theme } from "@/design";
 import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
 import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
@@ -22,8 +26,17 @@ import {
     syncDueReminders,
     type ReminderPrefs,
 } from "@/services/reminders";
-import { seedDemoData } from "@/services/seed-demo";
-import { clearAllData } from "@/services/storage";
+import { seedDemoData, seedScreenshotData } from "@/services/seed-demo";
+import {
+    clearStorageHealthIssues,
+    recordStorageHealthIssue,
+} from "@/services/storage-health";
+import {
+    clearAllData,
+    clearFirstRunFlag,
+    loadBills,
+    loadDebts,
+} from "@/services/storage";
 import { dashboard } from "@/styles/dashboard";
 import { isDevToolsBuild } from "@/utils/dev-tools";
 import { currencyLabel } from "@/utils/money";
@@ -35,6 +48,8 @@ import {
     REMINDER_LEAD_OPTIONS,
 } from "@/utils/reminder-schedule";
 import Constants from "expo-constants";
+import * as Linking from "expo-linking";
+import * as WebBrowser from "expo-web-browser";
 import { useEffect, useState } from "react";
 import { Alert, ScrollView, Text, View } from "react-native";
 import { useBills } from "../contexts/BillsContext";
@@ -49,7 +64,7 @@ export default function SettingsScreen() {
     useStatusBarStyle("dark");
     const topPadding = useScreenTopPadding();
 
-    const { currency, setCurrency, formatMoney } = useLocale();
+    const { currency, setCurrency } = useLocale();
     const { reload: reloadIncome } = useIncome();
     const { reload: reloadExpenses } = useExpenses();
     const { bills, reload: reloadBills } = useBills();
@@ -118,14 +133,42 @@ export default function SettingsScreen() {
                     onPress: async () => {
                         try {
                             setBusy(true);
-                            const imported = await importBackup();
-                            if (!imported) {
+                            const result = await importBackup();
+                            if (!result.imported) {
                                 return;
                             }
                             await reloadAll();
+
+                            if (result.prefs) {
+                                await setCurrency(result.prefs.currencyCode);
+                                setReminderPrefsState({
+                                    hour: result.prefs.dueReminderHour,
+                                    leadDays: result.prefs.dueReminderLeadDays,
+                                });
+                                setRemindersOn(
+                                    result.prefs.dueRemindersEnabled
+                                );
+
+                                const [nextBills, nextDebts] =
+                                    await Promise.all([
+                                        loadBills(),
+                                        loadDebts(),
+                                    ]);
+                                if (result.prefs.dueRemindersEnabled) {
+                                    await enableDueReminders(
+                                        nextBills,
+                                        nextDebts
+                                    );
+                                } else {
+                                    await disableDueReminders();
+                                }
+                            }
+
                             Alert.alert(
                                 "Import complete",
-                                "Your backup has been restored."
+                                result.prefs
+                                    ? "Your backup, currency, and reminder settings have been restored."
+                                    : "Your backup has been restored."
                             );
                         } catch (error) {
                             Alert.alert(
@@ -157,7 +200,7 @@ export default function SettingsScreen() {
                         await reloadAll();
                         Alert.alert(
                             "Data reset",
-                            "Everything financial on this device is empty now."
+                            "Everything financial on this device is empty now. Open Home to see the leftover tip again."
                         );
                     },
                 },
@@ -165,39 +208,64 @@ export default function SettingsScreen() {
         );
     };
 
-    const handleSeedDemo = () => {
+    const runSeed = (
+        title: string,
+        message: string,
+        actionLabel: string,
+        seed: () => Promise<{
+            income: number;
+            expenses: number;
+            bills: number;
+            debts: number;
+            savings: number;
+        }>
+    ) => {
         if (!isDevToolsBuild()) {
             return;
         }
-        Alert.alert(
+        Alert.alert(title, message, [
+            { text: "Cancel", style: "cancel" },
+            {
+                text: actionLabel,
+                onPress: async () => {
+                    try {
+                        setBusy(true);
+                        const result = await seed();
+                        await reloadAll();
+                        Alert.alert(
+                            "Demo data loaded",
+                            `${result.income} income · ${result.expenses} expenses · ${result.bills} bills · ${result.debts} debts · ${result.savings} savings goals`
+                        );
+                    } catch (error) {
+                        Alert.alert(
+                            "Seed failed",
+                            error instanceof Error
+                                ? error.message
+                                : "Something went wrong."
+                        );
+                    } finally {
+                        setBusy(false);
+                    }
+                },
+            },
+        ]);
+    };
+
+    const handleSeedDemo = () => {
+        runSeed(
             "Load demo data?",
             "Replaces all finance data with realistic entries from July through today (income, spending, bills, debts, savings). For development only.",
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Seed data",
-                    onPress: async () => {
-                        try {
-                            setBusy(true);
-                            const result = await seedDemoData();
-                            await reloadAll();
-                            Alert.alert(
-                                "Demo data loaded",
-                                `${result.income} income · ${result.expenses} expenses · ${result.bills} bills · ${result.debts} debts · ${result.savings} savings goals`
-                            );
-                        } catch (error) {
-                            Alert.alert(
-                                "Seed failed",
-                                error instanceof Error
-                                    ? error.message
-                                    : "Something went wrong."
-                            );
-                        } finally {
-                            setBusy(false);
-                        }
-                    },
-                },
-            ]
+            "Seed data",
+            () => seedDemoData()
+        );
+    };
+
+    const handleSeedScreenshots = () => {
+        runSeed(
+            "Load screenshot demo?",
+            "Replaces all finance data with a curated set for store screenshots: clean leftover, paid + unpaid bills, savings progress, and readable ledger rows.",
+            "Seed screenshots",
+            () => seedScreenshotData()
         );
     };
 
@@ -215,7 +283,18 @@ export default function SettingsScreen() {
                     setRemindersOn(false);
                     Alert.alert(
                         "Reminders off",
-                        result.reason ?? "Could not enable reminders."
+                        result.reason ?? "Could not enable reminders.",
+                        result.reason?.includes("system Settings")
+                            ? [
+                                  { text: "Not now", style: "cancel" },
+                                  {
+                                      text: "Open Settings",
+                                      onPress: () => {
+                                          void Linking.openSettings();
+                                      },
+                                  },
+                              ]
+                            : undefined
                     );
                     return;
                 }
@@ -341,6 +420,12 @@ export default function SettingsScreen() {
                                         reminderPrefs.hour
                                     )}
                                     onSelect={handleHourChange}
+                                    title="Time"
+                                    disabled={
+                                        !remindersOn ||
+                                        reminderBusy ||
+                                        busy
+                                    }
                                 />
                             </SettingsInset>
                             <SettingsDivider />
@@ -351,6 +436,12 @@ export default function SettingsScreen() {
                                         reminderPrefs.leadDays
                                     )}
                                     onSelect={handleLeadChange}
+                                    title="Lead"
+                                    disabled={
+                                        !remindersOn ||
+                                        reminderBusy ||
+                                        busy
+                                    }
                                 />
                             </SettingsInset>
                         </>
@@ -361,7 +452,7 @@ export default function SettingsScreen() {
                     <SettingsRow
                         icon="download-outline"
                         title="Export backup"
-                        subtitle="Save a JSON file of your data"
+                        subtitle="JSON with date in the filename"
                         disabled={busy}
                         showChevron
                         onPress={() => {
@@ -394,7 +485,7 @@ export default function SettingsScreen() {
                         <SettingsRow
                             icon="flash-outline"
                             title="Send test reminder"
-                            subtitle="Banner in a few seconds — tap it to open Home"
+                            subtitle="Banner in a few seconds — tap to open that bill or debt"
                             disabled={
                                 reminderBusy ||
                                 busy ||
@@ -414,6 +505,51 @@ export default function SettingsScreen() {
                             showChevron
                             onPress={handleSeedDemo}
                         />
+                        <SettingsDivider />
+                        <SettingsRow
+                            icon="camera-outline"
+                            title="Seed screenshot demo"
+                            subtitle="Curated for store photos — clean leftover and readable lists"
+                            disabled={busy}
+                            showChevron
+                            onPress={handleSeedScreenshots}
+                        />
+                        <SettingsDivider />
+                        <SettingsRow
+                            icon="bulb-outline"
+                            title="Replay first-run tip"
+                            subtitle="Shows the leftover coach on Home again"
+                            disabled={busy}
+                            showChevron
+                            onPress={() => {
+                                void (async () => {
+                                    await clearFirstRunFlag();
+                                    Alert.alert(
+                                        "Tip ready",
+                                        "Switch to the Home tab to see “How leftover works.”"
+                                    );
+                                })();
+                            }}
+                        />
+                        <SettingsDivider />
+                        <SettingsRow
+                            icon="warning-outline"
+                            title="Simulate storage warning"
+                            subtitle="Shows the recovery banner (dismiss to clear)"
+                            disabled={busy}
+                            showChevron
+                            onPress={() => {
+                                clearStorageHealthIssues();
+                                recordStorageHealthIssue(
+                                    "demo",
+                                    "Saved demo data was unreadable and was skipped."
+                                );
+                                Alert.alert(
+                                    "Banner shown",
+                                    "Look at the top of the app for the storage warning."
+                                );
+                            }}
+                        />
                     </SettingsSection>
                 ) : null}
 
@@ -429,6 +565,28 @@ export default function SettingsScreen() {
                         icon="phone-portrait-outline"
                         title="Storage"
                         subtitle="Your data stays on this device. Nothing is uploaded."
+                    />
+                    <SettingsDivider />
+                    <SettingsRow
+                        icon="document-text-outline"
+                        title="Privacy policy"
+                        subtitle="What’s stored on this device"
+                        showChevron
+                        onPress={() => {
+                            void WebBrowser.openBrowserAsync(
+                                PRIVACY_POLICY_URL
+                            );
+                        }}
+                    />
+                    <SettingsDivider />
+                    <SettingsRow
+                        icon="mail-outline"
+                        title="Contact support"
+                        subtitle="Questions, bugs, or privacy requests"
+                        showChevron
+                        onPress={() => {
+                            void Linking.openURL(SUPPORT_URL);
+                        }}
                     />
                 </SettingsSection>
 
