@@ -1,14 +1,19 @@
-import { Bill } from "@/types/bill";
-import { BillPayment } from "@/types/bill-payment";
-import { Debt } from "@/types/debt";
-import { DebtPayment } from "@/types/debt-payment";
-import { Expense } from "@/types/expense";
-import { Income } from "@/types/income";
-import { SavingsGoal } from "@/types/savings";
-import { SavingsContribution } from "@/types/savings-contribution";
+import { toIsoDate } from "@/utils/date";
+import {
+    AppBackup,
+    BackupPrefs,
+    parseAppBackup,
+} from "@/utils/backup-parse";
+import { getStoredCurrency, setStoredCurrency } from "@/utils/money";
 import * as DocumentPicker from "expo-document-picker";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
+import {
+    areDueRemindersEnabled,
+    getReminderPrefs,
+    setDueRemindersEnabled,
+    setReminderPrefs,
+} from "./reminders";
 import {
     loadBillPayments,
     loadBills,
@@ -28,18 +33,21 @@ import {
     saveSavingsContributions,
 } from "./storage";
 
-type AppBackup = {
-    version: 1;
-    exportedAt: string;
-    income: Income[];
-    expenses: Expense[];
-    bills: Bill[];
-    debts: Debt[];
-    savings: SavingsGoal[];
-    debtPayments?: DebtPayment[];
-    billPayments?: BillPayment[];
-    savingsContributions?: SavingsContribution[];
-};
+export type { AppBackup, BackupPrefs, ParseAppBackupResult } from "@/utils/backup-parse";
+export { normalizeBackupPrefs, parseAppBackup } from "@/utils/backup-parse";
+
+export type ImportBackupResult =
+    | { imported: false }
+    | { imported: true; prefs: BackupPrefs | null };
+
+/** Unique share filename so repeated exports do not overwrite each other. */
+export function backupFileName(now = new Date()): string {
+    const day = toIsoDate(now);
+    const hh = String(now.getHours()).padStart(2, "0");
+    const mm = String(now.getMinutes()).padStart(2, "0");
+    const ss = String(now.getSeconds()).padStart(2, "0");
+    return `on-hand-backup-${day}-${hh}${mm}${ss}.json`;
+}
 
 export async function exportBackup(): Promise<void> {
     const [
@@ -51,6 +59,9 @@ export async function exportBackup(): Promise<void> {
         debtPayments,
         billPayments,
         savingsContributions,
+        currencyCode,
+        dueRemindersEnabled,
+        reminderPrefs,
     ] = await Promise.all([
         loadBills(),
         loadDebts(),
@@ -60,6 +71,9 @@ export async function exportBackup(): Promise<void> {
         loadDebtPayments(),
         loadBillPayments(),
         loadSavingsContributions(),
+        getStoredCurrency(),
+        areDueRemindersEnabled(),
+        getReminderPrefs(),
     ]);
 
     const backup: AppBackup = {
@@ -73,10 +87,17 @@ export async function exportBackup(): Promise<void> {
         debtPayments,
         billPayments,
         savingsContributions,
+        prefs: {
+            currencyCode,
+            dueRemindersEnabled,
+            dueReminderHour: reminderPrefs.hour,
+            dueReminderLeadDays: reminderPrefs.leadDays,
+        },
     };
 
     const text = JSON.stringify(backup, null, 2);
-    const file = new File(Paths.cache, "finance-backup.json");
+    const fileName = backupFileName();
+    const file = new File(Paths.cache, fileName);
 
     if (file.exists) {
         file.delete();
@@ -96,19 +117,17 @@ export async function exportBackup(): Promise<void> {
     });
 }
 
-export async function importBackup(): Promise<boolean> {
+export async function importBackup(): Promise<ImportBackupResult> {
     const result = await DocumentPicker.getDocumentAsync({
-        type: "application/json",
+        type: ["application/json", "text/plain", "*/*"],
         copyToCacheDirectory: true,
     });
 
     if (result.canceled || !result.assets[0]) {
-        return false;
+        return { imported: false };
     }
 
-    const uri = result.assets[0].uri;
-    const file = new File(uri);
-    const text = await file.text();
+    const text = await readPickedBackupText(result.assets[0].uri);
 
     let parsed: unknown;
     try {
@@ -117,11 +136,12 @@ export async function importBackup(): Promise<boolean> {
         throw new Error("Backup file is not valid JSON");
     }
 
-    if (!isAppBackup(parsed)) {
-        throw new Error("Backup file is missing required fields!");
+    const checked = parseAppBackup(parsed);
+    if (!checked.ok) {
+        throw new Error(checked.error);
     }
 
-    const backup = parsed;
+    const { backup, prefs } = checked;
 
     await Promise.all([
         saveIncome(backup.income),
@@ -129,26 +149,47 @@ export async function importBackup(): Promise<boolean> {
         saveBills(backup.bills),
         saveDebts(backup.debts),
         saveSavings(backup.savings),
-        saveDebtPayments(backup.debtPayments ?? []),
-        saveBillPayments(backup.billPayments ?? []),
-        saveSavingsContributions(backup.savingsContributions ?? []),
+        saveDebtPayments(backup.debtPayments),
+        saveBillPayments(backup.billPayments),
+        saveSavingsContributions(backup.savingsContributions),
     ]);
 
-    return true;
+    if (prefs) {
+        await Promise.all([
+            setStoredCurrency(prefs.currencyCode),
+            setReminderPrefs({
+                hour: prefs.dueReminderHour,
+                leadDays: prefs.dueReminderLeadDays,
+            }),
+            setDueRemindersEnabled(prefs.dueRemindersEnabled),
+        ]);
+    }
+
+    return { imported: true, prefs };
 }
 
-function isAppBackup(value: unknown): value is AppBackup {
-    if (typeof value !== "object" || value === null) return false;
+/**
+ * DocumentPicker URIs (especially on Expo Go / Android) often fail with
+ * `new File(uri).text()` → "Missing READ permission". Prefer fetch, then the
+ * legacy FileSystem reader which still handles those cache paths.
+ */
+async function readPickedBackupText(uri: string): Promise<string> {
+    try {
+        const response = await fetch(uri);
+        const body = await response.text();
+        if (response.ok || body.length > 0) {
+            return body;
+        }
+    } catch {
+        // Fall through to legacy reader.
+    }
 
-    const v = value as Record<string, unknown>;
-
-    return (
-        v.version === 1 &&
-        typeof v.exportedAt === "string" &&
-        Array.isArray(v.income) &&
-        Array.isArray(v.expenses) &&
-        Array.isArray(v.bills) &&
-        Array.isArray(v.debts) &&
-        Array.isArray(v.savings)
-    );
+    try {
+        const FileSystem = await import("expo-file-system/legacy");
+        return await FileSystem.readAsStringAsync(uri);
+    } catch {
+        throw new Error(
+            "Could not read the backup file. Try again, or use a development/production build if Expo Go keeps blocking access."
+        );
+    }
 }

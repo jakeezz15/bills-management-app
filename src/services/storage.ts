@@ -6,7 +6,29 @@ import { Expense } from "@/types/expense";
 import { Income } from "@/types/income";
 import { SavingsGoal } from "@/types/savings";
 import { SavingsContribution } from "@/types/savings-contribution";
-import { debtStartDate, ensureTimestamps, savingsStartDate, stampCreate } from "@/utils/timestamps";
+import {
+    clearStorageHealthIssues,
+    noteStorageSaveFailure,
+    noteStoredArrayLoad,
+} from "@/services/storage-health";
+import {
+    parseBill,
+    parseBillPayment,
+    parseDebt,
+    parseDebtPayment,
+    parseExpense,
+    parseIncome,
+    parseSavingsContribution,
+    parseSavingsGoal,
+    parseStoredArray,
+    parseStoredArrayDetailed,
+} from "@/utils/data-validators";
+import {
+    debtStartDate,
+    ensureTimestamps,
+    savingsStartDate,
+    stampCreate,
+} from "@/utils/timestamps";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const BILLS_KEY = "bills";
@@ -20,6 +42,29 @@ const INCOME_KEY = "income";
 
 const FIRST_RUN_KEY = "hasCompletedFirstRun";
 
+async function writeJson(collection: string, key: string, value: unknown) {
+    try {
+        await AsyncStorage.setItem(key, JSON.stringify(value));
+    } catch {
+        noteStorageSaveFailure(collection);
+        throw new Error(`Could not save ${collection}`);
+    }
+}
+
+function readCollection<T>(
+    collection: string,
+    raw: string | null,
+    parseItem: (value: unknown) => T | null
+): T[] {
+    const report = parseStoredArrayDetailed(raw, parseItem);
+    noteStoredArrayLoad(collection, {
+        rawCorrupt: report.rawCorrupt,
+        droppedCount: report.droppedCount,
+        kept: report.items.length,
+    });
+    return report.items;
+}
+
 export async function hasCompletedFirstRun(): Promise<boolean> {
     const value = await AsyncStorage.getItem(FIRST_RUN_KEY);
     return value === "true";
@@ -27,6 +72,11 @@ export async function hasCompletedFirstRun(): Promise<boolean> {
 
 export async function markFirstRunComplete(): Promise<void> {
     await AsyncStorage.setItem(FIRST_RUN_KEY, "true");
+}
+
+/** Lets Reset / Dev replay the Home leftover coach. */
+export async function clearFirstRunFlag(): Promise<void> {
+    await AsyncStorage.removeItem(FIRST_RUN_KEY);
 }
 
 export async function seedEmptyData(): Promise<void> {
@@ -57,23 +107,24 @@ async function migrateLegacyExpensesIfNeeded(): Promise<void> {
         return;
     }
 
-    try {
-        const parsed = JSON.parse(expensesRaw) as unknown;
-        if (!Array.isArray(parsed) || parsed.length === 0) {
-            return;
+    const parsed = parseStoredArray(expensesRaw, (value) => {
+        if (typeof value !== "object" || value === null) {
+            return null;
         }
+        return value as Record<string, unknown>;
+    });
+    if (parsed.length === 0) {
+        return;
+    }
 
-        const first = parsed[0] as Record<string, unknown>;
-        const looksLikeBill =
-            typeof first.dueDay === "number" ||
-            typeof first.isRecurring === "boolean";
+    const first = parsed[0];
+    const looksLikeBill =
+        typeof first.dueDay === "number" ||
+        typeof first.isRecurring === "boolean";
 
-        if (looksLikeBill) {
-            await AsyncStorage.setItem(BILLS_KEY, expensesRaw);
-            await AsyncStorage.setItem(EXPENSES_KEY, JSON.stringify([]));
-        }
-    } catch {
-        // Leave storage alone if parse fails; loaders will re-seed.
+    if (looksLikeBill) {
+        await AsyncStorage.setItem(BILLS_KEY, expensesRaw);
+        await AsyncStorage.setItem(EXPENSES_KEY, JSON.stringify([]));
     }
 }
 
@@ -85,12 +136,11 @@ export async function loadBills(): Promise<Bill[]> {
     const raw = await AsyncStorage.getItem(BILLS_KEY);
 
     if (raw === null) {
-        await AsyncStorage.setItem(BILLS_KEY, JSON.stringify([]));
+        await writeJson("bills", BILLS_KEY, []);
         return [];
     }
 
-    const parsed = JSON.parse(raw) as Bill[];
-    return parsed.map((bill) => {
+    return readCollection("bills", raw, parseBill).map((bill) => {
         const withTs = ensureTimestamps(bill);
         return {
             ...withTs,
@@ -101,7 +151,7 @@ export async function loadBills(): Promise<Bill[]> {
 }
 
 export async function saveBills(bills: Bill[]): Promise<void> {
-    await AsyncStorage.setItem(BILLS_KEY, JSON.stringify(bills));
+    await writeJson("bills", BILLS_KEY, bills);
 }
 
 // Everyday expenses
@@ -112,16 +162,17 @@ export async function loadExpenses(): Promise<Expense[]> {
     const raw = await AsyncStorage.getItem(EXPENSES_KEY);
 
     if (raw === null) {
-        await AsyncStorage.setItem(EXPENSES_KEY, JSON.stringify([]));
+        await writeJson("expenses", EXPENSES_KEY, []);
         return [];
     }
 
-    const parsed = JSON.parse(raw) as Expense[];
-    return parsed.map((expense) => ensureTimestamps(expense, expense.date));
+    return readCollection("expenses", raw, parseExpense).map((expense) =>
+        ensureTimestamps(expense, expense.date)
+    );
 }
 
 export async function saveExpenses(expenses: Expense[]): Promise<void> {
-    await AsyncStorage.setItem(EXPENSES_KEY, JSON.stringify(expenses));
+    await writeJson("expenses", EXPENSES_KEY, expenses);
 }
 
 // Income
@@ -130,16 +181,17 @@ export async function loadIncome(): Promise<Income[]> {
     const raw = await AsyncStorage.getItem(INCOME_KEY);
 
     if (raw === null) {
-        await AsyncStorage.setItem(INCOME_KEY, JSON.stringify([]));
+        await writeJson("income", INCOME_KEY, []);
         return [];
     }
 
-    const parsed = JSON.parse(raw) as Income[];
-    return parsed.map((entry) => ensureTimestamps(entry, entry.date));
+    return readCollection("income", raw, parseIncome).map((entry) =>
+        ensureTimestamps(entry, entry.date)
+    );
 }
 
 export async function saveIncome(income: Income[]): Promise<void> {
-    await AsyncStorage.setItem(INCOME_KEY, JSON.stringify(income));
+    await writeJson("income", INCOME_KEY, income);
 }
 
 // Debts
@@ -148,12 +200,11 @@ export async function loadDebts(): Promise<Debt[]> {
     const raw = await AsyncStorage.getItem(DEBTS_KEY);
 
     if (raw === null) {
-        await AsyncStorage.setItem(DEBTS_KEY, JSON.stringify([]));
+        await writeJson("debts", DEBTS_KEY, []);
         return [];
     }
 
-    const parsed = JSON.parse(raw) as Debt[];
-    return parsed.map((debt) => {
+    return readCollection("debts", raw, parseDebt).map((debt) => {
         const withTs = ensureTimestamps(debt);
         return {
             ...withTs,
@@ -163,7 +214,7 @@ export async function loadDebts(): Promise<Debt[]> {
 }
 
 export async function saveDebts(debts: Debt[]): Promise<void> {
-    await AsyncStorage.setItem(DEBTS_KEY, JSON.stringify(debts));
+    await writeJson("debts", DEBTS_KEY, debts);
 }
 
 // Debt payments
@@ -172,9 +223,8 @@ export async function loadDebtPayments(): Promise<DebtPayment[]> {
     const raw = await AsyncStorage.getItem(DEBT_PAYMENTS_KEY);
 
     if (raw !== null) {
-        const parsed = JSON.parse(raw) as DebtPayment[];
-        return parsed.map((payment) =>
-            ensureTimestamps(payment, payment.date)
+        return readCollection("debt payments", raw, parseDebtPayment).map(
+            (payment) => ensureTimestamps(payment, payment.date)
         );
     }
 
@@ -204,7 +254,7 @@ export async function loadDebtPayments(): Promise<DebtPayment[]> {
 export async function saveDebtPayments(
     payments: DebtPayment[]
 ): Promise<void> {
-    await AsyncStorage.setItem(DEBT_PAYMENTS_KEY, JSON.stringify(payments));
+    await writeJson("debt payments", DEBT_PAYMENTS_KEY, payments);
 }
 
 // Bill payments
@@ -213,9 +263,8 @@ export async function loadBillPayments(): Promise<BillPayment[]> {
     const raw = await AsyncStorage.getItem(BILL_PAYMENTS_KEY);
 
     if (raw !== null) {
-        const parsed = JSON.parse(raw) as BillPayment[];
-        return parsed.map((payment) =>
-            ensureTimestamps(payment, payment.date)
+        return readCollection("bill payments", raw, parseBillPayment).map(
+            (payment) => ensureTimestamps(payment, payment.date)
         );
     }
 
@@ -243,7 +292,7 @@ export async function loadBillPayments(): Promise<BillPayment[]> {
 export async function saveBillPayments(
     payments: BillPayment[]
 ): Promise<void> {
-    await AsyncStorage.setItem(BILL_PAYMENTS_KEY, JSON.stringify(payments));
+    await writeJson("bill payments", BILL_PAYMENTS_KEY, payments);
 }
 
 // Savings
@@ -252,12 +301,11 @@ export async function loadSavings(): Promise<SavingsGoal[]> {
     const raw = await AsyncStorage.getItem(SAVINGS_KEY);
 
     if (raw === null) {
-        await AsyncStorage.setItem(SAVINGS_KEY, JSON.stringify([]));
+        await writeJson("savings", SAVINGS_KEY, []);
         return [];
     }
 
-    const parsed = JSON.parse(raw) as SavingsGoal[];
-    return parsed.map((item) => {
+    return readCollection("savings", raw, parseSavingsGoal).map((item) => {
         const withTs = ensureTimestamps(item);
         return {
             ...withTs,
@@ -267,7 +315,7 @@ export async function loadSavings(): Promise<SavingsGoal[]> {
 }
 
 export async function saveSavings(savings: SavingsGoal[]): Promise<void> {
-    await AsyncStorage.setItem(SAVINGS_KEY, JSON.stringify(savings));
+    await writeJson("savings", SAVINGS_KEY, savings);
 }
 
 // Savings contributions
@@ -278,8 +326,11 @@ export async function loadSavingsContributions(): Promise<
     const raw = await AsyncStorage.getItem(SAVINGS_CONTRIBUTIONS_KEY);
 
     if (raw !== null) {
-        const parsed = JSON.parse(raw) as SavingsContribution[];
-        return parsed.map((item) => ensureTimestamps(item, item.date));
+        return readCollection(
+            "savings contributions",
+            raw,
+            parseSavingsContribution
+        ).map((item) => ensureTimestamps(item, item.date));
     }
 
     // Empty ledger until the user logs contributions (no auto monthly deduction).
@@ -290,13 +341,16 @@ export async function loadSavingsContributions(): Promise<
 export async function saveSavingsContributions(
     contributions: SavingsContribution[]
 ): Promise<void> {
-    await AsyncStorage.setItem(
+    await writeJson(
+        "savings contributions",
         SAVINGS_CONTRIBUTIONS_KEY,
-        JSON.stringify(contributions)
+        contributions
     );
 }
 
 /** Wipe finance data and leave empty arrays so loaders do not re-seed samples. */
 export async function clearAllData(): Promise<void> {
     await seedEmptyData();
+    await clearFirstRunFlag();
+    clearStorageHealthIssues();
 }

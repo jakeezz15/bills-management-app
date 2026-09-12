@@ -10,6 +10,8 @@ import { LocaleProvider } from "@/app/contexts/LocaleContext";
 import { SavingsProvider } from "@/app/contexts/SavingsContext";
 import { NotificationTapHandler } from "@/components/NotificationTapHandler";
 import { ReminderSync } from "@/components/ReminderSync";
+import { StorageHealthBanner } from "@/components/StorageHealthBanner";
+import { View } from "react-native";
 
 export default function RootLayout() {
     return (
@@ -26,48 +28,51 @@ export default function RootLayout() {
                                         <ExpensesProvider>
                                             <ReminderSync />
                                             <NotificationTapHandler />
-                                            <Stack
-                                                screenOptions={{
-                                                    headerShown: false,
-                                                }}
-                                            >
-                                                <Stack.Screen name="(tabs)" />
-                                                <Stack.Screen
-                                                    name="debt/[id]"
-                                                    options={{
-                                                        animation:
-                                                            "slide_from_right",
+                                            <View style={{ flex: 1 }}>
+                                                <StorageHealthBanner />
+                                                <Stack
+                                                    screenOptions={{
+                                                        headerShown: false,
                                                     }}
-                                                />
-                                                <Stack.Screen
-                                                    name="bill/[id]"
-                                                    options={{
-                                                        animation:
-                                                            "slide_from_right",
-                                                    }}
-                                                />
-                                                <Stack.Screen
-                                                    name="expense/[id]"
-                                                    options={{
-                                                        animation:
-                                                            "slide_from_right",
-                                                    }}
-                                                />
-                                                <Stack.Screen
-                                                    name="paycheck/[id]"
-                                                    options={{
-                                                        animation:
-                                                            "slide_from_right",
-                                                    }}
-                                                />
-                                                <Stack.Screen
-                                                    name="goal/[id]"
-                                                    options={{
-                                                        animation:
-                                                            "slide_from_right",
-                                                    }}
-                                                />
-                                            </Stack>
+                                                >
+                                                    <Stack.Screen name="(tabs)" />
+                                                    <Stack.Screen
+                                                        name="debt/[id]"
+                                                        options={{
+                                                            animation:
+                                                                "slide_from_right",
+                                                        }}
+                                                    />
+                                                    <Stack.Screen
+                                                        name="bill/[id]"
+                                                        options={{
+                                                            animation:
+                                                                "slide_from_right",
+                                                        }}
+                                                    />
+                                                    <Stack.Screen
+                                                        name="expense/[id]"
+                                                        options={{
+                                                            animation:
+                                                                "slide_from_right",
+                                                        }}
+                                                    />
+                                                    <Stack.Screen
+                                                        name="paycheck/[id]"
+                                                        options={{
+                                                            animation:
+                                                                "slide_from_right",
+                                                        }}
+                                                    />
+                                                    <Stack.Screen
+                                                        name="goal/[id]"
+                                                        options={{
+                                                            animation:
+                                                                "slide_from_right",
+                                                        }}
+                                                    />
+                                                </Stack>
+                                            </View>
                                         </ExpensesProvider>
                                     </BillsProvider>
                                 </DebtsProvider>

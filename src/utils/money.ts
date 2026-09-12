@@ -173,7 +173,11 @@ export type CurrencyOption = {
 };
 
 export type FormatMoneyOptions = {
-    /** Whole units only (dashboard heroes / chips). Default false → 2 fraction digits when the currency uses them. */
+    /**
+     * Tight display for heroes / chips. Whole amounts stay without cents;
+     * amounts with a fractional part still show 2 decimal places (except
+     * zero-decimal currencies like JPY).
+     */
     compact?: boolean;
     /** Prefix like + or − before the formatted amount. */
     sign?: "+" | "−" | "";
@@ -300,7 +304,7 @@ export function formatMoney(
 ): string {
     const { compact = false, sign = "" } = options;
     const code = isCurrencyCode(currency) ? currency : "USD";
-    const fraction = compact || ZERO_DECIMAL.has(code) ? 0 : 2;
+    const fraction = moneyFractionDigits(amount, code, compact);
 
     let formatted: string;
     try {
@@ -315,6 +319,24 @@ export function formatMoney(
     }
 
     return sign ? `${sign}${formatted}` : formatted;
+}
+
+/** How many fraction digits to show for this amount + currency. */
+export function moneyFractionDigits(
+    amount: number,
+    currency: string,
+    compact = false
+): number {
+    const code = isCurrencyCode(currency) ? currency : "USD";
+    if (ZERO_DECIMAL.has(code)) {
+        return 0;
+    }
+    if (!compact) {
+        return 2;
+    }
+    // Compact heroes: keep $120 tidy, but show $12.50 when cents exist.
+    const cents = Math.round(Math.abs(amount) * 100);
+    return cents % 100 === 0 ? 0 : 2;
 }
 
 export function currencySymbol(currency: string): string {
@@ -337,6 +359,11 @@ export async function getStoredCurrency(): Promise<CurrencyCode> {
         return stored;
     }
     return detectDeviceCurrency();
+}
+
+/** Persist display currency for non-React code (e.g. backup import). */
+export async function setStoredCurrency(code: CurrencyCode): Promise<void> {
+    await AsyncStorage.setItem(CURRENCY_STORAGE_KEY, code);
 }
 
 /** @deprecated Prefer getCurrencyOptions() — kept for older imports. */

@@ -33,10 +33,18 @@ export function AnimatedMoneyText({
     const progress = useSharedValue(amount);
     const bump = useSharedValue(1);
     const formatRef = useRef(format);
-    formatRef.current = format;
     const skipBump = useRef(true);
-
+    const [formatFn, setFormatFn] = useState(() => format);
     const [label, setLabel] = useState(() => format(amount));
+
+    if (format !== formatFn) {
+        setFormatFn(() => format);
+        setLabel(format(amount));
+    }
+
+    useEffect(() => {
+        formatRef.current = formatFn;
+    }, [formatFn]);
 
     const applyLabel = useCallback((next: number) => {
         setLabel(formatRef.current(next));
