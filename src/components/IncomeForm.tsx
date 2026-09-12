@@ -5,6 +5,12 @@ import { DateField } from "@/components/DateField";
 import { FormDialog } from "@/components/FormDialog";
 import { form, formColors } from "@/styles/form";
 import { Income } from "@/types/income";
+import {
+    moneyFieldError,
+    optionalMoneyFieldError,
+    parseMoneyInput,
+    parseOptionalMoneyInput,
+} from "@/utils/amount-input";
 import { parseIsoDate, todayIsoDate } from "@/utils/date";
 import { currencySymbol } from "@/utils/money";
 import {
@@ -44,21 +50,28 @@ function IncomeEditor({ visible, onClose, entry }: IncomeFormProps) {
     const [showErrors, setShowErrors] = useState(false);
 
     const sourceHasError = showErrors && source.trim() === "";
-    const netHasError = showErrors && net.trim() === "";
+    const netError = showErrors ? moneyFieldError(net) : null;
+    const grossError = showErrors ? optionalMoneyFieldError(gross) : null;
     const dateHasError = showErrors && parseIsoDate(date) === null;
 
     const handleSubmit = async () => {
-        if (!source || !net || parseIsoDate(date) === null) {
+        const netNumber = parseMoneyInput(net);
+        const grossParsed = parseOptionalMoneyInput(gross);
+
+        if (
+            !source.trim() ||
+            netNumber === null ||
+            grossParsed === null ||
+            parseIsoDate(date) === null
+        ) {
             setShowErrors(true);
             return;
         }
 
-        const netNumber = Number(net);
-        const grossNumber = gross.trim() === "" ? netNumber : Number(gross);
         const payload = {
             source: source.trim(),
             net: netNumber,
-            gross: grossNumber,
+            gross: grossParsed ?? netNumber,
             date: date.trim(),
             payCadence: payCadenceFromChip(cadenceChip),
         };
@@ -102,8 +115,7 @@ function IncomeEditor({ visible, onClose, entry }: IncomeFormProps) {
                 <TextInput
                     style={[
                         form.input,
-                        focusedInput === "source" &&
-                            form.inputFocused,
+                        focusedInput === "source" && form.inputFocused,
                         sourceHasError && form.inputError,
                     ]}
                     placeholder="Salary, freelance…"
@@ -134,6 +146,7 @@ function IncomeEditor({ visible, onClose, entry }: IncomeFormProps) {
                     options={PAY_CADENCE_CHIPS}
                     selected={cadenceChip}
                     onSelect={setCadenceChip}
+                    title="Pay cycle"
                 />
                 <Text style={form.helper}>
                     {cadenceChip === "Once"
@@ -148,7 +161,7 @@ function IncomeEditor({ visible, onClose, entry }: IncomeFormProps) {
                     style={[
                         form.amountWrap,
                         focusedInput === "net" && form.inputFocused,
-                        netHasError && form.inputError,
+                        netError && form.inputError,
                     ]}
                 >
                     <Text style={form.amountPrefix}>{symbol}</Text>
@@ -163,11 +176,7 @@ function IncomeEditor({ visible, onClose, entry }: IncomeFormProps) {
                         onBlur={() => setFocusedInput(null)}
                     />
                 </View>
-                {netHasError && (
-                    <Text style={form.error}>
-                        Net amount is required.
-                    </Text>
-                )}
+                {netError ? <Text style={form.error}>{netError}</Text> : null}
             </View>
 
             <View style={form.field}>
@@ -175,8 +184,8 @@ function IncomeEditor({ visible, onClose, entry }: IncomeFormProps) {
                 <View
                     style={[
                         form.amountWrap,
-                        focusedInput === "gross" &&
-                            form.inputFocused,
+                        focusedInput === "gross" && form.inputFocused,
+                        grossError && form.inputError,
                     ]}
                 >
                     <Text style={form.amountPrefix}>{symbol}</Text>
@@ -191,6 +200,9 @@ function IncomeEditor({ visible, onClose, entry }: IncomeFormProps) {
                         onBlur={() => setFocusedInput(null)}
                     />
                 </View>
+                {grossError ? (
+                    <Text style={form.error}>{grossError}</Text>
+                ) : null}
             </View>
         </FormDialog>
     );

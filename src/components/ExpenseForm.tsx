@@ -6,6 +6,7 @@ import { FormDialog } from "@/components/FormDialog";
 import { EXPENSE_CATEGORIES } from "@/constants/categories";
 import { form, formColors } from "@/styles/form";
 import { Expense } from "@/types/expense";
+import { moneyFieldError, parseMoneyInput } from "@/utils/amount-input";
 import { parseIsoDate, todayIsoDate } from "@/utils/date";
 import { currencySymbol } from "@/utils/money";
 import { useFormSession } from "@/hooks/useFormSession";
@@ -40,18 +41,19 @@ function ExpenseEditor({ visible, onClose, expense }: ExpenseFormProps) {
     const [showErrors, setShowErrors] = useState(false);
 
     const nameHasError = showErrors && name.trim() === "";
-    const amountHasError = showErrors && amount.trim() === "";
+    const amountError = showErrors ? moneyFieldError(amount) : null;
     const dateHasError = showErrors && parseIsoDate(date) === null;
 
     const handleSubmit = async () => {
-        if (!name || !amount || parseIsoDate(date) === null) {
+        const amountNumber = parseMoneyInput(amount);
+        if (!name.trim() || amountNumber === null || parseIsoDate(date) === null) {
             setShowErrors(true);
             return;
         }
 
         const payload = {
             name,
-            amount: Number(amount),
+            amount: amountNumber,
             date: date.trim(),
             category: category ?? undefined,
         };
@@ -118,7 +120,7 @@ function ExpenseEditor({ visible, onClose, expense }: ExpenseFormProps) {
                     style={[
                         form.amountWrap,
                         focusedInput === "amount" && form.inputFocused,
-                        amountHasError && form.inputError,
+                        amountError && form.inputError,
                     ]}
                 >
                     <Text style={form.amountPrefix}>{symbol}</Text>
@@ -133,9 +135,9 @@ function ExpenseEditor({ visible, onClose, expense }: ExpenseFormProps) {
                         onBlur={() => setFocusedInput(null)}
                     />
                 </View>
-                {amountHasError && (
-                    <Text style={form.error}>Amount is required.</Text>
-                )}
+                {amountError ? (
+                    <Text style={form.error}>{amountError}</Text>
+                ) : null}
             </View>
 
             <View style={form.field}>

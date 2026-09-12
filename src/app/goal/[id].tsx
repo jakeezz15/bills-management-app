@@ -17,6 +17,7 @@ import { dashboard } from "@/styles/dashboard";
 import { form, formColors } from "@/styles/form";
 import { text, theme } from "@/design";
 import { confirmDestructive } from "@/utils/confirm";
+import { parseMoneyInput } from "@/utils/amount-input";
 import {
     formatDisplayDate,
     isSameCalendarMonth,
@@ -58,6 +59,7 @@ export default function SavingsGoalScreen() {
     const [logDate, setLogDate] = useState(todayIsoDate());
     const [logError, setLogError] = useState(false);
     const [focused, setFocused] = useState(false);
+    const [logSeedKey, setLogSeedKey] = useState("");
 
     const goal = savings.find((item) => item.id === id);
     const today = useMemo(() => new Date(), []);
@@ -91,18 +93,19 @@ export default function SavingsGoalScreen() {
         goBackOrReplace("/(tabs)/plans");
     }, [loading, goal, id]);
 
-    useEffect(() => {
-        if (!goal) {
-            return;
-        }
+    const nextLogSeedKey = goal
+        ? `${goal.id}:${latestThisMonth?.id ?? "none"}:${latestThisMonth?.amount ?? ""}:${goal.monthlyContribution ?? ""}`
+        : "";
+    if (goal && nextLogSeedKey !== logSeedKey) {
+        setLogSeedKey(nextLogSeedKey);
         if (latestThisMonth) {
             setLogAmount(String(latestThisMonth.amount));
-            return;
-        }
-        if (goal.monthlyContribution && goal.monthlyContribution > 0) {
+        } else if (goal.monthlyContribution && goal.monthlyContribution > 0) {
             setLogAmount(String(goal.monthlyContribution));
+        } else {
+            setLogAmount("");
         }
-    }, [goal, latestThisMonth]);
+    }
 
     if (loading && !goal) {
         return (
@@ -139,8 +142,8 @@ export default function SavingsGoalScreen() {
         if (busy) {
             return;
         }
-        const amount = Number(logAmount);
-        if (!(amount > 0) || parseIsoDate(logDate) === null) {
+        const amount = parseMoneyInput(logAmount);
+        if (amount === null || parseIsoDate(logDate) === null) {
             setLogError(true);
             return;
         }
@@ -243,7 +246,9 @@ export default function SavingsGoalScreen() {
                         />
                     </View>
                     {logError ? (
-                        <Text style={form.error}>Enter an amount to log.</Text>
+                        <Text style={form.error}>
+                            Enter a valid amount greater than zero.
+                        </Text>
                     ) : null}
                     <View style={form.field}>
                         <DateField
@@ -254,30 +259,34 @@ export default function SavingsGoalScreen() {
                             errorMessage="Choose a valid date."
                         />
                     </View>
-                    <Pressable
-                        style={({ pressed }) => [
-                            form.actionCardButton,
-                            pressed && buttonStyle.buttonPressed,
-                            latestThisMonth && form.actionCardButtonSpacer,
-                            busy && { opacity: 0.6 },
-                        ]}
-                        disabled={busy}
-                        onPress={() => {
-                            void handleLog();
-                        }}
-                        accessibilityRole="button"
-                        accessibilityLabel={
-                            Number(logAmount) > 0
-                                ? `Log ${formatMoney(Number(logAmount))}`
-                                : "Log contribution"
-                        }
-                    >
-                        <Text style={buttonStyle.buttonText}>
-                            {Number(logAmount) > 0
-                                ? `Log ${formatMoney(Number(logAmount))}`
-                                : "Log contribution"}
-                        </Text>
-                    </Pressable>
+                    {(() => {
+                        const preview = parseMoneyInput(logAmount);
+                        const logLabel =
+                            preview !== null
+                                ? `Log ${formatMoney(preview)}`
+                                : "Log contribution";
+                        return (
+                            <Pressable
+                                style={({ pressed }) => [
+                                    form.actionCardButton,
+                                    pressed && buttonStyle.buttonPressed,
+                                    latestThisMonth &&
+                                        form.actionCardButtonSpacer,
+                                    busy && { opacity: 0.6 },
+                                ]}
+                                disabled={busy}
+                                onPress={() => {
+                                    void handleLog();
+                                }}
+                                accessibilityRole="button"
+                                accessibilityLabel={logLabel}
+                            >
+                                <Text style={buttonStyle.buttonText}>
+                                    {logLabel}
+                                </Text>
+                            </Pressable>
+                        );
+                    })()}
                     {latestThisMonth ? (
                         <Pressable
                             style={({ pressed }) => [

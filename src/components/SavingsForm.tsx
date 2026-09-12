@@ -4,6 +4,12 @@ import { DateField } from "@/components/DateField";
 import { FormDialog } from "@/components/FormDialog";
 import { form, formColors } from "@/styles/form";
 import { SavingsGoal } from "@/types/savings";
+import {
+    moneyFieldError,
+    optionalMoneyFieldError,
+    parseMoneyInput,
+    parseOptionalMoneyInput,
+} from "@/utils/amount-input";
 import { parseIsoDate, todayIsoDate } from "@/utils/date";
 import { currencySymbol } from "@/utils/money";
 import { savingsStartDate } from "@/utils/timestamps";
@@ -44,31 +50,38 @@ function SavingsEditor({ visible, onClose, savingsInfo }: SavingsFormProps) {
     const [showErrors, setShowErrors] = useState(false);
 
     const nameHasError = showErrors && name.trim() === "";
-    const targetHasError = showErrors && targetAmount.trim() === "";
-    const currentHasError = showErrors && currentAmount.trim() === "";
+    const targetError = showErrors ? moneyFieldError(targetAmount) : null;
+    const currentError = showErrors
+        ? moneyFieldError(currentAmount, { allowZero: true })
+        : null;
+    const monthlyError = showErrors
+        ? optionalMoneyFieldError(monthlyContribution)
+        : null;
     const startDateHasError = showErrors && parseIsoDate(startDate) === null;
 
     const handleSubmit = async () => {
+        const targetNumber = parseMoneyInput(targetAmount);
+        const currentNumber = parseMoneyInput(currentAmount, {
+            allowZero: true,
+        });
+        const plannedMonthly = parseOptionalMoneyInput(monthlyContribution);
+
         if (
-            !name ||
-            !targetAmount ||
-            currentAmount.trim() === "" ||
+            !name.trim() ||
+            targetNumber === null ||
+            currentNumber === null ||
+            plannedMonthly === null ||
             parseIsoDate(startDate) === null
         ) {
             setShowErrors(true);
             return;
         }
 
-        const plannedMonthly =
-            monthlyContribution.trim() === ""
-                ? undefined
-                : Number(monthlyContribution);
-
         if (savingsInfo) {
             await updateSavings(savingsInfo.id, {
                 name,
-                targetAmount: Number(targetAmount),
-                currentAmount: Number(currentAmount),
+                targetAmount: targetNumber,
+                currentAmount: currentNumber,
                 startDate: startDate.trim(),
                 monthlyContribution: plannedMonthly,
             });
@@ -76,8 +89,8 @@ function SavingsEditor({ visible, onClose, savingsInfo }: SavingsFormProps) {
             await addSavings({
                 id: Date.now().toString(),
                 name,
-                targetAmount: Number(targetAmount),
-                currentAmount: Number(currentAmount),
+                targetAmount: targetNumber,
+                currentAmount: currentNumber,
                 startDate: startDate.trim(),
                 monthlyContribution: plannedMonthly,
             });
@@ -142,7 +155,7 @@ function SavingsEditor({ visible, onClose, savingsInfo }: SavingsFormProps) {
                     style={[
                         form.amountWrap,
                         focusedInput === "targetAmount" && form.inputFocused,
-                        targetHasError && form.inputError,
+                        targetError && form.inputError,
                     ]}
                 >
                     <Text style={form.amountPrefix}>{symbol}</Text>
@@ -157,9 +170,9 @@ function SavingsEditor({ visible, onClose, savingsInfo }: SavingsFormProps) {
                         onBlur={() => setFocusedInput(null)}
                     />
                 </View>
-                {targetHasError && (
-                    <Text style={form.error}>Target amount is required.</Text>
-                )}
+                {targetError ? (
+                    <Text style={form.error}>{targetError}</Text>
+                ) : null}
             </View>
 
             <View style={form.field}>
@@ -168,7 +181,7 @@ function SavingsEditor({ visible, onClose, savingsInfo }: SavingsFormProps) {
                     style={[
                         form.amountWrap,
                         focusedInput === "currentAmount" && form.inputFocused,
-                        currentHasError && form.inputError,
+                        currentError && form.inputError,
                     ]}
                 >
                     <Text style={form.amountPrefix}>{symbol}</Text>
@@ -183,9 +196,9 @@ function SavingsEditor({ visible, onClose, savingsInfo }: SavingsFormProps) {
                         onBlur={() => setFocusedInput(null)}
                     />
                 </View>
-                {currentHasError && (
-                    <Text style={form.error}>Current amount is required.</Text>
-                )}
+                {currentError ? (
+                    <Text style={form.error}>{currentError}</Text>
+                ) : null}
             </View>
 
             <View style={form.field}>
@@ -195,6 +208,7 @@ function SavingsEditor({ visible, onClose, savingsInfo }: SavingsFormProps) {
                         form.amountWrap,
                         focusedInput === "monthlyContribution" &&
                             form.inputFocused,
+                        monthlyError && form.inputError,
                     ]}
                 >
                     <Text style={form.amountPrefix}>{symbol}</Text>
@@ -209,6 +223,9 @@ function SavingsEditor({ visible, onClose, savingsInfo }: SavingsFormProps) {
                         onBlur={() => setFocusedInput(null)}
                     />
                 </View>
+                {monthlyError ? (
+                    <Text style={form.error}>{monthlyError}</Text>
+                ) : null}
                 <Text style={form.helper}>
                     Used for pace estimates only. Leftover drops when you log a
                     contribution on the goal page.

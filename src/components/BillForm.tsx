@@ -1,10 +1,12 @@
 import { useBills } from "@/app/contexts/BillsContext";
 import { useLocale } from "@/app/contexts/LocaleContext";
 import { CategoryPicker } from "@/components/CategoryPicker";
+import { DueDayPicker } from "@/components/DueDayPicker";
 import { FormDialog } from "@/components/FormDialog";
 import { BILL_CATEGORIES } from "@/constants/categories";
 import { form, formColors } from "@/styles/form";
 import { Bill } from "@/types/bill";
+import { moneyFieldError, parseMoneyInput } from "@/utils/amount-input";
 import { currencySymbol } from "@/utils/money";
 import { useFormSession } from "@/hooks/useFormSession";
 import { useState } from "react";
@@ -34,7 +36,7 @@ function BillEditor({ visible, onClose, bill }: BillFormProps) {
         }
         return varies ? "0" : String(bill.amount);
     });
-    const [dueDay, setDueDay] = useState(bill ? String(bill.dueDay) : "");
+    const [dueDay, setDueDay] = useState<number | null>(bill?.dueDay ?? null);
     const [category, setCategory] = useState<string | null>(
         bill?.category ?? null
     );
@@ -44,33 +46,31 @@ function BillEditor({ visible, onClose, bill }: BillFormProps) {
     const [showErrors, setShowErrors] = useState(false);
 
     const nameHasError = showErrors && name.trim() === "";
-    const amountHasError =
-        showErrors && !amountVaries && !(Number(amount) > 0);
-    const dueDayHasError =
-        showErrors &&
-        (dueDay.trim() === "" || Number(dueDay) < 1 || Number(dueDay) > 31);
+    const amountError =
+        showErrors && !amountVaries ? moneyFieldError(amount) : null;
+    const dueDayHasError = showErrors && dueDay === null;
 
     const handleSubmit = async () => {
-        if (!name.trim() || !dueDay.trim()) {
-            setShowErrors(true);
-            return;
-        }
-        const dueDayNumber = Number(dueDay);
-        if (dueDayNumber < 1 || dueDayNumber > 31) {
-            setShowErrors(true);
-            return;
-        }
-        if (!amountVaries && !(Number(amount) > 0)) {
+        if (!name.trim() || dueDay === null) {
             setShowErrors(true);
             return;
         }
 
-        const storedAmount = amountVaries ? 0 : Number(amount);
+        let storedAmount = 0;
+        if (!amountVaries) {
+            const parsed = parseMoneyInput(amount);
+            if (parsed === null) {
+                setShowErrors(true);
+                return;
+            }
+            storedAmount = parsed;
+        }
+
         if (bill) {
             await updateBill(bill.id, {
                 name,
                 amount: storedAmount,
-                dueDay: dueDayNumber,
+                dueDay,
                 category: category ?? undefined,
                 amountVaries,
                 remind,
@@ -80,7 +80,7 @@ function BillEditor({ visible, onClose, bill }: BillFormProps) {
                 id: Date.now().toString(),
                 name,
                 amount: storedAmount,
-                dueDay: dueDayNumber,
+                dueDay,
                 category: category ?? undefined,
                 isPaid: false,
                 isRecurring: true,
@@ -136,24 +136,9 @@ function BillEditor({ visible, onClose, bill }: BillFormProps) {
 
             <View style={form.field}>
                 <Text style={form.label}>Due day each month</Text>
-                <TextInput
-                    style={[
-                        form.input,
-                        focusedInput === "dueDay" && form.inputFocused,
-                        dueDayHasError && form.inputError,
-                    ]}
-                    placeholder="1–31"
-                    placeholderTextColor={formColors.placeholder}
-                    value={dueDay}
-                    onChangeText={setDueDay}
-                    keyboardType="number-pad"
-                    onFocus={() => setFocusedInput("dueDay")}
-                    onBlur={() => setFocusedInput(null)}
-                />
+                <DueDayPicker value={dueDay} onChange={setDueDay} />
                 {dueDayHasError && (
-                    <Text style={form.error}>
-                        Enter a day between 1 and 31.
-                    </Text>
+                    <Text style={form.error}>Choose a due day.</Text>
                 )}
             </View>
 
@@ -218,7 +203,7 @@ function BillEditor({ visible, onClose, bill }: BillFormProps) {
                         style={[
                             form.amountWrap,
                             focusedInput === "amount" && form.inputFocused,
-                            amountHasError && form.inputError,
+                            amountError && form.inputError,
                         ]}
                     >
                         <Text style={form.amountPrefix}>{symbol}</Text>
@@ -233,9 +218,9 @@ function BillEditor({ visible, onClose, bill }: BillFormProps) {
                             onBlur={() => setFocusedInput(null)}
                         />
                     </View>
-                    {amountHasError && (
-                        <Text style={form.error}>Amount is required.</Text>
-                    )}
+                    {amountError ? (
+                        <Text style={form.error}>{amountError}</Text>
+                    ) : null}
                 </View>
             ) : null}
         </FormDialog>

@@ -1,49 +1,37 @@
-import { form } from "@/styles/form";
-import { Pressable, Text, View } from "react-native";
+import { SelectMenu } from "@/components/SelectMenu";
 
 type ChoiceChipsProps<T extends string> = {
     options: readonly T[];
     selected: T;
     onSelect: (value: T) => void;
+    /** Sheet heading (e.g. "Pay cycle", "Time"). */
+    title: string;
+    disabled?: boolean;
 };
 
 /**
- * Always-one-selected chips. Unlike CategoryPicker, tapping the active
- * option does not clear it — used for required choices like reminder time.
+ * Always-one-selected menu. Same job as the old chip row, without the wrap.
  */
 export function ChoiceChips<T extends string>({
     options,
     selected,
     onSelect,
+    title,
+    disabled = false,
 }: ChoiceChipsProps<T>) {
     return (
-        <View style={form.chipRow}>
-            {options.map((option) => {
-                const isSelected = option === selected;
-                return (
-                    <Pressable
-                        key={option}
-                        onPress={() => onSelect(option)}
-                        accessibilityRole="button"
-                        accessibilityLabel={option}
-                        accessibilityState={{ selected: isSelected }}
-                        style={({ pressed }) => [
-                            form.chip,
-                            isSelected && form.chipSelected,
-                            pressed && form.chipPressed,
-                        ]}
-                    >
-                        <Text
-                            style={[
-                                form.chipText,
-                                isSelected && form.chipTextSelected,
-                            ]}
-                        >
-                            {option}
-                        </Text>
-                    </Pressable>
-                );
-            })}
-        </View>
+        <SelectMenu
+            options={options}
+            value={selected}
+            onChange={(value) => {
+                if (value !== null) {
+                    onSelect(value);
+                }
+            }}
+            title={title}
+            noneLabel={null}
+            accessibilityLabel={title}
+            disabled={disabled}
+        />
     );
 }

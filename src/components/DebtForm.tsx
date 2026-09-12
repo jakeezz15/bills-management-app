@@ -1,14 +1,20 @@
 import { useDebt } from "@/app/contexts/DebtsContext";
 import { useLocale } from "@/app/contexts/LocaleContext";
 import { DateField } from "@/components/DateField";
+import { DueDayPicker } from "@/components/DueDayPicker";
 import { FormDialog } from "@/components/FormDialog";
+import { SelectMenu } from "@/components/SelectMenu";
 import { form, formColors } from "@/styles/form";
 import { Debt } from "@/types/debt";
+import {
+    moneyFieldError,
+    parseMoneyInput,
+} from "@/utils/amount-input";
 import { parseIsoDate, todayIsoDate } from "@/utils/date";
 import { currencySymbol } from "@/utils/money";
 import { useFormSession } from "@/hooks/useFormSession";
 import { useState } from "react";
-import { Pressable, Switch, Text, TextInput, View } from "react-native";
+import { Switch, Text, TextInput, View } from "react-native";
 
 type DebtFormProps = {
     visible: boolean;
@@ -42,7 +48,7 @@ function DebtEditor({ visible, onClose, debt }: DebtFormProps) {
     const [minimumPayment, setMinimumPayment] = useState(
         debt ? String(debt.minimumPayment) : ""
     );
-    const [dueDay, setDueDay] = useState(debt ? String(debt.dueDay) : "");
+    const [dueDay, setDueDay] = useState<number | null>(debt?.dueDay ?? null);
     const [startDate, setStartDate] = useState(
         debt?.startDate || todayIsoDate()
     );
@@ -52,29 +58,30 @@ function DebtEditor({ visible, onClose, debt }: DebtFormProps) {
     const [showErrors, setShowErrors] = useState(false);
 
     const nameHasError = showErrors && name.trim() === "";
-    const balanceHasError = showErrors && balance.trim() === "";
-    const paymentHasError = showErrors && minimumPayment.trim() === "";
-    const dueDayHasError =
-        showErrors &&
-        (dueDay.trim() === "" || Number(dueDay) < 1 || Number(dueDay) > 31);
+    const balanceError = showErrors
+        ? moneyFieldError(balance, { allowZero: true })
+        : null;
+    const paymentError = showErrors
+        ? moneyFieldError(minimumPayment, { allowZero: true })
+        : null;
+    const dueDayHasError = showErrors && dueDay === null;
     const startDateHasError = showErrors && parseIsoDate(startDate) === null;
     const typeHasError = showErrors && type.trim() === "";
 
     const handleSubmit = async () => {
+        const balanceNumber = parseMoneyInput(balance, { allowZero: true });
+        const paymentNumber = parseMoneyInput(minimumPayment, {
+            allowZero: true,
+        });
+
         if (
-            !name ||
-            !balance ||
-            !minimumPayment ||
-            !dueDay ||
-            !type ||
+            !name.trim() ||
+            balanceNumber === null ||
+            paymentNumber === null ||
+            dueDay === null ||
+            !type.trim() ||
             parseIsoDate(startDate) === null
         ) {
-            setShowErrors(true);
-            return;
-        }
-
-        const dueDayNumber = Number(dueDay);
-        if (dueDayNumber < 1 || dueDayNumber > 31) {
             setShowErrors(true);
             return;
         }
@@ -82,9 +89,9 @@ function DebtEditor({ visible, onClose, debt }: DebtFormProps) {
         if (debt) {
             await updateDebt(debt.id, {
                 name,
-                balance: Number(balance),
-                minimumPayment: Number(minimumPayment),
-                dueDay: dueDayNumber,
+                balance: balanceNumber,
+                minimumPayment: paymentNumber,
+                dueDay,
                 startDate: startDate.trim(),
                 type,
                 remind,
@@ -93,9 +100,9 @@ function DebtEditor({ visible, onClose, debt }: DebtFormProps) {
             await addDebt({
                 id: Date.now().toString(),
                 name,
-                balance: Number(balance),
-                minimumPayment: Number(minimumPayment),
-                dueDay: dueDayNumber,
+                balance: balanceNumber,
+                minimumPayment: paymentNumber,
+                dueDay,
                 startDate: startDate.trim(),
                 type,
                 remind,
@@ -150,25 +157,9 @@ function DebtEditor({ visible, onClose, debt }: DebtFormProps) {
 
             <View style={form.field}>
                 <Text style={form.label}>Due day each month</Text>
-                <TextInput
-                    style={[
-                        form.input,
-                        focusedInput === "dueDay" &&
-                            form.inputFocused,
-                        dueDayHasError && form.inputError,
-                    ]}
-                    placeholder="1–31"
-                    placeholderTextColor={formColors.placeholder}
-                    value={dueDay}
-                    onChangeText={setDueDay}
-                    keyboardType="number-pad"
-                    onFocus={() => setFocusedInput("dueDay")}
-                    onBlur={() => setFocusedInput(null)}
-                />
+                <DueDayPicker value={dueDay} onChange={setDueDay} />
                 {dueDayHasError && (
-                    <Text style={form.error}>
-                        Enter a day between 1 and 31.
-                    </Text>
+                    <Text style={form.error}>Choose a due day.</Text>
                 )}
             </View>
 
@@ -204,34 +195,18 @@ function DebtEditor({ visible, onClose, debt }: DebtFormProps) {
 
             <View style={form.field}>
                 <Text style={form.label}>Type</Text>
-                <View style={form.chipRow}>
-                    {LOAN_TYPES.map((loanType) => {
-                        const selected = type === loanType;
-                        return (
-                            <Pressable
-                                key={loanType}
-                                onPress={() => setType(loanType)}
-                                accessibilityRole="button"
-                                accessibilityLabel={loanType}
-                                accessibilityState={{ selected }}
-                                style={({ pressed }) => [
-                                    form.chip,
-                                    selected && form.chipSelected,
-                                    pressed && form.chipPressed,
-                                ]}
-                            >
-                                <Text
-                                    style={[
-                                        form.chipText,
-                                        selected && form.chipTextSelected,
-                                    ]}
-                                >
-                                    {loanType}
-                                </Text>
-                            </Pressable>
-                        );
-                    })}
-                </View>
+                <SelectMenu
+                    options={LOAN_TYPES}
+                    value={
+                        (LOAN_TYPES as readonly string[]).includes(type)
+                            ? (type as (typeof LOAN_TYPES)[number])
+                            : null
+                    }
+                    onChange={(value) => setType(value ?? "")}
+                    title="Type"
+                    placeholder="Choose type"
+                    noneLabel={null}
+                />
                 {typeHasError && (
                     <Text style={form.error}>Choose a type.</Text>
                 )}
@@ -242,9 +217,8 @@ function DebtEditor({ visible, onClose, debt }: DebtFormProps) {
                 <View
                     style={[
                         form.amountWrap,
-                        focusedInput === "balance" &&
-                            form.inputFocused,
-                        balanceHasError && form.inputError,
+                        focusedInput === "balance" && form.inputFocused,
+                        balanceError && form.inputError,
                     ]}
                 >
                     <Text style={form.amountPrefix}>{symbol}</Text>
@@ -259,9 +233,9 @@ function DebtEditor({ visible, onClose, debt }: DebtFormProps) {
                         onBlur={() => setFocusedInput(null)}
                     />
                 </View>
-                {balanceHasError && (
-                    <Text style={form.error}>Balance is required.</Text>
-                )}
+                {balanceError ? (
+                    <Text style={form.error}>{balanceError}</Text>
+                ) : null}
             </View>
 
             <View style={form.field}>
@@ -271,7 +245,7 @@ function DebtEditor({ visible, onClose, debt }: DebtFormProps) {
                         form.amountWrap,
                         focusedInput === "minimumPayment" &&
                             form.inputFocused,
-                        paymentHasError && form.inputError,
+                        paymentError && form.inputError,
                     ]}
                 >
                     <Text style={form.amountPrefix}>{symbol}</Text>
@@ -286,11 +260,9 @@ function DebtEditor({ visible, onClose, debt }: DebtFormProps) {
                         onBlur={() => setFocusedInput(null)}
                     />
                 </View>
-                {paymentHasError && (
-                    <Text style={form.error}>
-                        Monthly payment is required.
-                    </Text>
-                )}
+                {paymentError ? (
+                    <Text style={form.error}>{paymentError}</Text>
+                ) : null}
             </View>
         </FormDialog>
     );
