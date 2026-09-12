@@ -5,7 +5,7 @@ Copy from this file into Play Console (and later App Store). Do not use `PLAN.md
 **Launcher / icon name:** On Hand  
 **Store title:** On Hand: What's left?  
 **Package:** `com.durantetechsolutions.onhand` (do not change this after first public listing)  
-**Public version:** `1.0.0` (from `app.json`; Settings → About reads the same value)
+**Public version:** `1.1.0` (from `app.json`; Settings → About reads the same value)
 
 ---
 
@@ -22,6 +22,8 @@ See what’s left this month. Track income, bills, savings, and debts on your ph
 Character count: 79.
 
 ---
+
+
 
 ## Full description (Play)
 
@@ -52,6 +54,8 @@ This app is a personal tracker, not a bank, tax tool, or financial advice.
 
 ---
 
+
+
 ## In this version
 
 - Four tabs: Home, Activity, Plans, Settings
@@ -67,6 +71,8 @@ This app is a personal tracker, not a bank, tax tool, or financial advice.
 - Display currency (formatting only — not FX conversion)
 - Export / import JSON backup; reset all finance data (stays empty)
 
+
+
 ## Not in this version
 
 - Bank or card sync
@@ -78,6 +84,8 @@ This app is a personal tracker, not a bank, tax tool, or financial advice.
 - Seed demo data (Metro / `__DEV__` only — not in production Settings)
 
 ---
+
+
 
 ## Screenshot shot list
 
@@ -96,21 +104,27 @@ Use a **production** build (not the development client). Capture phone screensho
 
 ---
 
+
+
 ## Play Console — Data safety (draft)
 
-| Question | Answer |
-|----------|--------|
-| Collects user data? | No (not from your servers). Data stays on the device. |
-| Account? | No |
-| Finance data? | Yes, **on device only** — the user types it. You do not receive it. |
-| Shared with third parties? | No |
-| Encrypted in transit? | N/A (no backend). Backup is a file the user chooses to share. |
-| Users can request deletion? | Reset in Settings, or uninstall |
-| Children? | Not directed at children |
+
+| Question                    | Answer                                                              |
+| --------------------------- | ------------------------------------------------------------------- |
+| Collects user data?         | No (not from your servers). Data stays on the device.               |
+| Account?                    | No                                                                  |
+| Finance data?               | Yes, **on device only** — the user types it. You do not receive it. |
+| Shared with third parties?  | No                                                                  |
+| Encrypted in transit?       | N/A (no backend). Backup is a file the user chooses to share.       |
+| Users can request deletion? | Reset in Settings, or uninstall                                     |
+| Children?                   | Not directed at children                                            |
+
 
 **Permissions to declare:** notifications (optional due-day reminders); files/sharing only when the user exports or imports a backup.
 
 ---
+
+
 
 ## Pre-ship (do not skip)
 
@@ -125,6 +139,8 @@ Still on you:
 5. Dogfood one real payday cycle before inviting strangers
 
 ---
+
+
 
 ## Support replies (keep handy)
 
