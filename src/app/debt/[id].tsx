@@ -26,16 +26,27 @@ import {
     dueCatalogStatus,
 } from "@/utils/filters";
 import { hapticConfirm, hapticUndo } from "@/utils/haptics";
-import { goBackOrReplace, paramId } from "@/utils/navigation";
-import { useLocalSearchParams } from "expo-router";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { goBackOrReplace, paramFlag, paramId } from "@/utils/navigation";
+import { useLocalSearchParams, useNavigation } from "expo-router";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 export default function DebtDetailScreen() {
     useStatusBarStyle("light");
     const topPadding = useScreenTopPadding();
-    const { id: rawId } = useLocalSearchParams<{ id: string }>();
+    const navigation = useNavigation();
+    const leavingFromReminder = useRef(false);
+    const { id: rawId, fromReminder: rawFromReminder } = useLocalSearchParams<{
+        id: string;
+        fromReminder?: string;
+    }>();
     const id = paramId(rawId);
+    const fromReminder = paramFlag(rawFromReminder);
+
+    const leaveFromReminder = () => {
+        leavingFromReminder.current = true;
+        goBackOrReplace("/(tabs)/plans", { fromReminder: true });
+    };
 
     const { formatMoney } = useLocale();
     const {
@@ -80,8 +91,26 @@ export default function DebtDetailScreen() {
         if (debt) {
             return;
         }
+        if (fromReminder) {
+            leaveFromReminder();
+            return;
+        }
         goBackOrReplace("/(tabs)/plans");
-    }, [loading, debt, id]);
+    }, [loading, debt, id, fromReminder]);
+
+    useEffect(() => {
+        if (!fromReminder) {
+            return;
+        }
+        const sub = navigation.addListener("beforeRemove", (event) => {
+            if (leavingFromReminder.current) {
+                return;
+            }
+            event.preventDefault();
+            leaveFromReminder();
+        });
+        return sub;
+    }, [navigation, fromReminder]);
 
     if (loading && !debt) {
         return (
@@ -167,6 +196,7 @@ export default function DebtDetailScreen() {
                         <DetailHeroNav
                             backLabel="Debts"
                             fallbackHref="/(tabs)/plans"
+                            onBack={fromReminder ? leaveFromReminder : undefined}
                             onEdit={() => setEditing(true)}
                             editAccessibilityLabel="Edit debt"
                         />

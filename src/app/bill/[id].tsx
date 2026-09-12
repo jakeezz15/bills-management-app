@@ -16,6 +16,7 @@ import { dashboard } from "@/styles/dashboard";
 import { form, formColors } from "@/styles/form";
 import { text, theme } from "@/design";
 import { confirmDestructive } from "@/utils/confirm";
+import { parseMoneyInput } from "@/utils/amount-input";
 import {
     formatDisplayDate,
     isSameCalendarMonth,
@@ -31,16 +32,27 @@ import {
 } from "@/utils/filters";
 import { hapticConfirm, hapticUndo } from "@/utils/haptics";
 import { currencySymbol } from "@/utils/money";
-import { goBackOrReplace, paramId } from "@/utils/navigation";
-import { useLocalSearchParams } from "expo-router";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { goBackOrReplace, paramFlag, paramId } from "@/utils/navigation";
+import { useLocalSearchParams, useNavigation } from "expo-router";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 export default function BillDetailScreen() {
     useStatusBarStyle("light");
     const topPadding = useScreenTopPadding();
-    const { id: rawId } = useLocalSearchParams<{ id: string }>();
+    const navigation = useNavigation();
+    const leavingFromReminder = useRef(false);
+    const { id: rawId, fromReminder: rawFromReminder } = useLocalSearchParams<{
+        id: string;
+        fromReminder?: string;
+    }>();
     const id = paramId(rawId);
+    const fromReminder = paramFlag(rawFromReminder);
+
+    const leaveFromReminder = () => {
+        leavingFromReminder.current = true;
+        goBackOrReplace("/(tabs)/plans", { fromReminder: true });
+    };
 
     const { currency, formatMoney } = useLocale();
     const symbol = currencySymbol(currency);
@@ -57,6 +69,7 @@ export default function BillDetailScreen() {
     const [logAmount, setLogAmount] = useState("");
     const [logError, setLogError] = useState(false);
     const [focused, setFocused] = useState(false);
+    const [logSeedKey, setLogSeedKey] = useState("");
 
     const bill = bills.find((item) => item.id === id);
     const today = useMemo(() => new Date(), []);
@@ -83,6 +96,20 @@ export default function BillDetailScreen() {
     });
     const totalPaid = id ? getBillTotalPaid(id, payments) : 0;
 
+    const nextLogSeedKey = bill
+        ? `${bill.id}:${monthPayment?.id ?? "none"}:${monthPayment?.amount ?? ""}:${bill.amount}:${bill.amountVaries === true}`
+        : "";
+    if (bill && nextLogSeedKey !== logSeedKey) {
+        setLogSeedKey(nextLogSeedKey);
+        if (monthPayment) {
+            setLogAmount(String(monthPayment.amount));
+        } else if (!bill.amountVaries) {
+            setLogAmount(String(bill.amount));
+        } else {
+            setLogAmount("");
+        }
+    }
+
     useEffect(() => {
         if (loading || !id) {
             return;
@@ -90,21 +117,26 @@ export default function BillDetailScreen() {
         if (bill) {
             return;
         }
+        if (fromReminder) {
+            leaveFromReminder();
+            return;
+        }
         goBackOrReplace("/(tabs)/plans");
-    }, [loading, bill, id]);
+    }, [loading, bill, id, fromReminder]);
 
     useEffect(() => {
-        if (!bill) {
+        if (!fromReminder) {
             return;
         }
-        if (monthPayment) {
-            setLogAmount(String(monthPayment.amount));
-            return;
-        }
-        if (!bill.amountVaries) {
-            setLogAmount(String(bill.amount));
-        }
-    }, [bill, monthPayment]);
+        const sub = navigation.addListener("beforeRemove", (event) => {
+            if (leavingFromReminder.current) {
+                return;
+            }
+            event.preventDefault();
+            leaveFromReminder();
+        });
+        return sub;
+    }, [navigation, fromReminder]);
 
     if (loading && !bill) {
         return (
@@ -148,19 +180,26 @@ export default function BillDetailScreen() {
         if (paidThisMonth || busy) {
             return;
         }
-        const amount = Number(logAmount);
-        if (bill.amountVaries && !(amount > 0)) {
-            setLogError(true);
+        if (bill.amountVaries) {
+            const amount = parseMoneyInput(logAmount);
+            if (amount === null) {
+                setLogError(true);
+                return;
+            }
+            setBusy(true);
+            try {
+                hapticConfirm();
+                await toggleBillPaid(bill.id, todayIso, amount);
+                setLogError(false);
+            } finally {
+                setBusy(false);
+            }
             return;
         }
         setBusy(true);
         try {
             hapticConfirm();
-            if (bill.amountVaries) {
-                await toggleBillPaid(bill.id, todayIso, amount);
-            } else {
-                await toggleBillPaid(bill.id, todayIso);
-            }
+            await toggleBillPaid(bill.id, todayIso);
             setLogError(false);
         } finally {
             setBusy(false);
@@ -171,8 +210,8 @@ export default function BillDetailScreen() {
         if (!paidThisMonth || busy) {
             return;
         }
-        const amount = Number(logAmount);
-        if (!(amount > 0)) {
+        const amount = parseMoneyInput(logAmount);
+        if (amount === null) {
             setLogError(true);
             return;
         }
@@ -224,6 +263,7 @@ export default function BillDetailScreen() {
                         <DetailHeroNav
                             backLabel="Bills"
                             fallbackHref="/(tabs)/plans"
+                            onBack={fromReminder ? leaveFromReminder : undefined}
                             onEdit={() => setEditing(true)}
                             editAccessibilityLabel="Edit bill"
                         />
@@ -268,7 +308,7 @@ export default function BillDetailScreen() {
                                 </View>
                                 {logError ? (
                                     <Text style={form.error}>
-                                        Enter this month’s amount.
+                                        Enter a valid amount greater than zero.
                                     </Text>
                                 ) : null}
                                 <Pressable
@@ -352,7 +392,7 @@ export default function BillDetailScreen() {
                                 </View>
                                 {logError ? (
                                     <Text style={form.error}>
-                                        Enter this month’s amount.
+                                        Enter a valid amount greater than zero.
                                     </Text>
                                 ) : null}
                             </>
@@ -376,9 +416,13 @@ export default function BillDetailScreen() {
                         >
                             <Text style={buttonStyle.buttonText}>
                                 {bill.amountVaries
-                                    ? Number(logAmount) > 0
-                                      ? `Log ${formatMoney(Number(logAmount))}`
-                                      : "Log this month"
+                                    ? (() => {
+                                          const preview =
+                                              parseMoneyInput(logAmount);
+                                          return preview !== null
+                                              ? `Log ${formatMoney(preview)}`
+                                              : "Log this month";
+                                      })()
                                     : `Log ${formatMoney(bill.amount)}`}
                             </Text>
                         </Pressable>
