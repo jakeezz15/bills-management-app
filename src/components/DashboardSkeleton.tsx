@@ -1,5 +1,5 @@
 import { Bone } from "@/components/Skeleton";
-import { dashboard } from "@/styles/dashboard";
+import { useDashboardStyles } from "@/styles/dashboard";
 import { theme } from "@/design";
 import { StyleSheet, View } from "react-native";
 
@@ -27,6 +27,7 @@ export function DashboardSkeleton({
 }
 
 function ListBones() {
+    const dashboard = useDashboardStyles();
     return (
         <>
             <View style={dashboard.hero}>
@@ -119,6 +120,7 @@ function RowBone() {
 }
 
 function LineBone() {
+    const dashboard = useDashboardStyles();
     return (
         <View style={styles.line}>
             <View style={styles.lineTop}>

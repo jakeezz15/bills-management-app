@@ -3,7 +3,7 @@ import { useLocale } from "@/app/contexts/LocaleContext";
 import { ChoiceChips } from "@/components/ChoiceChips";
 import { DateField } from "@/components/DateField";
 import { FormDialog } from "@/components/FormDialog";
-import { form, formColors } from "@/styles/form";
+import { useFormStyles, useFormColors } from "@/styles/form";
 import { Income } from "@/types/income";
 import {
     moneyFieldError,
@@ -35,6 +35,8 @@ export default function IncomeForm(props: IncomeFormProps) {
 }
 
 function IncomeEditor({ visible, onClose, entry }: IncomeFormProps) {
+    const form = useFormStyles();
+    const formColors = useFormColors();
     const { addIncome, updateIncome, deleteIncome } = useIncome();
     const { currency } = useLocale();
     const symbol = currencySymbol(currency);

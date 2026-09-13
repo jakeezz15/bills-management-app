@@ -13,7 +13,7 @@ import { PageHeader } from "@/components/ui";
 import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
 import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
 import { useStickyHero } from "@/hooks/useStickyHero";
-import { dashboard } from "@/styles/dashboard";
+import { useDashboardStyles } from "@/styles/dashboard";
 import { Debt } from "@/types/debt";
 import { formatDisplayDate, ordinalDay } from "@/utils/date";
 import {
@@ -47,6 +47,7 @@ function openDebt(id: string) {
 }
 
 export default function DebtsScreen({ embedded = false }: DebtsScreenProps) {
+    const dashboard = useDashboardStyles();
     // Standalone deep link shows the dark hero band; when embedded the
     // host tab owns the bar.
     useStatusBarStyle(embedded ? null : "light");

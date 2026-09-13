@@ -1,4 +1,4 @@
-import { dashboard } from "@/styles/dashboard";
+import { useDashboardStyles } from "@/styles/dashboard";
 import { theme } from "@/design";
 import { goBackOrReplace } from "@/utils/navigation";
 import Ionicons from "@react-native-vector-icons/ionicons";
@@ -24,6 +24,7 @@ export function DetailHeroNav({
     editAccessibilityLabel,
     onBack,
 }: DetailHeroNavProps) {
+    const dashboard = useDashboardStyles();
     return (
         <View style={dashboard.heroNav}>
             <Pressable

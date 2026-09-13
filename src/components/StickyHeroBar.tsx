@@ -1,4 +1,4 @@
-import { dashboard } from "@/styles/dashboard";
+import { useDashboardStyles } from "@/styles/dashboard";
 import { ReactNode } from "react";
 import { StyleProp, ViewStyle } from "react-native";
 import Animated, {
@@ -20,6 +20,7 @@ const exit = FadeOutUp.duration(140).reduceMotion(ReduceMotion.System);
  * Mount it to play enter; unmount it to play exit. Reduced motion is system.
  */
 export function StickyHeroBar({ children, style }: StickyHeroBarProps) {
+    const dashboard = useDashboardStyles();
     return (
         <Animated.View
             entering={enter}

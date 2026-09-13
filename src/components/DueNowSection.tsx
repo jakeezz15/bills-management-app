@@ -2,21 +2,22 @@ import { useBills } from "@/app/contexts/BillsContext";
 import { useDebt } from "@/app/contexts/DebtsContext";
 import { useLocale } from "@/app/contexts/LocaleContext";
 import { CompactPlanRow } from "@/components/CompactPlanRow";
-import { dashboard } from "@/styles/dashboard";
 import { text, theme } from "@/design";
+import { useDashboardStyles } from "@/styles/dashboard";
 import { Bill } from "@/types/bill";
 import { Debt } from "@/types/debt";
 import { todayIsoDate } from "@/utils/date";
-import { hapticConfirm } from "@/utils/haptics";
 import {
     dueNowLabel,
     dueNowTone,
     getDueNowItems,
 } from "@/utils/due-now";
+import { getLastBillPayment } from "@/utils/filters";
+import { hapticConfirm } from "@/utils/haptics";
+import Ionicons from "@react-native-vector-icons/ionicons";
 import { router } from "expo-router";
 import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import Ionicons from "@react-native-vector-icons/ionicons";
 import Animated, {
     FadeIn,
     FadeInDown,
@@ -54,6 +55,7 @@ export function DueNowSection({
     clearCaption = "Nothing waiting in the next 3 days.",
     soonWithinDays,
 }: DueNowSectionProps) {
+    const dashboard = useDashboardStyles();
     const { formatMoney } = useLocale();
     const { bills, payments: billPayments, toggleBillPaid } = useBills();
     const { debts, payments: debtPayments, recordPayment } = useDebt();
@@ -86,65 +88,85 @@ export function DueNowSection({
             </Text>
 
             <View style={[styles.list, items.length === 0 && styles.listIdle]}>
-                {items.map((item) => (
-                    <Animated.View
-                        key={`${item.kind}-${item.id}`}
-                        layout={layout}
-                        entering={rowEnter}
-                        exiting={rowExit}
-                    >
-                        <CompactPlanRow
-                            title={item.name}
-                            meta={dueNowLabel(item)}
-                            amountLabel={formatMoney(
-                                item.remaining ?? item.amount,
-                                { compact: true }
-                            )}
-                            amountHint={
-                                item.kind === "debt" ? "balance" : "due"
-                            }
-                            actionAmountLabel={
-                                item.kind === "debt"
-                                    ? formatMoney(item.amount, {
-                                          compact: true,
-                                      })
-                                    : undefined
-                            }
-                            metaTone={dueNowTone(item)}
-                            onPress={() => {
-                                router.push(
+                {items.map((item) => {
+                    const lastOpenPayment =
+                        item.kind === "bill" && item.amountVaries
+                            ? getLastBillPayment(item.id, billPayments)
+                            : null;
+                    return (
+                        <Animated.View
+                            key={`${item.kind}-${item.id}`}
+                            layout={layout}
+                            entering={rowEnter}
+                            exiting={rowExit}
+                        >
+                            <CompactPlanRow
+                                title={item.name}
+                                meta={dueNowLabel(item)}
+                                amountLabel={
+                                    item.amountVaries
+                                        ? lastOpenPayment
+                                            ? formatMoney(lastOpenPayment.amount, {
+                                                compact: true,
+                                            })
+                                            : "—"
+                                        : formatMoney(
+                                            item.remaining ?? item.amount,
+                                            { compact: true }
+                                        )
+                                }
+                                amountHint={
                                     item.kind === "debt"
-                                        ? `/debt/${item.id}`
-                                        : `/bill/${item.id}`
-                                );
-                            }}
-                            onToggle={() => {
-                                if (item.kind === "bill") {
-                                    if (item.amountVaries) {
-                                        router.push(`/bill/${item.id}`);
+                                        ? "balance"
+                                        : item.amountVaries
+                                            ? lastOpenPayment
+                                                ? "previous payment"
+                                                : "when paid"
+                                            : "due"
+                                }
+                                actionAmountLabel={
+                                    item.kind === "debt"
+                                        ? formatMoney(item.amount, {
+                                            compact: true,
+                                        })
+                                        : undefined
+                                }
+                                metaTone={dueNowTone(item)}
+                                onPress={() => {
+                                    router.push(
+                                        item.kind === "debt"
+                                            ? `/debt/${item.id}`
+                                            : `/bill/${item.id}`
+                                    );
+                                }}
+                                onToggle={() => {
+                                    if (item.kind === "bill") {
+                                        if (item.amountVaries) {
+                                            router.push(`/bill/${item.id}`);
+                                            return;
+                                        }
+                                        hapticConfirm();
+                                        void toggleBillPaid(item.id, asOfIso);
                                         return;
                                     }
                                     hapticConfirm();
-                                    void toggleBillPaid(item.id, asOfIso);
-                                    return;
+                                    void recordPayment(
+                                        item.id,
+                                        undefined,
+                                        asOfIso
+                                    );
+                                }}
+                                toggleAccessibilityLabel={
+                                    item.kind === "bill" && item.amountVaries
+                                        ? "Enter this month’s amount"
+                                        : item.kind === "bill"
+                                            ? "Mark as paid"
+                                            : `Record ${formatMoney(item.amount, { compact: true })}`
                                 }
-                                hapticConfirm();
-                                void recordPayment(
-                                    item.id,
-                                    undefined,
-                                    asOfIso
-                                );
-                            }}
-                            toggleAccessibilityLabel={
-                                item.kind === "bill" && item.amountVaries
-                                    ? "Enter this month’s amount"
-                                    : item.kind === "bill"
-                                      ? "Mark as paid"
-                                      : `Record ${formatMoney(item.amount, { compact: true })}`
-                            }
-                        />
-                    </Animated.View>
-                ))}
+                            />
+                        </Animated.View>
+                    );
+                })}
             </View>
 
             {showClear ? <DueClearCard /> : null}

@@ -1,26 +1,28 @@
+import BillForm from "@/components/BillForm";
 import { CompactPlanRow, PlanGroup } from "@/components/CompactPlanRow";
 import { DashboardEmpty } from "@/components/DashboardEmpty";
-import { SearchField } from "@/components/SearchField";
-import { StickyHeroBar } from "@/components/StickyHeroBar";
 import {
     DashboardHero,
     DashboardHeroCompact,
 } from "@/components/DashboardHero";
-import BillForm from "@/components/BillForm";
-import { FloatingAddButton } from "@/components/FloatingAddButton";
-import { PageHeader } from "@/components/ui";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
+import { FloatingAddButton } from "@/components/FloatingAddButton";
+import { SearchField } from "@/components/SearchField";
+import { StickyHeroBar } from "@/components/StickyHeroBar";
+import { PageHeader } from "@/components/ui";
 import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
 import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
 import { useStickyHero } from "@/hooks/useStickyHero";
-import { dashboard } from "@/styles/dashboard";
+import { useDashboardStyles } from "@/styles/dashboard";
 import { Bill } from "@/types/bill";
 import { ordinalDay } from "@/utils/date";
 import {
     dueCatalogLabel,
     dueCatalogStatus,
     filterBySearch,
+    getLastBillPayment,
     isBillPaidAsOf,
+    isBillSkippedAsOf,
 } from "@/utils/filters";
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
@@ -45,6 +47,7 @@ function openBill(id: string) {
 }
 
 export default function BillsScreen({ embedded = false }: BillsScreenProps) {
+    const dashboard = useDashboardStyles();
     // Standalone deep link shows the dark hero band; when embedded the
     // host tab owns the bar.
     useStatusBarStyle(embedded ? null : "light");
@@ -77,7 +80,7 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
 
     const heroCaption =
         variableCount > 0
-            ? `${bills.length} bill${bills.length === 1 ? "" : "s"} · ${formatMoney(typicalMonthly, { compact: true })} typical · ${variableCount} vary`
+            ? `${bills.length} bill${bills.length === 1 ? "" : "s"} · ${formatMoney(typicalMonthly, { compact: true })} recurring · ${variableCount} open`
             : `${bills.length} bill${bills.length === 1 ? "" : "s"} · ${formatMoney(typicalMonthly, { compact: true })} / month`;
 
     const renderBill = (bill: Bill) => {
@@ -85,11 +88,23 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
         const paid = isBillPaidAsOf(bill, payments, today, {
             anyDayInMonth: true,
         });
-        const status = dueCatalogStatus(bill.dueDay, paid, today);
+        const lastPayment = bill.amountVaries
+            ? getLastBillPayment(bill.id, payments)
+            : null;
+        const skipped = isBillSkippedAsOf(bill.id, payments, today, {
+            anyDayInMonth: true,
+        });
+        const status = dueCatalogStatus(
+            bill.dueDay,
+            paid,
+            today,
+            3,
+            skipped
+        );
         const meta = [
             dueCatalogLabel(status),
             dueLabel,
-            bill.amountVaries ? "Varies" : bill.category,
+            bill.category,
         ]
             .filter(Boolean)
             .join(" · ");
@@ -101,10 +116,18 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
                 meta={meta}
                 amountLabel={
                     bill.amountVaries
-                        ? "Varies"
+                        ? lastPayment
+                            ? formatMoney(lastPayment.amount, { compact: true })
+                            : "—"
                         : formatMoney(bill.amount, { compact: true })
                 }
-                amountHint={bill.amountVaries ? "each month" : "typical"}
+                amountHint={
+                    bill.amountVaries
+                        ? lastPayment
+                            ? "previous payment"
+                            : "when paid"
+                        : "recurring"
+                }
                 metaTone={status}
                 onPress={() => openBill(bill.id)}
             />
@@ -116,7 +139,7 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
             {showHero && collapsed ? (
                 <StickyHeroBar>
                     <DashboardHeroCompact
-                        kicker="Typical"
+                        kicker="Recurring"
                         value={heroValue}
                     />
                 </StickyHeroBar>
@@ -143,7 +166,7 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
                     <DashboardSkeleton />
                 ) : showHero ? (
                     <DashboardHero
-                        kicker="Typical"
+                        kicker="Recurring"
                         value={heroValue}
                         caption={heroCaption}
                     />

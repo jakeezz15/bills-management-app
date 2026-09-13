@@ -7,9 +7,9 @@ import { DetailHeroNav } from "@/components/DetailHeroNav";
 import { SettingsDivider, SettingsRow, SettingsSection } from "@/components/SettingsList";
 import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
 import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
-import { buttonStyle } from "@/styles/button-style";
-import { dashboard } from "@/styles/dashboard";
-import { form } from "@/styles/form";
+import { useButtonStyle } from "@/styles/button-style";
+import { useDashboardStyles } from "@/styles/dashboard";
+import { useFormStyles } from "@/styles/form";
 import { text, theme } from "@/design";
 import { confirmDestructive } from "@/utils/confirm";
 import {
@@ -32,6 +32,9 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 export default function DebtDetailScreen() {
+    const form = useFormStyles();
+    const buttonStyle = useButtonStyle();
+    const dashboard = useDashboardStyles();
     useStatusBarStyle("light");
     const topPadding = useScreenTopPadding();
     const navigation = useNavigation();

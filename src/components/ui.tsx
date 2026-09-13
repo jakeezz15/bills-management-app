@@ -1,5 +1,5 @@
 import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
-import { dashboard } from "@/styles/dashboard";
+import { useDashboardStyles } from "@/styles/dashboard";
 import { screenStyles } from "@/styles/screen";
 import { theme } from "@/design";
 import { ReactNode } from "react";
@@ -11,6 +11,7 @@ type PageHeaderProps = {
 };
 
 export function PageHeader({ title, subtitle }: PageHeaderProps) {
+    const dashboard = useDashboardStyles();
     return (
         <View style={dashboard.standaloneHeader}>
             <Text style={screenStyles.title}>{title}</Text>
@@ -35,6 +36,7 @@ export function TabScaffold({
     segments,
 }: TabScaffoldProps) {
     const topPadding = useScreenTopPadding();
+    const dashboard = useDashboardStyles();
 
     return (
         <View style={dashboard.screen}>

@@ -290,7 +290,7 @@ export async function syncDueReminders(
             continue;
         }
         const body = bill.amountVaries
-            ? `${bill.name} · amount varies`
+            ? `${bill.name} · enter amount`
             : `${bill.name} · ${formatMoney(bill.amount, currency, { compact: true })}`;
         for (const fire of upcomingReminderFires(bill.dueDay, now, schedule)) {
             planned.push({

@@ -1,7 +1,7 @@
-import { theme } from "@/design";
-import { form } from "@/styles/form";
+import { useTheme } from "@/app/contexts/ThemeContext";
+import { useFormStyles } from "@/styles/form";
 import Ionicons from "@react-native-vector-icons/ionicons";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
     Modal,
     Pressable,
@@ -16,22 +16,15 @@ type SelectMenuProps<T extends string> = {
     options: readonly T[];
     value: T | null;
     onChange: (value: T | null) => void;
-    /** Sheet heading. */
     title: string;
-    /** Shown on the trigger when `value` is null. */
     placeholder?: string;
-    /**
-     * Leading option that sets `value` to null. Pass `null` to hide
-     * (required fields). Default is hidden.
-     */
     noneLabel?: string | null;
     accessibilityLabel?: string;
     disabled?: boolean;
 };
 
 /**
- * Compact one-line control that opens a short option sheet. Replaces
- * wrapping chip rows in filters and forms.
+ * Compact one-line control that opens a short option sheet.
  */
 export function SelectMenu<T extends string>({
     options,
@@ -44,7 +37,10 @@ export function SelectMenu<T extends string>({
     disabled = false,
 }: SelectMenuProps<T>) {
     const insets = useSafeAreaInsets();
+    const { theme } = useTheme();
+    const form = useFormStyles();
     const [open, setOpen] = useState(false);
+    const styles = useMemo(() => createSelectStyles(theme, form), [theme, form]);
 
     const display = value ?? placeholder;
     const isPlaceholder = value === null;
@@ -85,9 +81,7 @@ export function SelectMenu<T extends string>({
                     name="chevron-down"
                     size={18}
                     color={
-                        disabled
-                            ? theme.text.disabled
-                            : theme.text.tertiary
+                        disabled ? theme.text.disabled : theme.text.tertiary
                     }
                 />
             </Pressable>
@@ -142,6 +136,8 @@ export function SelectMenu<T extends string>({
                                     label={noneLabel}
                                     selected={value === null}
                                     onPress={() => pick(null)}
+                                    styles={styles}
+                                    checkColor={theme.intent.positive.fg}
                                 />
                             ) : null}
                             {options.map((option) => (
@@ -150,6 +146,8 @@ export function SelectMenu<T extends string>({
                                     label={option}
                                     selected={option === value}
                                     onPress={() => pick(option)}
+                                    styles={styles}
+                                    checkColor={theme.intent.positive.fg}
                                 />
                             ))}
                         </ScrollView>
@@ -164,9 +162,17 @@ type OptionRowProps = {
     label: string;
     selected: boolean;
     onPress: () => void;
+    styles: ReturnType<typeof createSelectStyles>;
+    checkColor: string;
 };
 
-function OptionRow({ label, selected, onPress }: OptionRowProps) {
+function OptionRow({
+    label,
+    selected,
+    onPress,
+    styles,
+    checkColor,
+}: OptionRowProps) {
     return (
         <Pressable
             onPress={onPress}
@@ -189,7 +195,7 @@ function OptionRow({ label, selected, onPress }: OptionRowProps) {
                 <Ionicons
                     name="checkmark-circle"
                     size={22}
-                    color={theme.intent.positive.fg}
+                    color={checkColor}
                 />
             ) : (
                 <View style={styles.checkSpacer} />
@@ -198,100 +204,105 @@ function OptionRow({ label, selected, onPress }: OptionRowProps) {
     );
 }
 
-const styles = StyleSheet.create({
-    trigger: {
-        ...form.input,
-        flexDirection: "row",
-        alignItems: "center",
-        gap: theme.space.sm,
-    },
-    triggerPressed: {
-        opacity: 0.85,
-    },
-    triggerDisabled: {
-        opacity: 0.55,
-        backgroundColor: theme.bg.sunken,
-    },
-    triggerText: {
-        flex: 1,
-        color: theme.text.primary,
-        fontSize: theme.fontSize.md,
-        fontWeight: theme.fontWeight.semibold,
-    },
-    triggerPlaceholder: {
-        color: theme.text.tertiary,
-        fontWeight: theme.fontWeight.regular,
-    },
-    triggerTextDisabled: {
-        color: theme.text.disabled,
-    },
-    overlay: {
-        flex: 1,
-        justifyContent: "flex-end",
-        backgroundColor: theme.overlay,
-    },
-    sheet: {
-        backgroundColor: theme.bg.canvas,
-        borderTopLeftRadius: theme.radius.lg,
-        borderTopRightRadius: theme.radius.lg,
-        maxHeight: "70%",
-        paddingTop: theme.space.md,
-    },
-    sheetHeader: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingHorizontal: theme.space.screenX,
-        marginBottom: theme.space.sm,
-        gap: theme.space.sm,
-    },
-    sheetTitle: {
-        flex: 1,
-        color: theme.text.primary,
-        fontSize: theme.fontSize.lg,
-        lineHeight: theme.lineHeight.lg,
-        fontWeight: theme.fontWeight.bold,
-        letterSpacing: -0.3,
-    },
-    closeBtn: {
-        width: 36,
-        height: 36,
-        borderRadius: theme.radius.pill,
-        backgroundColor: theme.bg.surface,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    row: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: theme.space.sm,
-        marginHorizontal: theme.space.screenX,
-        marginBottom: theme.space.xs,
-        paddingHorizontal: theme.space.md,
-        paddingVertical: theme.space.md,
-        minHeight: theme.size.tap,
-        borderRadius: theme.radius.sm,
-        backgroundColor: theme.bg.surface,
-        borderWidth: 1,
-        borderColor: theme.border.subtle,
-    },
-    rowSelected: {
-        borderColor: theme.border.focus,
-        backgroundColor: theme.intent.info.bg,
-    },
-    rowPressed: {
-        opacity: 0.88,
-    },
-    rowText: {
-        flex: 1,
-        color: theme.text.primary,
-        fontSize: theme.fontSize.md,
-        fontWeight: theme.fontWeight.regular,
-    },
-    rowTextSelected: {
-        color: theme.text.accent,
-        fontWeight: theme.fontWeight.semibold,
-    },
-    checkSpacer: {
-        width: 22,
-    },
-});
+function createSelectStyles(
+    theme: ReturnType<typeof useTheme>["theme"],
+    form: ReturnType<typeof useFormStyles>
+) {
+    return StyleSheet.create({
+        trigger: {
+            ...form.input,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: theme.space.sm,
+        },
+        triggerPressed: {
+            opacity: 0.85,
+        },
+        triggerDisabled: {
+            opacity: 0.55,
+            backgroundColor: theme.bg.sunken,
+        },
+        triggerText: {
+            flex: 1,
+            color: theme.text.primary,
+            fontSize: theme.fontSize.md,
+            fontWeight: theme.fontWeight.semibold,
+        },
+        triggerPlaceholder: {
+            color: theme.text.tertiary,
+            fontWeight: theme.fontWeight.regular,
+        },
+        triggerTextDisabled: {
+            color: theme.text.disabled,
+        },
+        overlay: {
+            flex: 1,
+            justifyContent: "flex-end",
+            backgroundColor: theme.overlay,
+        },
+        sheet: {
+            backgroundColor: theme.bg.canvas,
+            borderTopLeftRadius: theme.radius.lg,
+            borderTopRightRadius: theme.radius.lg,
+            maxHeight: "70%",
+            paddingTop: theme.space.md,
+        },
+        sheetHeader: {
+            flexDirection: "row",
+            alignItems: "center",
+            paddingHorizontal: theme.space.screenX,
+            marginBottom: theme.space.sm,
+            gap: theme.space.sm,
+        },
+        sheetTitle: {
+            flex: 1,
+            color: theme.text.primary,
+            fontSize: theme.fontSize.lg,
+            lineHeight: theme.lineHeight.lg,
+            fontWeight: theme.fontWeight.bold,
+            letterSpacing: -0.3,
+        },
+        closeBtn: {
+            width: 36,
+            height: 36,
+            borderRadius: theme.radius.pill,
+            backgroundColor: theme.bg.surface,
+            alignItems: "center",
+            justifyContent: "center",
+        },
+        row: {
+            flexDirection: "row",
+            alignItems: "center",
+            gap: theme.space.sm,
+            marginHorizontal: theme.space.screenX,
+            marginBottom: theme.space.xs,
+            paddingHorizontal: theme.space.md,
+            paddingVertical: theme.space.md,
+            minHeight: theme.size.tap,
+            borderRadius: theme.radius.sm,
+            backgroundColor: theme.bg.surface,
+            borderWidth: 1,
+            borderColor: theme.border.subtle,
+        },
+        rowSelected: {
+            borderColor: theme.border.focus,
+            backgroundColor: theme.intent.info.bg,
+        },
+        rowPressed: {
+            opacity: 0.88,
+        },
+        rowText: {
+            flex: 1,
+            color: theme.text.primary,
+            fontSize: theme.fontSize.md,
+            fontWeight: theme.fontWeight.regular,
+        },
+        rowTextSelected: {
+            color: theme.text.accent,
+            fontWeight: theme.fontWeight.semibold,
+        },
+        checkSpacer: {
+            width: 22,
+        },
+    });
+}

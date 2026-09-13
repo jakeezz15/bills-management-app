@@ -15,7 +15,7 @@ import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
 import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
 import { useStickyHero } from "@/hooks/useStickyHero";
 import { useDueNowInbox } from "@/hooks/useDueNowInbox";
-import { dashboard } from "@/styles/dashboard";
+import { useDashboardStyles } from "@/styles/dashboard";
 import { text, theme } from "@/design";
 import {
     hasCompletedFirstRun,
@@ -50,6 +50,7 @@ import { useExpenses } from "../contexts/ExpensesContext";
 import { useIncome } from "../contexts/IncomeContext";
 import { useLocale } from "../contexts/LocaleContext";
 import { useSavings } from "../contexts/SavingsContext";
+import { useTheme } from "../contexts/ThemeContext";
 
 const UNIT_OPTIONS = [
     ...PERIOD_UNITS.map((unit) => PERIOD_UNIT_LABELS[unit]),
@@ -57,6 +58,8 @@ const UNIT_OPTIONS = [
 ];
 
 export default function HomeScreen() {
+    const { theme: accentTheme } = useTheme();
+    const dashboard = useDashboardStyles();
     // The masthead is a dark band, so the clock needs to be light.
     useStatusBarStyle("light");
 
@@ -387,7 +390,7 @@ export default function HomeScreen() {
     // than let "available" read as the whole picture.
     const unknownNote =
         committed.unknownCount > 0
-            ? ` · ${committed.unknownCount} variable ${
+            ? ` · ${committed.unknownCount} open ${
                   committed.unknownCount === 1 ? "bill" : "bills"
               } not counted yet`
             : "";
@@ -581,12 +584,21 @@ export default function HomeScreen() {
                                     <View
                                         style={[
                                             dashboard.barFill,
-                                            line.sign === "+" && dashboard.barFillDone,
                                             {
                                                 width: `${Math.min(
                                                     100,
                                                     (line.value / maxLine) * 100
                                                 )}%`,
+                                                backgroundColor:
+                                                    line.sign === "+"
+                                                        ? accentTheme.intent
+                                                              .positive.solid
+                                                        : accentTheme.chart[
+                                                              (index + 1) %
+                                                                  accentTheme
+                                                                      .chart
+                                                                      .length
+                                                          ],
                                             },
                                         ]}
                                     />
@@ -657,15 +669,14 @@ export default function HomeScreen() {
 
                         {committed.unknownCount > 0 ? (
                             <Text style={styles.grandNote}>
-                                {committed.unknownCount} variable{" "}
+                                {committed.unknownCount}{" "}
                                 {committed.unknownCount === 1
                                     ? "bill has"
                                     : "bills have"}{" "}
-                                no amount yet, so {
-                                    committed.unknownCount === 1
-                                        ? "it is"
-                                        : "they are"
-                                }{" "}
+                                no set amount yet, so{" "}
+                                {committed.unknownCount === 1
+                                    ? "it is"
+                                    : "they are"}{" "}
                                 not subtracted.
                             </Text>
                         ) : null}

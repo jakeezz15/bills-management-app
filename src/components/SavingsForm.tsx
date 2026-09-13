@@ -2,7 +2,7 @@ import { useLocale } from "@/app/contexts/LocaleContext";
 import { useSavings } from "@/app/contexts/SavingsContext";
 import { DateField } from "@/components/DateField";
 import { FormDialog } from "@/components/FormDialog";
-import { form, formColors } from "@/styles/form";
+import { useFormStyles, useFormColors } from "@/styles/form";
 import { SavingsGoal } from "@/types/savings";
 import {
     moneyFieldError,
@@ -29,6 +29,8 @@ export default function SavingsForm(props: SavingsFormProps) {
 }
 
 function SavingsEditor({ visible, onClose, savingsInfo }: SavingsFormProps) {
+    const form = useFormStyles();
+    const formColors = useFormColors();
     const { addSavings, updateSavings, deleteSavings } = useSavings();
     const { currency } = useLocale();
     const symbol = currencySymbol(currency);

@@ -192,6 +192,32 @@ export function getBillTotalPaid(
         .reduce((sum, payment) => sum + payment.amount, 0);
 }
 
+/** Most recent ledger row for this bill (by date, then id). */
+export function getLastBillPayment(
+    billId: string,
+    payments: BillPayment[],
+    options?: { includeSkipped?: boolean }
+): BillPayment | null {
+    const includeSkipped = options?.includeSkipped === true;
+    let latest: BillPayment | null = null;
+    for (const payment of payments) {
+        if (payment.billId !== billId) {
+            continue;
+        }
+        if (!includeSkipped && payment.skipped) {
+            continue;
+        }
+        if (
+            !latest ||
+            payment.date > latest.date ||
+            (payment.date === latest.date && payment.id > latest.id)
+        ) {
+            latest = payment;
+        }
+    }
+    return latest;
+}
+
 /** Payment recorded for this bill in `asOf`'s calendar month, if any. */
 export function getBillPaymentInMonth(
     billId: string,
@@ -217,6 +243,17 @@ export function getBillPaymentInMonth(
         }
         return paidOn.getTime() <= asOfDay.getTime();
     });
+}
+
+/** True when this month’s ledger row is an intentional skip. */
+export function isBillSkippedAsOf(
+    billId: string,
+    payments: BillPayment[],
+    asOf: Date,
+    options?: { anyDayInMonth?: boolean }
+): boolean {
+    const payment = getBillPaymentInMonth(billId, payments, asOf, options);
+    return payment?.skipped === true;
 }
 
 /** Latest contribution for a goal in `asOf`'s calendar month. */
@@ -298,18 +335,27 @@ export function billDueStatusReference(
     return now;
 }
 
-export type BillDueStatus = "paid" | "overdue" | "due-soon" | "upcoming";
+export type BillDueStatus =
+    | "paid"
+    | "skipped"
+    | "overdue"
+    | "due-soon"
+    | "upcoming";
 
 /**
  * This-month due state vs today. Catalogs use this for the row accent:
- * paid / overdue / soon / upcoming — not a second paid flag.
+ * paid / skipped / overdue / soon / upcoming — not a second paid flag.
  */
 export function dueCatalogStatus(
     dueDay: number,
     paid: boolean,
     asOf: Date = new Date(),
-    soonWithinDays = 3
+    soonWithinDays = 3,
+    skipped = false
 ): BillDueStatus {
+    if (paid && skipped) {
+        return "skipped";
+    }
     if (paid) {
         return "paid";
     }
@@ -328,6 +374,9 @@ export function dueCatalogStatus(
 export function dueCatalogLabel(status: BillDueStatus): string | null {
     if (status === "paid") {
         return "Paid";
+    }
+    if (status === "skipped") {
+        return "Skipped";
     }
     if (status === "overdue") {
         return "Overdue";

@@ -49,7 +49,8 @@ export function backupFileName(now = new Date()): string {
     return `on-hand-backup-${day}-${hh}${mm}${ss}.json`;
 }
 
-export async function exportBackup(): Promise<void> {
+/** Build the same payload used for file export and cloud sync. */
+export async function buildAppBackup(): Promise<AppBackup> {
     const [
         bills,
         debts,
@@ -76,7 +77,7 @@ export async function exportBackup(): Promise<void> {
         getReminderPrefs(),
     ]);
 
-    const backup: AppBackup = {
+    return {
         version: 1,
         exportedAt: new Date().toISOString(),
         income: incomes,
@@ -94,7 +95,51 @@ export async function exportBackup(): Promise<void> {
             dueReminderLeadDays: reminderPrefs.leadDays,
         },
     };
+}
 
+export function isAppBackupEmpty(backup: AppBackup): boolean {
+    return (
+        backup.income.length === 0 &&
+        backup.expenses.length === 0 &&
+        backup.bills.length === 0 &&
+        backup.debts.length === 0 &&
+        backup.savings.length === 0 &&
+        backup.debtPayments.length === 0 &&
+        backup.billPayments.length === 0 &&
+        backup.savingsContributions.length === 0
+    );
+}
+
+/** Replace all local finance data (+ optional prefs) from a validated backup. */
+export async function applyAppBackup(
+    backup: AppBackup,
+    prefs: BackupPrefs | null
+): Promise<void> {
+    await Promise.all([
+        saveIncome(backup.income),
+        saveExpenses(backup.expenses),
+        saveBills(backup.bills),
+        saveDebts(backup.debts),
+        saveSavings(backup.savings),
+        saveDebtPayments(backup.debtPayments),
+        saveBillPayments(backup.billPayments),
+        saveSavingsContributions(backup.savingsContributions),
+    ]);
+
+    if (prefs) {
+        await Promise.all([
+            setStoredCurrency(prefs.currencyCode),
+            setReminderPrefs({
+                hour: prefs.dueReminderHour,
+                leadDays: prefs.dueReminderLeadDays,
+            }),
+            setDueRemindersEnabled(prefs.dueRemindersEnabled),
+        ]);
+    }
+}
+
+export async function exportBackup(): Promise<void> {
+    const backup = await buildAppBackup();
     const text = JSON.stringify(backup, null, 2);
     const fileName = backupFileName();
     const file = new File(Paths.cache, fileName);
@@ -141,31 +186,8 @@ export async function importBackup(): Promise<ImportBackupResult> {
         throw new Error(checked.error);
     }
 
-    const { backup, prefs } = checked;
-
-    await Promise.all([
-        saveIncome(backup.income),
-        saveExpenses(backup.expenses),
-        saveBills(backup.bills),
-        saveDebts(backup.debts),
-        saveSavings(backup.savings),
-        saveDebtPayments(backup.debtPayments),
-        saveBillPayments(backup.billPayments),
-        saveSavingsContributions(backup.savingsContributions),
-    ]);
-
-    if (prefs) {
-        await Promise.all([
-            setStoredCurrency(prefs.currencyCode),
-            setReminderPrefs({
-                hour: prefs.dueReminderHour,
-                leadDays: prefs.dueReminderLeadDays,
-            }),
-            setDueRemindersEnabled(prefs.dueRemindersEnabled),
-        ]);
-    }
-
-    return { imported: true, prefs };
+    await applyAppBackup(checked.backup, checked.prefs);
+    return { imported: true, prefs: checked.prefs };
 }
 
 /**

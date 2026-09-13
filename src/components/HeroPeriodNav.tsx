@@ -1,4 +1,4 @@
-import { dashboard } from "@/styles/dashboard";
+import { useDashboardStyles } from "@/styles/dashboard";
 import { theme } from "@/design";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { Pressable, Text, View, type StyleProp, type ViewStyle } from "react-native";
@@ -20,6 +20,7 @@ export function HeroPeriodNav({
     isCurrentPeriod = false,
     style,
 }: HeroPeriodNavProps) {
+    const dashboard = useDashboardStyles();
     return (
         <View style={[dashboard.periodRow, style]}>
             <Pressable

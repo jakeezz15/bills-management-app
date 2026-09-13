@@ -21,8 +21,8 @@ import { EXPENSE_CATEGORIES } from "@/constants/categories";
 import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
 import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
 import { useStickyHero } from "@/hooks/useStickyHero";
-import { dashboard } from "@/styles/dashboard";
-import { form } from "@/styles/form";
+import { useDashboardStyles } from "@/styles/dashboard";
+import { useFormStyles } from "@/styles/form";
 import { isIsoInRange, isViewingCurrentPeriod } from "@/utils/date";
 import { filterByCategory, filterBySearch } from "@/utils/filters";
 import { router } from "expo-router";
@@ -31,6 +31,7 @@ import { ScrollView, View } from "react-native";
 import { useDateRange } from "../contexts/DateRangeContext";
 import { useExpenses } from "../contexts/ExpensesContext";
 import { useLocale } from "../contexts/LocaleContext";
+import { useTheme } from "../contexts/ThemeContext";
 
 type ExpensesScreenProps = {
     embedded?: boolean;
@@ -39,6 +40,9 @@ type ExpensesScreenProps = {
 export default function ExpensesScreen({
     embedded = false,
 }: ExpensesScreenProps) {
+    const { theme } = useTheme();
+    const form = useFormStyles();
+    const dashboard = useDashboardStyles();
     // Standalone deep link shows the dark hero band; when embedded the
     // host tab owns the bar.
     useStatusBarStyle(embedded ? null : "light");
@@ -242,7 +246,10 @@ export default function ExpensesScreen({
                                     amountLabel={formatMoney(expense.amount, {
                                         compact: true,
                                     })}
-                                    accentColor={accentForLabel(category)}
+                                    accentColor={accentForLabel(
+                                        category,
+                                        theme.chart
+                                    )}
                                     isLast={index === group.items.length - 1}
                                     onPress={() => {
                                         router.push(`/expense/${expense.id}`);

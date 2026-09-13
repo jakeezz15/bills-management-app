@@ -13,7 +13,7 @@ import SavingsForm from "@/components/SavingsForm";
 import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
 import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
 import { useStickyHero } from "@/hooks/useStickyHero";
-import { dashboard } from "@/styles/dashboard";
+import { useDashboardStyles } from "@/styles/dashboard";
 import { SavingsGoal } from "@/types/savings";
 import { filterBySearch } from "@/utils/filters";
 import {
@@ -49,6 +49,7 @@ function goalMeta(goal: SavingsGoal): string {
 export default function SavingsScreen({
     embedded = false,
 }: SavingsScreenProps) {
+    const dashboard = useDashboardStyles();
     // Standalone deep link shows the dark hero band; when embedded the
     // host tab owns the bar.
     useStatusBarStyle(embedded ? null : "light");

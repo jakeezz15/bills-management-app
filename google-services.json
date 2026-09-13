@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "714106654750",
+    "project_id": "on-hand-app",
+    "storage_bucket": "on-hand-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:714106654750:android:5cff23b83cd5a4f12ade0f",
+        "android_client_info": {
+          "package_name": "com.durantetechsolutions.onhand"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "714106654750-va1l6apim82en8ogbvvr9932dd7i8dbh.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.durantetechsolutions.onhand",
+            "certificate_hash": "5ced5dbe189ffc34e62ee5cdb45e481f7090beea"
+          }
+        },
+        {
+          "client_id": "714106654750-b5ivgjnq3qt68ufkpp0caas0o62oncgl.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDsK5Wu5GU_EN_Qw7PtwTzcRL47eChmcPQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "714106654750-b5ivgjnq3qt68ufkpp0caas0o62oncgl.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "714106654750-9nfihc7jpt6t0r2f929rvma03bh7bmkc.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.durantetechsolutions.onhand"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

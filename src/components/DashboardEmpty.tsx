@@ -1,7 +1,7 @@
-import { dashboard } from "@/styles/dashboard";
-import { theme } from "@/design";
+import { useTheme } from "@/app/contexts/ThemeContext";
+import { useDashboardStyles } from "@/styles/dashboard";
 import Ionicons from "@react-native-vector-icons/ionicons";
-import { ComponentProps } from "react";
+import { ComponentProps, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 type IconName = ComponentProps<typeof Ionicons>["name"];
@@ -21,6 +21,19 @@ export function DashboardEmpty({
     onAction,
     icon = "add-circle-outline",
 }: DashboardEmptyProps) {
+    const { theme } = useTheme();
+    const dashboard = useDashboardStyles();
+    const styles = useMemo(
+        () =>
+            StyleSheet.create({
+                iconWrap: {
+                    alignSelf: "center",
+                    marginBottom: theme.space.sm,
+                },
+            }),
+        [theme]
+    );
+
     return (
         <View style={dashboard.emptyCard}>
             <View style={styles.iconWrap} accessibilityElementsHidden>
@@ -41,28 +54,8 @@ export function DashboardEmpty({
                     pressed && { opacity: 0.9 },
                 ]}
             >
-                <Text
-                    style={dashboard.emptyButtonText}
-                    numberOfLines={1}
-                    adjustsFontSizeToFit
-                    minimumFontScale={0.7}
-                >
-                    {actionLabel}
-                </Text>
+                <Text style={dashboard.emptyButtonText}>{actionLabel}</Text>
             </Pressable>
         </View>
     );
 }
-
-const styles = StyleSheet.create({
-    iconWrap: {
-        width: 48,
-        height: 48,
-        borderRadius: theme.radius.pill,
-        backgroundColor: theme.intent.info.bg,
-        alignItems: "center",
-        justifyContent: "center",
-        alignSelf: "center",
-        marginBottom: theme.space.md,
-    },
-});

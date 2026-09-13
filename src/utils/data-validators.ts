@@ -275,6 +275,7 @@ export function parseBillPayment(value: unknown): BillPayment | null {
         billId: v.billId.trim(),
         amount: v.amount,
         date: v.date,
+        skipped: optionalBoolean(v.skipped) === true ? true : undefined,
         ...optionalTimestamps(v),
     } as BillPayment;
 }

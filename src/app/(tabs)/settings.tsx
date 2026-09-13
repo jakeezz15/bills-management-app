@@ -1,377 +1,85 @@
-import { ChoiceChips } from "@/components/ChoiceChips";
-import { CurrencyPickerModal } from "@/components/CurrencyPickerModal";
 import {
     SettingsDivider,
-    SettingsInset,
     SettingsRow,
     SettingsSection,
 } from "@/components/SettingsList";
-import {
-    PRIVACY_POLICY_URL,
-    SUPPORT_URL,
-} from "@/constants/support";
 import { text, theme } from "@/design";
 import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
 import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
-import { exportBackup, importBackup } from "@/services/backup";
+import {
+    getCurrentUser,
+    subscribeToAuth,
+} from "@/services/auth";
 import {
     areDueRemindersEnabled,
-    disableDueReminders,
-    enableDueReminders,
     getReminderPrefs,
-    pickTestReminderTarget,
     remindersUnavailableReason,
-    sendTestReminder,
-    setReminderPrefs,
-    syncDueReminders,
-    type ReminderPrefs,
 } from "@/services/reminders";
-import { seedDemoData, seedScreenshotData } from "@/services/seed-demo";
-import {
-    clearStorageHealthIssues,
-    recordStorageHealthIssue,
-} from "@/services/storage-health";
-import {
-    clearAllData,
-    clearFirstRunFlag,
-    loadBills,
-    loadDebts,
-} from "@/services/storage";
-import { dashboard } from "@/styles/dashboard";
+import { useDashboardStyles } from "@/styles/dashboard";
 import { isDevToolsBuild } from "@/utils/dev-tools";
-import { currencyLabel } from "@/utils/money";
 import {
-    formatReminderHour,
-    formatReminderLead,
     formatReminderScheduleCaption,
-    REMINDER_HOUR_OPTIONS,
-    REMINDER_LEAD_OPTIONS,
 } from "@/utils/reminder-schedule";
+import { getLastSyncedAt } from "@/utils/sync-ui";
 import Constants from "expo-constants";
-import * as Linking from "expo-linking";
-import * as WebBrowser from "expo-web-browser";
-import { useEffect, useState } from "react";
-import { Alert, ScrollView, Text, View } from "react-native";
-import { useBills } from "../contexts/BillsContext";
-import { useDebt } from "../contexts/DebtsContext";
-import { useExpenses } from "../contexts/ExpensesContext";
-import { useIncome } from "../contexts/IncomeContext";
-import { useLocale } from "../contexts/LocaleContext";
-import { useSavings } from "../contexts/SavingsContext";
+import { router, useFocusEffect } from "expo-router";
+import type { User } from "firebase/auth";
+import { useCallback, useEffect, useState } from "react";
+import { ScrollView, Text, View } from "react-native";
 
 export default function SettingsScreen() {
-    // Plain canvas at the top, no dark band.
+    const dashboard = useDashboardStyles();
     useStatusBarStyle("dark");
     const topPadding = useScreenTopPadding();
-
-    const { currency, setCurrency } = useLocale();
-    const { reload: reloadIncome } = useIncome();
-    const { reload: reloadExpenses } = useExpenses();
-    const { bills, reload: reloadBills } = useBills();
-    const { debts, reload: reloadDebts } = useDebt();
-    const { reload: reloadSavings } = useSavings();
-    const [busy, setBusy] = useState(false);
+    const [user, setUser] = useState<User | null>(getCurrentUser());
+    const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
     const [remindersOn, setRemindersOn] = useState(false);
-    const [reminderBusy, setReminderBusy] = useState(false);
-    const [reminderPrefs, setReminderPrefsState] = useState<ReminderPrefs>({
-        hour: 9,
-        leadDays: 3,
-    });
-    const [currencyOpen, setCurrencyOpen] = useState(false);
+    const [scheduleCaption, setScheduleCaption] = useState("…");
     const remindersBlocked = remindersUnavailableReason();
     const version = Constants.expoConfig?.version ?? "1.0.0";
-    const scheduleCaption = formatReminderScheduleCaption(
-        reminderPrefs.hour,
-        reminderPrefs.leadDays
-    );
-    const hourLabels = REMINDER_HOUR_OPTIONS.map(formatReminderHour);
-    const leadLabels = REMINDER_LEAD_OPTIONS.map(formatReminderLead);
 
     useEffect(() => {
-        void Promise.all([
-            areDueRemindersEnabled(),
-            getReminderPrefs(),
-        ]).then(([enabled, prefs]) => {
-            setRemindersOn(enabled);
-            setReminderPrefsState(prefs);
+        const unsubscribe = subscribeToAuth((next) => {
+            setUser(next);
+            if (next) {
+                void getLastSyncedAt().then(setLastSyncedAt);
+            } else {
+                setLastSyncedAt(null);
+            }
         });
+        return unsubscribe;
     }, []);
 
-    const reloadAll = async () => {
-        await Promise.all([
-            reloadIncome(),
-            reloadExpenses(),
-            reloadBills(),
-            reloadDebts(),
-            reloadSavings(),
-        ]);
-    };
-
-    const handleExport = async () => {
-        try {
-            setBusy(true);
-            await exportBackup();
-        } catch (error) {
-            Alert.alert(
-                "Export failed",
-                error instanceof Error ? error.message : "Something went wrong."
-            );
-        } finally {
-            setBusy(false);
-        }
-    };
-
-    const handleImport = () => {
-        Alert.alert(
-            "Import backup?",
-            "This will replace all data on this device with the file you choose.",
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Import",
-                    style: "destructive",
-                    onPress: async () => {
-                        try {
-                            setBusy(true);
-                            const result = await importBackup();
-                            if (!result.imported) {
-                                return;
-                            }
-                            await reloadAll();
-
-                            if (result.prefs) {
-                                await setCurrency(result.prefs.currencyCode);
-                                setReminderPrefsState({
-                                    hour: result.prefs.dueReminderHour,
-                                    leadDays: result.prefs.dueReminderLeadDays,
-                                });
-                                setRemindersOn(
-                                    result.prefs.dueRemindersEnabled
-                                );
-
-                                const [nextBills, nextDebts] =
-                                    await Promise.all([
-                                        loadBills(),
-                                        loadDebts(),
-                                    ]);
-                                if (result.prefs.dueRemindersEnabled) {
-                                    await enableDueReminders(
-                                        nextBills,
-                                        nextDebts
-                                    );
-                                } else {
-                                    await disableDueReminders();
-                                }
-                            }
-
-                            Alert.alert(
-                                "Import complete",
-                                result.prefs
-                                    ? "Your backup, currency, and reminder settings have been restored."
-                                    : "Your backup has been restored."
-                            );
-                        } catch (error) {
-                            Alert.alert(
-                                "Import failed",
-                                error instanceof Error
-                                    ? error.message
-                                    : "Something went wrong."
-                            );
-                        } finally {
-                            setBusy(false);
-                        }
-                    },
-                },
-            ]
-        );
-    };
-
-    const handleReset = () => {
-        Alert.alert(
-            "Reset all data?",
-            "This erases income, spending, bills, debts, savings, and payment history on this device. The app will stay empty — sample data will not come back. Currency and reminder settings are kept.",
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Reset",
-                    style: "destructive",
-                    onPress: async () => {
-                        await clearAllData();
-                        await reloadAll();
-                        Alert.alert(
-                            "Data reset",
-                            "Everything financial on this device is empty now. Open Home to see the leftover tip again."
-                        );
-                    },
-                },
-            ]
-        );
-    };
-
-    const runSeed = (
-        title: string,
-        message: string,
-        actionLabel: string,
-        seed: () => Promise<{
-            income: number;
-            expenses: number;
-            bills: number;
-            debts: number;
-            savings: number;
-        }>
-    ) => {
-        if (!isDevToolsBuild()) {
-            return;
-        }
-        Alert.alert(title, message, [
-            { text: "Cancel", style: "cancel" },
-            {
-                text: actionLabel,
-                onPress: async () => {
-                    try {
-                        setBusy(true);
-                        const result = await seed();
-                        await reloadAll();
-                        Alert.alert(
-                            "Demo data loaded",
-                            `${result.income} income · ${result.expenses} expenses · ${result.bills} bills · ${result.debts} debts · ${result.savings} savings goals`
-                        );
-                    } catch (error) {
-                        Alert.alert(
-                            "Seed failed",
-                            error instanceof Error
-                                ? error.message
-                                : "Something went wrong."
-                        );
-                    } finally {
-                        setBusy(false);
-                    }
-                },
-            },
-        ]);
-    };
-
-    const handleSeedDemo = () => {
-        runSeed(
-            "Load demo data?",
-            "Replaces all finance data with realistic entries from July through today (income, spending, bills, debts, savings). For development only.",
-            "Seed data",
-            () => seedDemoData()
-        );
-    };
-
-    const handleSeedScreenshots = () => {
-        runSeed(
-            "Load screenshot demo?",
-            "Replaces all finance data with a curated set for store screenshots: clean leftover, paid + unpaid bills, savings progress, and readable ledger rows.",
-            "Seed screenshots",
-            () => seedScreenshotData()
-        );
-    };
-
-    const handleToggleReminders = async (next: boolean) => {
-        if (remindersBlocked) {
-            Alert.alert("Reminders unavailable", remindersBlocked);
-            return;
-        }
-
-        setReminderBusy(true);
-        try {
-            if (next) {
-                const result = await enableDueReminders(bills, debts);
-                if (!result.ok) {
-                    setRemindersOn(false);
-                    Alert.alert(
-                        "Reminders off",
-                        result.reason ?? "Could not enable reminders.",
-                        result.reason?.includes("system Settings")
-                            ? [
-                                  { text: "Not now", style: "cancel" },
-                                  {
-                                      text: "Open Settings",
-                                      onPress: () => {
-                                          void Linking.openSettings();
-                                      },
-                                  },
-                              ]
-                            : undefined
-                    );
-                    return;
+    useFocusEffect(
+        useCallback(() => {
+            void Promise.all([
+                areDueRemindersEnabled(),
+                getReminderPrefs(),
+                getLastSyncedAt(),
+            ]).then(([enabled, prefs, synced]) => {
+                setRemindersOn(enabled);
+                setScheduleCaption(
+                    formatReminderScheduleCaption(prefs.hour, prefs.leadDays)
+                );
+                if (getCurrentUser()) {
+                    setLastSyncedAt(synced);
                 }
-                setRemindersOn(true);
-                Alert.alert(
-                    "Reminders on",
-                    result.scheduled === 0
-                        ? "No bills or debts to remind about yet. Add one and we will schedule it."
-                        : `${result.scheduled} reminders set: ${scheduleCaption}.`
-                );
-            } else {
-                await disableDueReminders();
-                setRemindersOn(false);
-            }
-        } finally {
-            setReminderBusy(false);
-        }
-    };
+            });
+        }, [])
+    );
 
-    const applyReminderPrefs = async (next: ReminderPrefs) => {
-        setReminderPrefsState(next);
-        setReminderBusy(true);
-        try {
-            await setReminderPrefs(next);
-            if (remindersOn) {
-                await syncDueReminders(bills, debts);
-            }
-        } finally {
-            setReminderBusy(false);
-        }
-    };
+    const accountSubtitle = user
+        ? user.email ??
+        (lastSyncedAt
+            ? `Synced ${new Date(lastSyncedAt).toLocaleDateString()}`
+            : "Signed in · cloud sync")
+        : "Sign in optional · sync across devices";
 
-    const handleHourChange = (label: string) => {
-        const hour = REMINDER_HOUR_OPTIONS.find(
-            (option) => formatReminderHour(option) === label
-        );
-        if (hour == null || hour === reminderPrefs.hour) {
-            return;
-        }
-        void applyReminderPrefs({ ...reminderPrefs, hour });
-    };
-
-    const handleLeadChange = (label: string) => {
-        const leadDays = REMINDER_LEAD_OPTIONS.find(
-            (option) => formatReminderLead(option) === label
-        );
-        if (leadDays == null || leadDays === reminderPrefs.leadDays) {
-            return;
-        }
-        void applyReminderPrefs({ ...reminderPrefs, leadDays });
-    };
-
-    const handleTestReminder = async () => {
-        if (!isDevToolsBuild()) {
-            return;
-        }
-        setReminderBusy(true);
-        try {
-            const target = pickTestReminderTarget(bills, debts);
-            const result = await sendTestReminder(target);
-            if (!result.ok) {
-                Alert.alert(
-                    "Could not send test",
-                    result.reason ?? "Something went wrong."
-                );
-                return;
-            }
-            Alert.alert(
-                "Test scheduled",
-                target
-                    ? "Leave the app or lock the phone. In a few seconds tap the banner — it should open Home and that bill or debt."
-                    : "You should see a banner in a few seconds. Add a bill or debt to also test that tapping it opens the form."
-            );
-        } finally {
-            setReminderBusy(false);
-        }
-    };
+    const notificationsSubtitle = remindersBlocked
+        ? remindersBlocked
+        : remindersOn
+            ? `On · ${scheduleCaption}`
+            : "Off";
 
     return (
         <View style={dashboard.screen}>
@@ -384,229 +92,84 @@ export default function SettingsScreen() {
             >
                 <Text style={styles.pageTitle}>Settings</Text>
 
-                <SettingsSection title="General">
+                <SettingsSection title="Preferences">
                     <SettingsRow
-                        icon="cash-outline"
-                        title="Currency"
-                        subtitle={currencyLabel(currency)}
-                        value={currency}
+                        icon="options-outline"
+                        title="General"
+                        // subtitle={currencyLabel(currency)}
                         showChevron
-                        onPress={() => setCurrencyOpen(true)}
+                        onPress={() => {
+                            router.push("/settings/general");
+                        }}
                     />
-                </SettingsSection>
+                    <SettingsDivider />
 
-                <SettingsSection title="Notifications">
+
                     <SettingsRow
                         icon="notifications-outline"
-                        title="Due-day reminders"
-                        subtitle={
-                            remindersBlocked ? remindersBlocked : scheduleCaption
-                        }
-                        disabled={
-                            reminderBusy || busy || Boolean(remindersBlocked)
-                        }
-                        switchValue={remindersOn}
-                        onSwitchChange={(value) => {
-                            void handleToggleReminders(value);
-                        }}
-                    />
-                    {remindersBlocked ? null : (
-                        <>
-                            <SettingsDivider />
-                            <SettingsInset title="Time">
-                                <ChoiceChips
-                                    options={hourLabels}
-                                    selected={formatReminderHour(
-                                        reminderPrefs.hour
-                                    )}
-                                    onSelect={handleHourChange}
-                                    title="Time"
-                                    disabled={
-                                        !remindersOn ||
-                                        reminderBusy ||
-                                        busy
-                                    }
-                                />
-                            </SettingsInset>
-                            <SettingsDivider />
-                            <SettingsInset title="Lead">
-                                <ChoiceChips
-                                    options={leadLabels}
-                                    selected={formatReminderLead(
-                                        reminderPrefs.leadDays
-                                    )}
-                                    onSelect={handleLeadChange}
-                                    title="Lead"
-                                    disabled={
-                                        !remindersOn ||
-                                        reminderBusy ||
-                                        busy
-                                    }
-                                />
-                            </SettingsInset>
-                        </>
-                    )}
-                </SettingsSection>
-
-                <SettingsSection title="Data & privacy">
-                    <SettingsRow
-                        icon="download-outline"
-                        title="Export backup"
-                        subtitle="JSON with date in the filename"
-                        disabled={busy}
+                        title="Notifications"
+                        subtitle={notificationsSubtitle}
                         showChevron
                         onPress={() => {
-                            void handleExport();
+                            router.push("/settings/notifications");
                         }}
                     />
                     <SettingsDivider />
+
                     <SettingsRow
-                        icon="cloud-upload-outline"
-                        title="Import backup"
-                        subtitle="Replace all data on this device"
-                        disabled={busy}
+                        icon="folder-outline"
+                        title="Data & privacy"
+                        subtitle="Export, import, or reset"
                         showChevron
-                        onPress={handleImport}
+                        onPress={() => {
+                            router.push("/settings/data");
+                        }}
                     />
                     <SettingsDivider />
+
                     <SettingsRow
-                        icon="trash-outline"
-                        title="Reset all data"
-                        subtitle="Clear everything — stays empty, no sample data"
-                        destructive
-                        disabled={busy}
+                        icon="person-circle-outline"
+                        title="Account"
+                        subtitle={accountSubtitle}
                         showChevron
-                        onPress={handleReset}
+                        onPress={() => {
+                            router.push("/settings/account");
+                        }}
                     />
+                    <SettingsDivider />
                 </SettingsSection>
 
-                {isDevToolsBuild() ? (
-                    <SettingsSection title="Development">
-                        <SettingsRow
-                            icon="flash-outline"
-                            title="Send test reminder"
-                            subtitle="Banner in a few seconds — tap to open that bill or debt"
-                            disabled={
-                                reminderBusy ||
-                                busy ||
-                                Boolean(remindersBlocked)
-                            }
-                            showChevron
-                            onPress={() => {
-                                void handleTestReminder();
-                            }}
-                        />
-                        <SettingsDivider />
-                        <SettingsRow
-                            icon="flask-outline"
-                            title="Seed demo data"
-                            subtitle="July → today: realistic income, spend, bills, debts, savings"
-                            disabled={busy}
-                            showChevron
-                            onPress={handleSeedDemo}
-                        />
-                        <SettingsDivider />
-                        <SettingsRow
-                            icon="camera-outline"
-                            title="Seed screenshot demo"
-                            subtitle="Curated for store photos — clean leftover and readable lists"
-                            disabled={busy}
-                            showChevron
-                            onPress={handleSeedScreenshots}
-                        />
-                        <SettingsDivider />
-                        <SettingsRow
-                            icon="bulb-outline"
-                            title="Replay first-run tip"
-                            subtitle="Shows the leftover coach on Home again"
-                            disabled={busy}
-                            showChevron
-                            onPress={() => {
-                                void (async () => {
-                                    await clearFirstRunFlag();
-                                    Alert.alert(
-                                        "Tip ready",
-                                        "Switch to the Home tab to see “How leftover works.”"
-                                    );
-                                })();
-                            }}
-                        />
-                        <SettingsDivider />
-                        <SettingsRow
-                            icon="warning-outline"
-                            title="Simulate storage warning"
-                            subtitle="Shows the recovery banner (dismiss to clear)"
-                            disabled={busy}
-                            showChevron
-                            onPress={() => {
-                                clearStorageHealthIssues();
-                                recordStorageHealthIssue(
-                                    "demo",
-                                    "Saved demo data was unreadable and was skipped."
-                                );
-                                Alert.alert(
-                                    "Banner shown",
-                                    "Look at the top of the app for the storage warning."
-                                );
-                            }}
-                        />
-                    </SettingsSection>
-                ) : null}
-
-                <SettingsSection title="About">
+                <SettingsSection title="App">
                     <SettingsRow
                         icon="information-circle-outline"
-                        title="On Hand"
-                        subtitle="What's left after what you logged."
-                        value={version}
-                    />
-                    <SettingsDivider />
-                    <SettingsRow
-                        icon="phone-portrait-outline"
-                        title="Storage"
-                        subtitle="Your data stays on this device. Nothing is uploaded."
-                    />
-                    <SettingsDivider />
-                    <SettingsRow
-                        icon="document-text-outline"
-                        title="Privacy policy"
-                        subtitle="What’s stored on this device"
+                        title="About"
+                        subtitle={`On Hand ${version}`}
                         showChevron
                         onPress={() => {
-                            void WebBrowser.openBrowserAsync(
-                                PRIVACY_POLICY_URL
-                            );
+                            router.push("/settings/about");
                         }}
                     />
-                    <SettingsDivider />
-                    <SettingsRow
-                        icon="mail-outline"
-                        title="Contact support"
-                        subtitle="Questions, bugs, or privacy requests"
-                        showChevron
-                        onPress={() => {
-                            void Linking.openURL(SUPPORT_URL);
-                        }}
-                    />
+                    {isDevToolsBuild() ? (
+                        <>
+                            <SettingsDivider />
+                            <SettingsRow
+                                icon="construct-outline"
+                                title="Development"
+                                subtitle="Seeds, tests, and welcome replay"
+                                showChevron
+                                onPress={() => {
+                                    router.push("/settings/development");
+                                }}
+                            />
+                        </>
+                    ) : null}
                 </SettingsSection>
-
-
             </ScrollView>
-
-            <CurrencyPickerModal
-                visible={currencyOpen}
-                selected={currency}
-                onClose={() => setCurrencyOpen(false)}
-                onSelect={(code) => {
-                    void setCurrency(code);
-                }}
-            />
         </View>
     );
 }
 
 const styles = {
-    // paddingTop comes from useScreenTopPadding at the call site.
     content: {
         paddingHorizontal: theme.space.screenX,
         paddingBottom: theme.space.xl,
@@ -615,13 +178,5 @@ const styles = {
         ...text.display,
         marginBottom: theme.space.lg,
         marginLeft: theme.space.xs,
-    },
-    footer: {
-        color: theme.text.tertiary,
-        fontSize: theme.fontSize.xs,
-        lineHeight: theme.lineHeight.xs,
-        textAlign: "center" as const,
-        marginTop: theme.space.sm,
-        marginBottom: theme.space.md,
     },
 };

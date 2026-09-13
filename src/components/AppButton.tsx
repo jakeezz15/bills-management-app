@@ -1,4 +1,4 @@
-import { buttonStyle } from "@/styles/button-style";
+import { useButtonStyle } from "@/styles/button-style";
 import { Pressable, Text } from "react-native";
 
 type AppButtonProps = {
@@ -14,6 +14,7 @@ export function AppButton({
     variant = "primary",
     disabled = false,
 }: AppButtonProps) {
+    const buttonStyle = useButtonStyle();
     const isDanger = variant === "danger";
     const isGhost = variant === "ghost";
 

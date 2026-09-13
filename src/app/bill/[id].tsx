@@ -1,22 +1,22 @@
 import { useBills } from "@/app/contexts/BillsContext";
 import { useLocale } from "@/app/contexts/LocaleContext";
+import BillForm from "@/components/BillForm";
 import { DashboardHero } from "@/components/DashboardHero";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
-import BillForm from "@/components/BillForm";
 import { DetailHeroNav } from "@/components/DetailHeroNav";
 import {
     SettingsDivider,
     SettingsRow,
     SettingsSection,
 } from "@/components/SettingsList";
+import { text, theme } from "@/design";
 import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
 import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
-import { buttonStyle } from "@/styles/button-style";
-import { dashboard } from "@/styles/dashboard";
-import { form, formColors } from "@/styles/form";
-import { text, theme } from "@/design";
-import { confirmDestructive } from "@/utils/confirm";
+import { useButtonStyle } from "@/styles/button-style";
+import { useDashboardStyles } from "@/styles/dashboard";
+import { useFormColors, useFormStyles } from "@/styles/form";
 import { parseMoneyInput } from "@/utils/amount-input";
+import { confirmDestructive } from "@/utils/confirm";
 import {
     formatDisplayDate,
     isSameCalendarMonth,
@@ -28,6 +28,7 @@ import {
     dueCatalogLabel,
     dueCatalogStatus,
     getBillTotalPaid,
+    getLastBillPayment,
     isBillPaidAsOf,
 } from "@/utils/filters";
 import { hapticConfirm, hapticUndo } from "@/utils/haptics";
@@ -38,6 +39,10 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 export default function BillDetailScreen() {
+    const form = useFormStyles();
+    const formColors = useFormColors();
+    const buttonStyle = useButtonStyle();
+    const dashboard = useDashboardStyles();
     useStatusBarStyle("light");
     const topPadding = useScreenTopPadding();
     const navigation = useNavigation();
@@ -61,6 +66,7 @@ export default function BillDetailScreen() {
         payments,
         loading,
         toggleBillPaid,
+        skipBillThisMonth,
         updateBill,
         removeBillPayment,
     } = useBills();
@@ -94,6 +100,7 @@ export default function BillDetailScreen() {
         const paidOn = parseIsoDate(payment.date);
         return paidOn ? isSameCalendarMonth(paidOn, today) : false;
     });
+    const skippedThisMonth = monthPayment?.skipped === true;
     const totalPaid = id ? getBillTotalPaid(id, payments) : 0;
 
     const nextLogSeedKey = bill
@@ -159,22 +166,40 @@ export default function BillDetailScreen() {
 
     const captionParts = [
         `Due the ${ordinalDay(bill.dueDay)}`,
-        bill.amountVaries ? "Varies" : bill.category,
+        bill.category,
     ].filter(Boolean);
-    const status = dueCatalogStatus(bill.dueDay, paidThisMonth, today);
+    const status = dueCatalogStatus(
+        bill.dueDay,
+        paidThisMonth,
+        today,
+        3,
+        skippedThisMonth
+    );
     const heroCaption = [dueCatalogLabel(status), ...captionParts]
         .filter(Boolean)
         .join(" · ");
+    const lastPayment =
+        !paidThisMonth && bill.amountVaries
+            ? getLastBillPayment(bill.id, payments)
+            : null;
     const heroValue = paidThisMonth
-        ? formatMoney(monthPayment?.amount ?? 0, { compact: true })
+        ? skippedThisMonth
+          ? "—"
+          : formatMoney(monthPayment?.amount ?? 0, { compact: true })
         : bill.amountVaries
-          ? formatMoney(0, { compact: true })
+          ? lastPayment
+            ? formatMoney(lastPayment.amount, { compact: true })
+            : "—"
           : formatMoney(bill.amount, { compact: true });
     const heroKicker = paidThisMonth
-        ? "This month"
+        ? skippedThisMonth
+          ? "Skipped"
+          : "This month"
         : bill.amountVaries
-          ? "This month"
-          : "Typical";
+          ? lastPayment
+            ? "Previous payment"
+            : "When paid"
+          : "Recurring";
 
     const handleLog = async () => {
         if (paidThisMonth || busy) {
@@ -230,6 +255,19 @@ export default function BillDetailScreen() {
         }
     };
 
+    const handleSkipMonth = async () => {
+        if (paidThisMonth || busy) {
+            return;
+        }
+        setBusy(true);
+        try {
+            hapticConfirm();
+            await skipBillThisMonth(bill.id, todayIso);
+        } finally {
+            setBusy(false);
+        }
+    };
+
     const handleUndoMonth = async () => {
         if (!paidThisMonth || busy) {
             return;
@@ -272,12 +310,17 @@ export default function BillDetailScreen() {
 
                 {paidThisMonth ? (
                     <View style={[form.actionCard, form.actionCardLead]}>
-                        <Text style={form.actionCardTitle}>Paid this month</Text>
-                        <Text style={form.actionCardCaption}>
-                            Leftover uses this amount. Change it if the
-                            statement is different, or undo.
+                        <Text style={form.actionCardTitle}>
+                            {skippedThisMonth
+                                ? "Skipped this month"
+                                : "Paid this month"}
                         </Text>
-                        {bill.amountVaries ? (
+                        <Text style={form.actionCardCaption}>
+                            {skippedThisMonth
+                                ? "Not counted in leftover. Undo if you need to log an amount instead."
+                                : "Leftover uses this amount. Change it if the statement is different, or undo."}
+                        </Text>
+                        {!skippedThisMonth && bill.amountVaries ? (
                             <>
                                 <View
                                     style={[
@@ -335,7 +378,8 @@ export default function BillDetailScreen() {
                             style={({ pressed }) => [
                                 form.actionCardButton,
                                 pressed && buttonStyle.buttonPressed,
-                                bill.amountVaries &&
+                                !skippedThisMonth &&
+                                    bill.amountVaries &&
                                     form.actionCardButtonMuted,
                                 busy && { opacity: 0.6 },
                             ]}
@@ -401,6 +445,7 @@ export default function BillDetailScreen() {
                             style={({ pressed }) => [
                                 form.actionCardButton,
                                 pressed && buttonStyle.buttonPressed,
+                                form.actionCardButtonSpacer,
                                 busy && { opacity: 0.6 },
                             ]}
                             disabled={busy}
@@ -426,6 +471,24 @@ export default function BillDetailScreen() {
                                     : `Log ${formatMoney(bill.amount)}`}
                             </Text>
                         </Pressable>
+                        <Pressable
+                            style={({ pressed }) => [
+                                form.actionCardButton,
+                                form.actionCardButtonMuted,
+                                pressed && buttonStyle.buttonPressed,
+                                busy && { opacity: 0.6 },
+                            ]}
+                            disabled={busy}
+                            onPress={() => {
+                                void handleSkipMonth();
+                            }}
+                            accessibilityRole="button"
+                            accessibilityLabel="Skip this month"
+                        >
+                            <Text style={buttonStyle.buttonText}>
+                                Skip this month
+                            </Text>
+                        </Pressable>
                     </View>
                 )}
 
@@ -442,10 +505,16 @@ export default function BillDetailScreen() {
                                 {index > 0 ? <SettingsDivider /> : null}
                                 <SettingsRow
                                     title={formatDisplayDate(payment.date)}
-                                    value={formatMoney(payment.amount)}
+                                    value={
+                                        payment.skipped
+                                            ? "Skipped"
+                                            : formatMoney(payment.amount)
+                                    }
                                     onPress={() => {
                                         confirmDestructive(
-                                            "Remove this payment?",
+                                            payment.skipped
+                                                ? "Remove this skip?"
+                                                : "Remove this payment?",
                                             "That month will show as unpaid.",
                                             () => {
                                                 hapticUndo();

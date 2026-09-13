@@ -38,6 +38,8 @@ type BillsContextValue = {
         asOfIso?: string,
         amount?: number
     ) => Promise<void>;
+    /** Mark this month settled with $0 — not counted in leftover. */
+    skipBillThisMonth: (id: string, asOfIso?: string) => Promise<void>;
     /** Remove one ledger row. `isPaid` follows whether this month still has a payment. */
     removeBillPayment: (paymentId: string) => Promise<void>;
     reload: () => Promise<void>;
@@ -266,6 +268,54 @@ export function BillsProvider({ children }: { children: React.ReactNode }) {
         [bills, payments]
     );
 
+    const skipBillThisMonth = useCallback(
+        async (id: string, asOfIso?: string) => {
+            const asOf = parseIsoDate(asOfIso ?? toIsoDate(new Date()));
+            if (!asOf) {
+                return;
+            }
+
+            const bill = bills.find((item) => item.id === id);
+            if (!bill) {
+                return;
+            }
+
+            const currentlyPaid = isBillPaidAsOf(bill, payments, asOf, {
+                anyDayInMonth: true,
+            });
+            if (currentlyPaid) {
+                return;
+            }
+
+            const payment: BillPayment = {
+                id: `${Date.now()}-${id}`,
+                billId: id,
+                amount: 0,
+                date: toIsoDate(asOf),
+                skipped: true,
+                ...stampCreate(),
+            };
+            const nextPayments = [...payments, payment];
+            const nextBills = bills.map((item) =>
+                item.id === id
+                    ? {
+                          ...item,
+                          isPaid: true,
+                          ...stampUpdate(),
+                      }
+                    : item
+            );
+
+            setPayments(nextPayments);
+            setBills(nextBills);
+            await Promise.all([
+                saveBillPayments(nextPayments),
+                saveBills(nextBills),
+            ]);
+        },
+        [bills, payments]
+    );
+
     const removeBillPayment = useCallback(
         async (paymentId: string) => {
             const payment = payments.find((item) => item.id === paymentId);
@@ -334,6 +384,7 @@ export function BillsProvider({ children }: { children: React.ReactNode }) {
                 updateBill,
                 deleteBill,
                 toggleBillPaid,
+                skipBillThisMonth,
                 removeBillPayment,
                 reload,
             }}

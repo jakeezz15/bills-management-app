@@ -1,10 +1,10 @@
-import { theme } from "@/design";
-import { form } from "@/styles/form";
+import { useTheme } from "@/app/contexts/ThemeContext";
+import { useFormStyles } from "@/styles/form";
 import { parseIsoDate, toIsoDate } from "@/utils/date";
 import DateTimePicker, {
     DateTimePickerChangeEvent,
 } from "@react-native-community/datetimepicker";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
 type DateFieldProps = {
@@ -34,8 +34,31 @@ export function DateField({
     hasError = false,
     errorMessage,
 }: DateFieldProps) {
+    const { theme } = useTheme();
+    const form = useFormStyles();
     const [open, setOpen] = useState(false);
     const selected = parseIsoDate(value) ?? new Date();
+    const styles = useMemo(
+        () =>
+            StyleSheet.create({
+                value: {
+                    fontSize: theme.fontSize.md,
+                    color: theme.text.primary,
+                },
+                picker: {
+                    marginBottom: theme.space.md,
+                },
+                done: {
+                    alignSelf: "flex-end",
+                    paddingVertical: theme.space.sm,
+                },
+                doneText: {
+                    color: theme.text.accent,
+                    fontWeight: theme.fontWeight.semibold,
+                },
+            }),
+        [theme]
+    );
 
     const handleValueChange = (
         _event: DateTimePickerChangeEvent,
@@ -78,8 +101,6 @@ export function DateField({
                         value={selected}
                         mode="date"
                         display={Platform.OS === "ios" ? "spinner" : "default"}
-                        // iOS follows the *device* appearance for spinner text.
-                        // Dark-mode phones + our light form = invisible white text.
                         themeVariant="light"
                         textColor={theme.text.primary}
                         onValueChange={handleValueChange}
@@ -105,21 +126,3 @@ export function DateField({
         </View>
     );
 }
-
-const styles = StyleSheet.create({
-    value: {
-        fontSize: theme.fontSize.md,
-        color: theme.text.primary,
-    },
-    picker: {
-        marginBottom: theme.space.md,
-    },
-    done: {
-        alignSelf: "flex-end",
-        paddingVertical: theme.space.sm,
-    },
-    doneText: {
-        color: theme.text.accent,
-        fontWeight: theme.fontWeight.semibold,
-    },
-});

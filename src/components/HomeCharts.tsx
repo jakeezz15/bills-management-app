@@ -1,7 +1,9 @@
 import { useLocale } from "@/app/contexts/LocaleContext";
-import { text, theme } from "@/design";
-import { dashboard } from "@/styles/dashboard";
+import { useTheme } from "@/app/contexts/ThemeContext";
+import { text, type Theme } from "@/design";
+import { useDashboardStyles } from "@/styles/dashboard";
 import { CategorySpend, MonthTrendPoint } from "@/utils/finance";
+import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 type SpendByCategoryChartProps = {
@@ -9,6 +11,9 @@ type SpendByCategoryChartProps = {
 };
 
 export function SpendByCategoryChart({ rows }: SpendByCategoryChartProps) {
+    const { theme } = useTheme();
+    const styles = useMemo(() => createChartStyles(theme), [theme]);
+    const dashboard = useDashboardStyles();
     const { formatMoney } = useLocale();
     const max = Math.max(...rows.map((row) => row.amount), 1);
     const total = rows.reduce((sum, row) => sum + row.amount, 0);
@@ -71,6 +76,9 @@ type MonthTrendChartProps = {
 };
 
 export function MonthTrendChart({ points }: MonthTrendChartProps) {
+    const { theme } = useTheme();
+    const styles = useMemo(() => createChartStyles(theme), [theme]);
+    const dashboard = useDashboardStyles();
     const { formatMoney } = useLocale();
     const maxAbs = Math.max(
         ...points.map((point) => Math.abs(point.leftover)),
@@ -118,91 +126,93 @@ export function MonthTrendChart({ points }: MonthTrendChartProps) {
     );
 }
 
-const styles = StyleSheet.create({
-    card: {
-        marginTop: theme.space.lg,
-        marginBottom: theme.space.sm,
-        paddingHorizontal: 0,
-        paddingTop: 0,
-        paddingBottom: theme.space.sm,
-    },
-    empty: {
-        ...text.caption,
-        marginBottom: theme.space.sm,
-    },
-    caption: {
-        ...text.caption,
-        marginBottom: theme.space.md,
-    },
-    row: {
-        marginBottom: theme.space.md,
-    },
-    rowTop: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: theme.space.sm,
-        gap: theme.space.sm,
-    },
-    legend: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: theme.space.sm,
-        flex: 1,
-    },
-    dot: {
-        width: theme.space.sm,
-        height: theme.space.sm,
-        borderRadius: theme.radius.pill,
-    },
-    label: {
-        ...text.body,
-        fontWeight: theme.fontWeight.semibold,
-        flex: 1,
-    },
-    value: {
-        ...text.body,
-        fontWeight: theme.fontWeight.bold,
-        fontVariant: ["tabular-nums"],
-    },
-    share: {
-        color: theme.text.tertiary,
-        fontWeight: theme.fontWeight.regular,
-    },
-    trendRow: {
-        flexDirection: "row",
-        alignItems: "flex-end",
-        gap: theme.space.sm,
-        minHeight: 144,
-    },
-    trendCol: {
-        flex: 1,
-        alignItems: "center",
-    },
-    trendAmount: {
-        color: theme.text.secondary,
-        fontSize: theme.fontSize.xs,
-        lineHeight: theme.lineHeight.xs,
-        fontWeight: theme.fontWeight.semibold,
-        marginBottom: theme.space.sm,
-        fontVariant: ["tabular-nums"],
-    },
-    trendTrack: {
-        height: 96,
-        width: "100%",
-        justifyContent: "flex-end",
-        alignItems: "center",
-    },
-    trendBar: {
-        width: "70%",
-        borderRadius: theme.radius.sm,
-        minHeight: theme.size.bar,
-    },
-    trendLabel: {
-        color: theme.text.primary,
-        fontSize: theme.fontSize.xs,
-        lineHeight: theme.lineHeight.xs,
-        fontWeight: theme.fontWeight.semibold,
-        marginTop: theme.space.sm,
-    },
-});
+function createChartStyles(theme: Theme) {
+    return StyleSheet.create({
+        card: {
+            marginTop: theme.space.lg,
+            marginBottom: theme.space.sm,
+            paddingHorizontal: 0,
+            paddingTop: 0,
+            paddingBottom: theme.space.sm,
+        },
+        empty: {
+            ...text.caption,
+            marginBottom: theme.space.sm,
+        },
+        caption: {
+            ...text.caption,
+            marginBottom: theme.space.md,
+        },
+        row: {
+            marginBottom: theme.space.md,
+        },
+        rowTop: {
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: theme.space.sm,
+            gap: theme.space.sm,
+        },
+        legend: {
+            flexDirection: "row",
+            alignItems: "center",
+            gap: theme.space.sm,
+            flex: 1,
+        },
+        dot: {
+            width: theme.space.sm,
+            height: theme.space.sm,
+            borderRadius: theme.radius.pill,
+        },
+        label: {
+            ...text.body,
+            fontWeight: theme.fontWeight.semibold,
+            flex: 1,
+        },
+        value: {
+            ...text.body,
+            fontWeight: theme.fontWeight.bold,
+            fontVariant: ["tabular-nums"],
+        },
+        share: {
+            color: theme.text.tertiary,
+            fontWeight: theme.fontWeight.regular,
+        },
+        trendRow: {
+            flexDirection: "row",
+            alignItems: "flex-end",
+            gap: theme.space.sm,
+            minHeight: 144,
+        },
+        trendCol: {
+            flex: 1,
+            alignItems: "center",
+        },
+        trendAmount: {
+            color: theme.text.secondary,
+            fontSize: theme.fontSize.xs,
+            lineHeight: theme.lineHeight.xs,
+            fontWeight: theme.fontWeight.semibold,
+            marginBottom: theme.space.sm,
+            fontVariant: ["tabular-nums"],
+        },
+        trendTrack: {
+            height: 96,
+            width: "100%",
+            justifyContent: "flex-end",
+            alignItems: "center",
+        },
+        trendBar: {
+            width: "70%",
+            borderRadius: theme.radius.sm,
+            minHeight: theme.size.bar,
+        },
+        trendLabel: {
+            color: theme.text.primary,
+            fontSize: theme.fontSize.xs,
+            lineHeight: theme.lineHeight.xs,
+            fontWeight: theme.fontWeight.semibold,
+            marginTop: theme.space.sm,
+        },
+    });
+}

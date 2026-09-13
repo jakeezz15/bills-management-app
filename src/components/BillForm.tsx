@@ -4,7 +4,7 @@ import { CategoryPicker } from "@/components/CategoryPicker";
 import { DueDayPicker } from "@/components/DueDayPicker";
 import { FormDialog } from "@/components/FormDialog";
 import { BILL_CATEGORIES } from "@/constants/categories";
-import { form, formColors } from "@/styles/form";
+import { useFormStyles, useFormColors } from "@/styles/form";
 import { Bill } from "@/types/bill";
 import { moneyFieldError, parseMoneyInput } from "@/utils/amount-input";
 import { currencySymbol } from "@/utils/money";
@@ -24,6 +24,8 @@ export default function BillForm(props: BillFormProps) {
 }
 
 function BillEditor({ visible, onClose, bill }: BillFormProps) {
+    const form = useFormStyles();
+    const formColors = useFormColors();
     const { addBill, updateBill, deleteBill } = useBills();
     const { currency } = useLocale();
     const symbol = currencySymbol(currency);
@@ -198,7 +200,7 @@ function BillEditor({ visible, onClose, bill }: BillFormProps) {
 
             {!amountVaries ? (
                 <View style={form.field}>
-                    <Text style={form.label}>Typical amount</Text>
+                    <Text style={form.label}>Recurring amount</Text>
                     <View
                         style={[
                             form.amountWrap,

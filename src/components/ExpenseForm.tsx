@@ -4,7 +4,7 @@ import { DateField } from "@/components/DateField";
 import { CategoryPicker } from "@/components/CategoryPicker";
 import { FormDialog } from "@/components/FormDialog";
 import { EXPENSE_CATEGORIES } from "@/constants/categories";
-import { form, formColors } from "@/styles/form";
+import { useFormStyles, useFormColors } from "@/styles/form";
 import { Expense } from "@/types/expense";
 import { moneyFieldError, parseMoneyInput } from "@/utils/amount-input";
 import { parseIsoDate, todayIsoDate } from "@/utils/date";
@@ -25,6 +25,8 @@ export default function ExpenseForm(props: ExpenseFormProps) {
 }
 
 function ExpenseEditor({ visible, onClose, expense }: ExpenseFormProps) {
+    const form = useFormStyles();
+    const formColors = useFormColors();
     const { addExpense, updateExpense, deleteExpense } = useExpenses();
     const { currency } = useLocale();
     const symbol = currencySymbol(currency);
