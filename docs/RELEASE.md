@@ -140,13 +140,34 @@ Done in the app: seed hidden in production, version `2.0.0`, Firestore rules pub
 
 Still on you:
 
-1. Ship **preview/production** APK/AAB, not `--profile development`
-2. Add **Play App signing** and **Upload** key **SHA-1** fingerprints in Firebase (Android) so production Google Sign-In works
-3. Privacy URL (public): `https://github.com/jakeezz15/bills-management-app/blob/main/docs/PRIVACY.md` — paste into Play Console after this policy is on the branch Play links to
-4. Refresh Play **Data safety** answers using the draft above
+1. Upload the **production** AAB to Play closed testing (EAS build when finished)
+2. Add **Play App signing** and **Upload** key **SHA-1** fingerprints in Firebase (Android) so production Google Sign-In works  
+   - Expo upload/production keystore: [Expo → Credentials](https://expo.dev/accounts/jakeezz15/projects/bills-management-app/credentials) → Android package → copy **SHA-1**  
+   - Play App signing key: Play Console → **Test and release** (or Setup) → **App integrity** → **App signing** → copy **SHA-1** (and Upload key SHA-1 if shown)  
+   - Firebase Console → Project settings → Android app → **Add fingerprint** for each (or paste here and we add via CLI)  
+   - Already in Firebase today: `5ced5dbe189ffc34e62ee5cdb45e481f7090beea` (dev/EAS-related). Add any **missing** Play fingerprints.
+3. Privacy URL on `main` stays old until you merge `version-2.0` (deferred on purpose)
+4. Refresh Play **Data safety** answers using the draft above (click path below)
 5. Support email you actually check (also linked from Settings → Contact support via GitHub Issues until you set a mailto)
 6. Test: guest path → sign-in → first-link sync → upload/download → sign-out (local data remains) → export backup → reset → import
 7. Dogfood one real payday cycle before inviting strangers
+
+### Play Data safety — click path (2.0.0)
+
+Play Console → your app → **App content** → **Data safety** → **Start** / **Edit**
+
+Answer in this spirit (match the form’s wording as closely as you can):
+
+1. **Does your app collect or share user data?** → **Yes** (because optional Google sign-in / sync)
+2. **Data collected** (when user opts in):
+   - **Personal info → Email address** — collected, not shared for ads; required for account feature / optional
+   - **Financial info → User payment info / Other financial info** (or closest: finance amounts the user types) — collected for app functionality; stored in Firebase if they sync; not sold
+3. **Is data encrypted in transit?** → **Yes**
+4. **Can users request deletion?** → **Yes** — in-app reset/uninstall for device; contact support for cloud account/sync deletion
+5. **Data shared with third parties?** → Declare **Google / Firebase** as service providers for auth + cloud storage (not for advertising)
+6. Save / submit Data safety
+
+Guest-only use still keeps finance data on-device; the form is about what the app *can* collect when features are used.
 
 ---
 
