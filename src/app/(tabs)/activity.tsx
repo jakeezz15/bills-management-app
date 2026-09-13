@@ -1,5 +1,6 @@
 import { SegmentControl } from "@/components/SegmentControl";
 import { TabScaffold } from "@/components/ui";
+import { useWalkthroughOptional } from "@/components/walkthrough";
 import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
@@ -11,10 +12,11 @@ type Section = (typeof SECTIONS)[number];
 const STORAGE_KEY = "activitySection";
 
 export default function ActivityScreen() {
-    // TabScaffold's header is a light surface.
     useStatusBarStyle("dark");
 
     const [section, setSection] = useState<Section>("Income");
+    const walkthrough = useWalkthroughOptional();
+    const activeId = walkthrough?.activeId;
 
     useEffect(() => {
         AsyncStorage.getItem(STORAGE_KEY).then((value) => {
@@ -29,6 +31,14 @@ export default function ActivityScreen() {
         void AsyncStorage.setItem(STORAGE_KEY, value);
     };
 
+    const forcedSection: Section | null =
+        activeId === "activity-spending"
+            ? "Spending"
+            : activeId === "activity-income" || activeId === "activity-add"
+              ? "Income"
+              : null;
+    const visibleSection = forcedSection ?? section;
+
     return (
         <TabScaffold
             title="Activity"
@@ -36,12 +46,12 @@ export default function ActivityScreen() {
             segments={
                 <SegmentControl
                     options={SECTIONS}
-                    selected={section}
+                    selected={visibleSection}
                     onSelect={selectSection}
                 />
             }
         >
-            {section === "Income" ? (
+            {visibleSection === "Income" ? (
                 <IncomeScreen embedded />
             ) : (
                 <ExpensesScreen embedded />

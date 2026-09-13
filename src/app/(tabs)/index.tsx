@@ -7,20 +7,21 @@ import { AnimatedMoneyText } from "@/components/AnimatedMoneyText";
 import { StickyHeroBar } from "@/components/StickyHeroBar";
 import { HeroPeriodNav } from "@/components/HeroPeriodNav";
 import { DueNowBadgeButton, DueNowModal } from "@/components/DueNowModal";
-import { FirstRunCoach } from "@/components/FirstRunCoach";
 import { MonthGrid } from "@/components/MonthGrid";
 import { MonthTrendChart, SpendByCategoryChart } from "@/components/HomeCharts";
 import { SegmentControl } from "@/components/SegmentControl";
+import {
+    WalkthroughAnchor,
+    useWalkthroughOptional,
+    WALKTHROUGH_HOME_DEMO,
+    WALKTHROUGH_DUE_DEMO,
+} from "@/components/walkthrough";
 import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
 import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
 import { useStickyHero } from "@/hooks/useStickyHero";
 import { useDueNowInbox } from "@/hooks/useDueNowInbox";
 import { useDashboardStyles } from "@/styles/dashboard";
 import { text, theme } from "@/design";
-import {
-    hasCompletedFirstRun,
-    markFirstRunComplete,
-} from "@/services/storage";
 import {
     calendarDaysBetween,
     isViewingCurrentPeriod,
@@ -41,7 +42,7 @@ import { takeOpenDuesOnHome } from "@/utils/navigation";
 import { resolvePayCycle } from "@/utils/pay-cycle";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useBills } from "../contexts/BillsContext";
 import { useDateRange } from "../contexts/DateRangeContext";
@@ -86,7 +87,8 @@ export default function HomeScreen() {
     const [payMode, setPayMode] = useState(false);
     const [payOffset, setPayOffset] = useState(0);
     const [duesOpen, setDuesOpen] = useState(false);
-    const [coachOpen, setCoachOpen] = useState(false);
+    const scrollRef = useRef<ScrollView>(null);
+    const walkthrough = useWalkthroughOptional();
 
     const loading =
         incomeLoading ||
@@ -274,18 +276,35 @@ export default function HomeScreen() {
             if (takeOpenDuesOnHome()) {
                 setDuesOpen(true);
             }
-            void hasCompletedFirstRun().then((done) => {
-                if (!done) {
-                    setCoachOpen(true);
-                }
-            });
         }, [])
     );
 
-    const dismissCoach = () => {
-        setCoachOpen(false);
-        void markFirstRunComplete();
-    };
+    useEffect(() => {
+        const id = walkthrough?.activeId;
+        if (!id) return;
+        if (
+            id === "home-leftover" ||
+            id === "home-due" ||
+            id === "home-period"
+        ) {
+            scrollRef.current?.scrollTo({ y: 0, animated: true });
+        } else if (id === "home-breakdown") {
+            // Statement sits below the calendar — nudge it into view.
+            setTimeout(() => {
+                scrollRef.current?.scrollTo({ y: 360, animated: true });
+            }, 80);
+        }
+    }, [walkthrough?.activeId]);
+
+    useEffect(() => {
+        if (walkthrough?.phase === "running" && walkthrough.activeId === "home-due") {
+            setDuesOpen(true);
+            return;
+        }
+        if (walkthrough?.phase === "running") {
+            setDuesOpen(false);
+        }
+    }, [walkthrough?.phase, walkthrough?.activeId]);
 
     const { collapsed, scrollProps } = useStickyHero({
         collapseAt: 140,
@@ -295,9 +314,24 @@ export default function HomeScreen() {
     // The pinned bar is chrome, not a page header, so it hugs the status bar.
     const stickyTopPadding = useScreenTopPadding(theme.space.sm);
     const available = totals.leftover - committed.total;
-    const leftoverLabel = formatMoney(totals.leftover, { compact: true });
-    const availableLabel = formatMoney(available, { compact: true });
-    const needsFirstPaycheck = !loading && income.length === 0;
+    const walkthroughHomeDemo =
+        walkthrough?.phase === "running" &&
+        typeof walkthrough.activeId === "string" &&
+        walkthrough.activeId.startsWith("home-");
+    const displayLeftover = walkthroughHomeDemo
+        ? WALKTHROUGH_HOME_DEMO.leftover
+        : totals.leftover;
+    const leftoverLabel = formatMoney(displayLeftover, { compact: true });
+    const availableLabel = formatMoney(
+        walkthroughHomeDemo
+            ? WALKTHROUGH_HOME_DEMO.leftover -
+                  WALKTHROUGH_HOME_DEMO.lines.Bills -
+                  WALKTHROUGH_HOME_DEMO.lines["Debt payments"]
+            : available,
+        { compact: true }
+    );
+    const needsFirstPaycheck =
+        !loading && income.length === 0 && !walkthroughHomeDemo;
     const usingPayNav = Boolean(payMode && payCycle);
     const dueSoonWithinDays =
         payMode && payCycle && payOffset === 0
@@ -307,6 +341,9 @@ export default function HomeScreen() {
               )
             : undefined;
     const { count: dueCount } = useDueNowInbox(dueSoonWithinDays);
+    const displayDueCount = walkthroughHomeDemo
+        ? WALKTHROUGH_HOME_DEMO.dueCount
+        : dueCount;
     const openDues = () => setDuesOpen(true);
     const payLabel = payCycle
         ? `Until ${payCycle.nextPayday.toLocaleDateString(undefined, {
@@ -372,8 +409,10 @@ export default function HomeScreen() {
         selectDay(iso);
     };
 
-    const leftoverOkay = totals.leftover >= 0;
-    const availableOkay = available >= 0;
+    const leftoverOkay = displayLeftover >= 0;
+    const availableOkay = walkthroughHomeDemo
+        ? true
+        : available >= 0;
     const activityNetOkay = activity.leftover >= 0;
     const activityNetLabel = formatMoney(activity.leftover, { compact: true });
     const activitySectionTitle = payCycle
@@ -396,6 +435,9 @@ export default function HomeScreen() {
             : "";
 
     const heroCaption = (() => {
+        if (walkthroughHomeDemo) {
+            return WALKTHROUGH_HOME_DEMO.caption;
+        }
         if (payMode && !payCycle) {
             return "Set weekly, every 2 weeks, or monthly on a paycheck.";
         }
@@ -430,13 +472,13 @@ export default function HomeScreen() {
                     <DashboardHeroCompact
                         kicker="Leftover"
                         value={leftoverLabel}
-                        amount={totals.leftover}
+                        amount={displayLeftover}
                         formatAmount={(n) =>
                             formatMoney(n, { compact: true })
                         }
                         trailing={
                             <DueNowBadgeButton
-                                count={dueCount}
+                                count={displayDueCount}
                                 onPress={openDues}
                                 tone="default"
                             />
@@ -447,6 +489,7 @@ export default function HomeScreen() {
             ) : null}
 
             <ScrollView
+                ref={scrollRef}
                 style={dashboard.list}
                 contentContainerStyle={styles.scroll}
                 {...scrollProps}
@@ -484,23 +527,27 @@ export default function HomeScreen() {
                         <>
                     <View style={styles.mastEyebrow}>
                         <Text style={styles.mastKicker}>Leftover</Text>
-                        <DueNowBadgeButton
-                            count={dueCount}
-                            onPress={openDues}
-                            tone="inverse"
-                        />
+                        <WalkthroughAnchor id="home-due">
+                            <DueNowBadgeButton
+                                count={displayDueCount}
+                                onPress={openDues}
+                                tone="inverse"
+                            />
+                        </WalkthroughAnchor>
                     </View>
-                    <AnimatedMoneyText
-                        amount={totals.leftover}
-                        format={(n) => formatMoney(n, { compact: true })}
-                        style={[
-                            styles.mastAmount,
-                            !leftoverOkay
-                                ? { color: theme.intent.negative.fg }
-                                : null,
-                        ]}
-                        accessibilityRole="header"
-                    />
+                    <WalkthroughAnchor id="home-leftover">
+                        <AnimatedMoneyText
+                            amount={displayLeftover}
+                            format={(n) => formatMoney(n, { compact: true })}
+                            style={[
+                                styles.mastAmount,
+                                !leftoverOkay
+                                    ? { color: theme.intent.negative.fg }
+                                    : null,
+                            ]}
+                            accessibilityRole="header"
+                        />
+                    </WalkthroughAnchor>
                     <Text style={styles.mastCaption}>{heroCaption}</Text>
 
                     <View style={styles.mastNav}>{periodNav(false)}</View>
@@ -513,14 +560,18 @@ export default function HomeScreen() {
                         <DashboardSkeleton variant="home" />
                     ) : (
                         <>
-                    <SegmentControl
-                        options={UNIT_OPTIONS}
-                        selected={
-                            payMode ? "Payday" : PERIOD_UNIT_LABELS[periodUnit]
-                        }
-                        onSelect={selectUnit}
-                        compact
-                    />
+                    <WalkthroughAnchor id="home-period">
+                        <SegmentControl
+                            options={UNIT_OPTIONS}
+                            selected={
+                                payMode
+                                    ? "Payday"
+                                    : PERIOD_UNIT_LABELS[periodUnit]
+                            }
+                            onSelect={selectUnit}
+                            compact
+                        />
+                    </WalkthroughAnchor>
 
                     {needsFirstPaycheck ? (
                         <View style={styles.emptyWrap}>
@@ -548,63 +599,83 @@ export default function HomeScreen() {
                         onSelectDay={pickDay}
                     />
 
+                    <WalkthroughAnchor id="home-breakdown">
                     <View style={styles.statement}>
                         <Text style={dashboard.sectionLabel}>
                             {activitySectionTitle}
                         </Text>
-                        {lines.map((line, index) => (
-                            <Pressable
-                                key={line.label}
-                                onPress={() => router.push(line.href)}
-                                accessibilityRole="button"
-                                accessibilityLabel={`${line.label}, ${formatMoney(line.value, { compact: true, sign: line.sign })}`}
-                                style={({ pressed }) => [
-                                    styles.line,
-                                    index < lines.length - 1 && styles.lineGap,
-                                    pressed && styles.linePressed,
-                                ]}
-                            >
-                                <View style={styles.lineTop}>
-                                    <Text style={styles.lineLabel}>{line.label}</Text>
-                                    <Text
-                                        style={[
-                                            styles.lineValue,
-                                            line.sign === "+"
-                                                ? styles.lineIn
-                                                : styles.lineOut,
-                                        ]}
-                                    >
-                                        {formatMoney(line.value, {
-                                            compact: true,
-                                            sign: line.sign,
-                                        })}
-                                    </Text>
-                                </View>
-                                <View style={dashboard.barTrack}>
-                                    <View
-                                        style={[
-                                            dashboard.barFill,
-                                            {
-                                                width: `${Math.min(
-                                                    100,
-                                                    (line.value / maxLine) * 100
-                                                )}%`,
-                                                backgroundColor:
-                                                    line.sign === "+"
-                                                        ? accentTheme.intent
-                                                              .positive.solid
-                                                        : accentTheme.chart[
-                                                              (index + 1) %
-                                                                  accentTheme
-                                                                      .chart
-                                                                      .length
-                                                          ],
-                                            },
-                                        ]}
-                                    />
-                                </View>
-                            </Pressable>
-                        ))}
+                            {lines.map((line, index) => {
+                                const lineValue = walkthroughHomeDemo
+                                    ? WALKTHROUGH_HOME_DEMO.lines[
+                                          line.label as keyof typeof WALKTHROUGH_HOME_DEMO.lines
+                                      ] ?? line.value
+                                    : line.value;
+                                const maxDemo = walkthroughHomeDemo
+                                    ? Math.max(
+                                          ...Object.values(
+                                              WALKTHROUGH_HOME_DEMO.lines
+                                          ),
+                                          1
+                                      )
+                                    : maxLine;
+                                return (
+                                <Pressable
+                                    key={line.label}
+                                    onPress={() => router.push(line.href)}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`${line.label}, ${formatMoney(lineValue, { compact: true, sign: line.sign })}`}
+                                    style={({ pressed }) => [
+                                        styles.line,
+                                        index < lines.length - 1 &&
+                                            styles.lineGap,
+                                        pressed && styles.linePressed,
+                                    ]}
+                                >
+                                    <View style={styles.lineTop}>
+                                        <Text style={styles.lineLabel}>
+                                            {line.label}
+                                        </Text>
+                                        <Text
+                                            style={[
+                                                styles.lineValue,
+                                                line.sign === "+"
+                                                    ? styles.lineIn
+                                                    : styles.lineOut,
+                                            ]}
+                                        >
+                                            {formatMoney(lineValue, {
+                                                compact: true,
+                                                sign: line.sign,
+                                            })}
+                                        </Text>
+                                    </View>
+                                    <View style={dashboard.barTrack}>
+                                        <View
+                                            style={[
+                                                dashboard.barFill,
+                                                {
+                                                    width: `${Math.min(
+                                                        100,
+                                                        (lineValue / maxDemo) *
+                                                            100
+                                                    )}%`,
+                                                    backgroundColor:
+                                                        line.sign === "+"
+                                                            ? accentTheme.intent
+                                                                  .positive.solid
+                                                            : accentTheme.chart[
+                                                                  (index + 1) %
+                                                                      accentTheme
+                                                                          .chart
+                                                                          .length
+                                                              ],
+                                                },
+                                            ]}
+                                        />
+                                    </View>
+                                </Pressable>
+                                );
+                            })}
 
                         <View style={styles.totalRow}>
                             <Text style={styles.totalLabel}>Net this period</Text>
@@ -681,6 +752,7 @@ export default function HomeScreen() {
                             </Text>
                         ) : null}
                     </View>
+                    </WalkthroughAnchor>
 
                     <SpendByCategoryChart rows={categorySpend} />
                     <MonthTrendChart points={monthTrend} />
@@ -733,8 +805,27 @@ export default function HomeScreen() {
                         : undefined
                 }
                 soonWithinDays={dueSoonWithinDays}
+                itemsOverride={
+                    walkthrough?.phase === "running" &&
+                    walkthrough.activeId === "home-due"
+                        ? WALKTHROUGH_DUE_DEMO
+                        : undefined
+                }
+                tour={
+                    walkthrough?.phase === "running" &&
+                    walkthrough.activeId === "home-due" &&
+                    walkthrough.step
+                        ? {
+                              title: walkthrough.step.title,
+                              body: walkthrough.step.body,
+                              stepIndex: walkthrough.stepIndex,
+                              totalSteps: walkthrough.totalSteps,
+                              onNext: walkthrough.next,
+                              onSkip: walkthrough.skip,
+                          }
+                        : undefined
+                }
             />
-            <FirstRunCoach visible={coachOpen} onDismiss={dismissCoach} />
         </View>
     );
 }

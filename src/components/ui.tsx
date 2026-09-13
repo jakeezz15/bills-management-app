@@ -1,3 +1,5 @@
+import { WalkthroughAnchor } from "@/components/walkthrough";
+import type { WalkthroughStepId } from "@/components/walkthrough";
 import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
 import { useDashboardStyles } from "@/styles/dashboard";
 import { screenStyles } from "@/styles/screen";
@@ -27,6 +29,8 @@ type TabScaffoldProps = {
     subtitle: string;
     children: ReactNode;
     segments?: ReactNode;
+    /** Spotlight the segment control for the active tour step. */
+    walkthroughSegmentsId?: WalkthroughStepId;
 };
 
 export function TabScaffold({
@@ -34,9 +38,19 @@ export function TabScaffold({
     subtitle,
     children,
     segments,
+    walkthroughSegmentsId,
 }: TabScaffoldProps) {
     const topPadding = useScreenTopPadding();
     const dashboard = useDashboardStyles();
+
+    const segmentNode =
+        segments && walkthroughSegmentsId ? (
+            <WalkthroughAnchor id={walkthroughSegmentsId}>
+                {segments}
+            </WalkthroughAnchor>
+        ) : (
+            segments
+        );
 
     return (
         <View style={dashboard.screen}>
@@ -50,7 +64,7 @@ export function TabScaffold({
                 >
                     {subtitle}
                 </Text>
-                {segments}
+                {segmentNode}
             </View>
             <View style={{ flex: 1, backgroundColor: theme.bg.canvas }}>
                 {children}

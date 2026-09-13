@@ -10,6 +10,11 @@ import { FloatingAddButton } from "@/components/FloatingAddButton";
 import { SearchField } from "@/components/SearchField";
 import { StickyHeroBar } from "@/components/StickyHeroBar";
 import { PageHeader } from "@/components/ui";
+import {
+    useWalkthroughPlansDemo,
+    walkthroughBillDemo,
+    WalkthroughAnchor,
+} from "@/components/walkthrough";
 import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
 import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
 import { useStickyHero } from "@/hooks/useStickyHero";
@@ -54,7 +59,12 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
     const topPadding = useScreenTopPadding();
 
     const { formatMoney } = useLocale();
-    const { bills, payments, loading } = useBills();
+    const { bills: storedBills, payments, loading } = useBills();
+    const demoMode = useWalkthroughPlansDemo("bills");
+    const bills = useMemo(
+        () => (demoMode ? walkthroughBillDemo() : storedBills),
+        [demoMode, storedBills]
+    );
     const [isOpen, setIsOpen] = useState(false);
     const [query, setQuery] = useState("");
 
@@ -85,15 +95,23 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
 
     const renderBill = (bill: Bill) => {
         const dueLabel = `Due the ${ordinalDay(bill.dueDay)}`;
-        const paid = isBillPaidAsOf(bill, payments, today, {
-            anyDayInMonth: true,
-        });
-        const lastPayment = bill.amountVaries
-            ? getLastBillPayment(bill.id, payments)
-            : null;
-        const skipped = isBillSkippedAsOf(bill.id, payments, today, {
-            anyDayInMonth: true,
-        });
+        const paid = demoMode
+            ? false
+            : isBillPaidAsOf(bill, payments, today, {
+                  anyDayInMonth: true,
+              });
+        const lastPayment = demoMode
+            ? bill.amountVaries
+                ? { amount: 95 }
+                : null
+            : bill.amountVaries
+              ? getLastBillPayment(bill.id, payments)
+              : null;
+        const skipped = demoMode
+            ? false
+            : isBillSkippedAsOf(bill.id, payments, today, {
+                  anyDayInMonth: true,
+              });
         const status = dueCatalogStatus(
             bill.dueDay,
             paid,
@@ -129,7 +147,10 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
                         : "recurring"
                 }
                 metaTone={status}
-                onPress={() => openBill(bill.id)}
+                onPress={() => {
+                    if (demoMode) return;
+                    openBill(bill.id);
+                }}
             />
         );
     };
@@ -162,13 +183,17 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
                     />
                 ) : null}
 
-                {loading ? (
+                {loading && !demoMode ? (
                     <DashboardSkeleton />
                 ) : showHero ? (
                     <DashboardHero
                         kicker="Recurring"
                         value={heroValue}
-                        caption={heroCaption}
+                        caption={
+                            demoMode
+                                ? "Sample bills for this tour"
+                                : heroCaption
+                        }
                     />
                 ) : null}
 
@@ -188,7 +213,7 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
                     />
                 ) : null}
 
-                {bills.length === 0 && !loading && (
+                {bills.length === 0 && !loading && !demoMode && (
                     <DashboardEmpty
                         icon="receipt-outline"
                         title="No bills yet"
@@ -209,10 +234,12 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
                 )}
 
                 {listedBills.length > 0 ? (
-                    <PlanGroup>{listedBills.map(renderBill)}</PlanGroup>
+                    <WalkthroughAnchor id="plans-bills">
+                        <PlanGroup>{listedBills.map(renderBill)}</PlanGroup>
+                    </WalkthroughAnchor>
                 ) : null}
             </ScrollView>
-            {!loading ? (
+            {!loading || demoMode ? (
                 <FloatingAddButton
                     onPress={openAdd}
                     accessibilityLabel="Add bill"

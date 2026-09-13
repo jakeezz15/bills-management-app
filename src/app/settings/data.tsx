@@ -4,6 +4,7 @@ import {
     SettingsSection,
 } from "@/components/SettingsList";
 import { SettingsSubpage } from "@/components/SettingsSubpage";
+import { useWalkthrough } from "@/components/walkthrough";
 import { exportBackup, importBackup } from "@/services/backup";
 import {
     disableDueReminders,
@@ -21,6 +22,7 @@ import { Alert } from "react-native";
 
 export default function SettingsDataScreen() {
     const [busy, setBusy] = useState(false);
+    const { openOfferIfNeeded } = useWalkthrough();
     const { setCurrency } = useLocale();
     const { reload: reloadIncome } = useIncome();
     const { reload: reloadExpenses } = useExpenses();
@@ -121,9 +123,10 @@ export default function SettingsDataScreen() {
                     onPress: async () => {
                         await clearAllData();
                         await reloadAll();
+                        await openOfferIfNeeded();
                         Alert.alert(
                             "Data reset",
-                            "Everything financial on this device is empty now. Open Home to see the leftover tip again."
+                            "Everything financial on this device is empty now. You’ll see the walkthrough offer again when you’re ready."
                         );
                     },
                 },

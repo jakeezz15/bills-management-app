@@ -4,6 +4,7 @@ import {
     SettingsSection,
 } from "@/components/SettingsList";
 import { SettingsSubpage } from "@/components/SettingsSubpage";
+import { useWalkthrough } from "@/components/walkthrough";
 import { resetWelcomeForDev } from "@/services/auth-preference";
 import {
     pickTestReminderTarget,
@@ -11,7 +12,6 @@ import {
     sendTestReminder,
 } from "@/services/reminders";
 import { seedDemoData, seedScreenshotData } from "@/services/seed-demo";
-import { clearFirstRunFlag } from "@/services/storage";
 import {
     clearStorageHealthIssues,
     recordStorageHealthIssue,
@@ -28,6 +28,7 @@ import { useSavings } from "@/app/contexts/SavingsContext";
 
 export default function SettingsDevelopmentScreen() {
     const [busy, setBusy] = useState(false);
+    const { prepareReplay } = useWalkthrough();
     const [reminderBusy, setReminderBusy] = useState(false);
     const { bills, reload: reloadBills } = useBills();
     const { debts, reload: reloadDebts } = useDebt();
@@ -163,18 +164,12 @@ export default function SettingsDevelopmentScreen() {
                 <SettingsDivider />
                 <SettingsRow
                     icon="bulb-outline"
-                    title="Replay first-run tip"
-                    subtitle="Shows the leftover coach on Home again"
+                    title="Replay walkthrough"
+                    subtitle="Shows the first-run spotlight tour again"
                     disabled={busy}
                     showChevron
                     onPress={() => {
-                        void (async () => {
-                            await clearFirstRunFlag();
-                            Alert.alert(
-                                "Tip ready",
-                                "Switch to the Home tab to see “How leftover works.”"
-                            );
-                        })();
+                        void prepareReplay();
                     }}
                 />
                 <SettingsDivider />

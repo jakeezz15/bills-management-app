@@ -61,7 +61,7 @@ export function AnimatedMoneyText({
 
         const goingUp = amount > progress.value + 0.5;
         progress.value = withTiming(amount, {
-            duration: 280,
+            duration: 520,
             easing: Easing.out(Easing.cubic),
             reduceMotion: ReduceMotion.System,
         });
@@ -69,11 +69,11 @@ export function AnimatedMoneyText({
         if (goingUp && !skipBump.current) {
             bump.value = withSequence(
                 withTiming(1.04, {
-                    duration: 120,
+                    duration: 180,
                     reduceMotion: ReduceMotion.System,
                 }),
                 withTiming(1, {
-                    duration: 160,
+                    duration: 240,
                     reduceMotion: ReduceMotion.System,
                 })
             );

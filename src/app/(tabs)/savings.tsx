@@ -10,6 +10,11 @@ import { FloatingAddButton } from "@/components/FloatingAddButton";
 import { PageHeader } from "@/components/ui";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import SavingsForm from "@/components/SavingsForm";
+import {
+    useWalkthroughPlansDemo,
+    walkthroughSavingsDemo,
+    WalkthroughAnchor,
+} from "@/components/walkthrough";
 import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
 import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
 import { useStickyHero } from "@/hooks/useStickyHero";
@@ -57,7 +62,12 @@ export default function SavingsScreen({
 
     const { formatMoney } = useLocale();
     const [isOpen, setIsOpen] = useState(false);
-    const { savings, loading } = useSavings();
+    const { savings: storedSavings, loading } = useSavings();
+    const demoMode = useWalkthroughPlansDemo("savings");
+    const savings = useMemo(
+        () => (demoMode ? walkthroughSavingsDemo() : storedSavings),
+        [demoMode, storedSavings]
+    );
     const [query, setQuery] = useState("");
 
     const listed = useMemo(
@@ -101,7 +111,10 @@ export default function SavingsScreen({
                 amountLabel={formatMoney(goal.currentAmount, { compact: true })}
                 amountHint="saved"
                 done={done}
-                onPress={() => router.push(`/goal/${goal.id}`)}
+                onPress={() => {
+                    if (demoMode) return;
+                    router.push(`/goal/${goal.id}`);
+                }}
             />
         );
     };
@@ -134,13 +147,17 @@ export default function SavingsScreen({
                     />
                 ) : null}
 
-                {loading ? (
+                {loading && !demoMode ? (
                     <DashboardSkeleton />
                 ) : showHero ? (
                     <DashboardHero
                         kicker="Saved so far"
                         value={heroValue}
-                        caption={`of ${formatMoney(totals.target, { compact: true })} · ${heroCaption}`}
+                        caption={
+                            demoMode
+                                ? "Sample goals for this tour"
+                                : `of ${formatMoney(totals.target, { compact: true })} · ${heroCaption}`
+                        }
                         percent={totals.percent}
                     />
                 ) : null}
@@ -161,7 +178,7 @@ export default function SavingsScreen({
                     />
                 ) : null}
 
-                {savings.length === 0 && !loading && (
+                {savings.length === 0 && !loading && !demoMode && (
                     <DashboardEmpty
                         icon="flag-outline"
                         title="No goals yet"
@@ -181,21 +198,25 @@ export default function SavingsScreen({
                     />
                 )}
 
-                {inProgress.length > 0 ? (
-                    <View>
-                        <Text style={dashboard.sectionLabel}>In progress</Text>
-                        <PlanGroup>{inProgress.map(renderGoal)}</PlanGroup>
-                    </View>
-                ) : null}
+                <WalkthroughAnchor id="plans-savings">
+                    {inProgress.length > 0 ? (
+                        <View>
+                            <Text style={dashboard.sectionLabel}>
+                                In progress
+                            </Text>
+                            <PlanGroup>{inProgress.map(renderGoal)}</PlanGroup>
+                        </View>
+                    ) : null}
 
-                {reached.length > 0 ? (
-                    <View>
-                        <Text style={dashboard.sectionLabel}>Reached</Text>
-                        <PlanGroup>{reached.map(renderGoal)}</PlanGroup>
-                    </View>
-                ) : null}
+                    {reached.length > 0 ? (
+                        <View>
+                            <Text style={dashboard.sectionLabel}>Reached</Text>
+                            <PlanGroup>{reached.map(renderGoal)}</PlanGroup>
+                        </View>
+                    ) : null}
+                </WalkthroughAnchor>
             </ScrollView>
-            {!loading ? (
+            {!loading || demoMode ? (
                 <FloatingAddButton
                     onPress={openAdd}
                     accessibilityLabel="Add savings goal"

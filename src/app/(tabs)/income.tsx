@@ -16,6 +16,11 @@ import {
 import { SearchField } from "@/components/SearchField";
 import { StickyHeroBar } from "@/components/StickyHeroBar";
 import { PageHeader } from "@/components/ui";
+import {
+    WalkthroughAnchor,
+    useWalkthroughActivityDemo,
+    walkthroughIncomeDemo,
+} from "@/components/walkthrough";
 import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
 import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
 import { useStickyHero } from "@/hooks/useStickyHero";
@@ -43,7 +48,12 @@ export default function IncomeScreen({ embedded = false }: IncomeScreenProps) {
     const topPadding = useScreenTopPadding();
 
     const { formatMoney } = useLocale();
-    const { income, loading } = useIncome();
+    const { income: storedIncome, loading } = useIncome();
+    const demoMode = useWalkthroughActivityDemo();
+    const income = useMemo(
+        () => (demoMode ? walkthroughIncomeDemo() : storedIncome),
+        [demoMode, storedIncome]
+    );
     const { range, label, periodUnit, shiftPeriod, resetToToday } =
         useDateRange();
     const [isOpen, setIsOpen] = useState(false);
@@ -117,7 +127,7 @@ export default function IncomeScreen({ embedded = false }: IncomeScreenProps) {
                     />
                 ) : null}
 
-                {loading ? (
+                {loading && !demoMode ? (
                     <DashboardSkeleton />
                 ) : showHero ? (
                     <DashboardHero
@@ -152,7 +162,7 @@ export default function IncomeScreen({ embedded = false }: IncomeScreenProps) {
                     />
                 ) : null}
 
-                {income.length === 0 && !loading && (
+                {income.length === 0 && !loading && !demoMode && (
                     <DashboardEmpty
                         icon="cash-outline"
                         title="No income yet"
@@ -196,39 +206,49 @@ export default function IncomeScreen({ embedded = false }: IncomeScreenProps) {
                     />
                 )}
 
-                {dayGroups.map((group) => (
-                    <LedgerDayGroup key={group.date} label={group.label}>
-                        {group.items.map((entry, index) => {
-                            const percent =
-                                entry.gross > 0
-                                    ? Math.round((entry.net / entry.gross) * 100)
-                                    : 100;
-                            return (
-                                <LedgerRow
-                                    key={entry.id}
-                                    title={entry.source}
-                                    meta={`${percent}% take-home`}
-                                    amountLabel={formatMoney(entry.net, {
-                                        compact: true,
-                                    })}
-                                    accentColor={accentForLabel(
-                                        entry.source,
-                                        theme.chart
-                                    )}
-                                    isLast={index === group.items.length - 1}
-                                    onPress={() => {
-                                        router.push(`/paycheck/${entry.id}`);
-                                    }}
-                                />
-                            );
-                        })}
-                    </LedgerDayGroup>
-                ))}
+                <WalkthroughAnchor id="activity-income">
+                    {dayGroups.map((group) => (
+                        <LedgerDayGroup key={group.date} label={group.label}>
+                            {group.items.map((entry, index) => {
+                                const percent =
+                                    entry.gross > 0
+                                        ? Math.round(
+                                              (entry.net / entry.gross) * 100
+                                          )
+                                        : 100;
+                                return (
+                                    <LedgerRow
+                                        key={entry.id}
+                                        title={entry.source}
+                                        meta={`${percent}% take-home`}
+                                        amountLabel={formatMoney(entry.net, {
+                                            compact: true,
+                                        })}
+                                        accentColor={accentForLabel(
+                                            entry.source,
+                                            theme.chart
+                                        )}
+                                        isLast={
+                                            index === group.items.length - 1
+                                        }
+                                        onPress={() => {
+                                            if (demoMode) return;
+                                            router.push(
+                                                `/paycheck/${entry.id}`
+                                            );
+                                        }}
+                                    />
+                                );
+                            })}
+                        </LedgerDayGroup>
+                    ))}
+                </WalkthroughAnchor>
             </ScrollView>
-            {!loading ? (
+            {!loading || demoMode ? (
                 <FloatingAddButton
                     onPress={openAdd}
                     accessibilityLabel="Add income"
+                    walkthroughId="activity-add"
                 />
             ) : null}
         </View>

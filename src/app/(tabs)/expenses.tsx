@@ -16,6 +16,11 @@ import {
 } from "@/components/LedgerList";
 import { SearchField } from "@/components/SearchField";
 import { StickyHeroBar } from "@/components/StickyHeroBar";
+import {
+    WalkthroughAnchor,
+    useWalkthroughActivityDemo,
+    walkthroughExpenseDemo,
+} from "@/components/walkthrough";
 import { PageHeader } from "@/components/ui";
 import { EXPENSE_CATEGORIES } from "@/constants/categories";
 import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
@@ -49,7 +54,12 @@ export default function ExpensesScreen({
     const topPadding = useScreenTopPadding();
 
     const { formatMoney } = useLocale();
-    const { expenses, loading } = useExpenses();
+    const { expenses: storedExpenses, loading } = useExpenses();
+    const demoMode = useWalkthroughActivityDemo();
+    const expenses = useMemo(
+        () => (demoMode ? walkthroughExpenseDemo() : storedExpenses),
+        [demoMode, storedExpenses]
+    );
     const { range, label, periodUnit, shiftPeriod, resetToToday } =
         useDateRange();
     const [isOpen, setIsOpen] = useState(false);
@@ -137,7 +147,7 @@ export default function ExpensesScreen({
                     />
                 ) : null}
 
-                {loading ? (
+                {loading && !demoMode ? (
                     <DashboardSkeleton />
                 ) : showHero ? (
                     <DashboardHero
@@ -186,7 +196,7 @@ export default function ExpensesScreen({
                     </>
                 ) : null}
 
-                {expenses.length === 0 && !loading && (
+                {expenses.length === 0 && !loading && !demoMode && (
                     <DashboardEmpty
                         icon="bag-handle-outline"
                         title="No spending yet"
@@ -233,34 +243,44 @@ export default function ExpensesScreen({
                     />
                 )}
 
-                {dayGroups.map((group) => (
-                    <LedgerDayGroup key={group.date} label={group.label}>
-                        {group.items.map((expense, index) => {
-                            const category =
-                                expense.category?.trim() || "Uncategorized";
-                            return (
-                                <LedgerRow
-                                    key={expense.id}
-                                    title={expense.name}
-                                    meta={category}
-                                    amountLabel={formatMoney(expense.amount, {
-                                        compact: true,
-                                    })}
-                                    accentColor={accentForLabel(
-                                        category,
-                                        theme.chart
-                                    )}
-                                    isLast={index === group.items.length - 1}
-                                    onPress={() => {
-                                        router.push(`/expense/${expense.id}`);
-                                    }}
-                                />
-                            );
-                        })}
-                    </LedgerDayGroup>
-                ))}
+                <WalkthroughAnchor id="activity-spending">
+                    {dayGroups.map((group) => (
+                        <LedgerDayGroup key={group.date} label={group.label}>
+                            {group.items.map((expense, index) => {
+                                const category =
+                                    expense.category?.trim() || "Uncategorized";
+                                return (
+                                    <LedgerRow
+                                        key={expense.id}
+                                        title={expense.name}
+                                        meta={category}
+                                        amountLabel={formatMoney(
+                                            expense.amount,
+                                            {
+                                                compact: true,
+                                            }
+                                        )}
+                                        accentColor={accentForLabel(
+                                            category,
+                                            theme.chart
+                                        )}
+                                        isLast={
+                                            index === group.items.length - 1
+                                        }
+                                        onPress={() => {
+                                            if (demoMode) return;
+                                            router.push(
+                                                `/expense/${expense.id}`
+                                            );
+                                        }}
+                                    />
+                                );
+                            })}
+                        </LedgerDayGroup>
+                    ))}
+                </WalkthroughAnchor>
             </ScrollView>
-            {!loading ? (
+            {!loading || demoMode ? (
                 <FloatingAddButton
                     onPress={openAdd}
                     accessibilityLabel="Add expense"

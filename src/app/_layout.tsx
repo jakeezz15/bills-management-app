@@ -14,6 +14,10 @@ import { NotificationTapHandler } from "@/components/NotificationTapHandler";
 import { ReminderSync } from "@/components/ReminderSync";
 import { StorageHealthBanner } from "@/components/StorageHealthBanner";
 import { SyncProgressProvider } from "@/components/SyncProgressOverlay";
+import {
+    WalkthroughHost,
+    WalkthroughProvider,
+} from "@/components/walkthrough";
 import { View } from "react-native";
 
 export default function RootLayout() {
@@ -31,11 +35,13 @@ export default function RootLayout() {
                                         <BillsProvider>
                                             <ExpensesProvider>
                                                 <SyncProgressProvider>
+                                                    <WalkthroughProvider>
                                                     <ReminderSync />
                                                     <NotificationTapHandler />
                                                     <AuthGate>
                                                         <View style={{ flex: 1 }}>
                                                             <StorageHealthBanner />
+                                                            <WalkthroughHost />
                                                             <Stack
                                                                 screenOptions={{
                                                                     headerShown: false,
@@ -89,6 +95,7 @@ export default function RootLayout() {
                                                             </Stack>
                                                         </View>
                                                     </AuthGate>
+                                                    </WalkthroughProvider>
                                                 </SyncProgressProvider>
                                             </ExpensesProvider>
                                         </BillsProvider>

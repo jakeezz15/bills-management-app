@@ -74,7 +74,7 @@ export async function markFirstRunComplete(): Promise<void> {
     await AsyncStorage.setItem(FIRST_RUN_KEY, "true");
 }
 
-/** Lets Reset / Dev replay the Home leftover coach. */
+/** Lets Reset / Dev replay the first-run walkthrough. */
 export async function clearFirstRunFlag(): Promise<void> {
     await AsyncStorage.removeItem(FIRST_RUN_KEY);
 }
