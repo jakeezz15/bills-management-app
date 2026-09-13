@@ -5,25 +5,23 @@ Copy from this file into Play Console (and later App Store). Do not use `PLAN.md
 **Launcher / icon name:** On Hand  
 **Store title:** On Hand: What's left?  
 **Package:** `com.durantetechsolutions.onhand` (do not change this after first public listing)  
-**Public version:** `1.1.0` (from `app.json`; Settings → About reads the same value)
+**Public version:** `2.0.0` (from `app.json`; Settings → About reads the same value)
 
 ---
 
 ## One sentence
 
-See what’s left after the money you’ve actually logged — income, spending, bills, savings, and debts — on this device.
+See what’s left after the money you’ve actually logged — on this phone by default, with optional Google sync when you want another device.
 
 ## Short description (Play: 80 characters max)
 
 ```
-See what’s left this month. Track income, bills, savings, and debts on your phone.
+See what’s left this month. Track income, bills, savings & debts on your phone.
 ```
 
 Character count: 79.
 
 ---
-
-
 
 ## Full description (Play)
 
@@ -38,7 +36,7 @@ Add paychecks and everyday spending. Keep rent, utilities, and subscriptions as 
 • Home — leftover, income vs outflows, and a simple month trend  
 • Activity — money in (income) and everyday spending  
 • Plans — bills, savings goals, and debts  
-• Settings — display currency, due-day reminders, backup, reset  
+• Settings — currency, reminders, backup, optional Google account & sync  
 
 **How leftover works**
 
@@ -46,19 +44,19 @@ Leftover is a running balance as of the end of the period you picked. It only su
 
 Variable bills (water, electricity) stay at $0 until you log that month’s payment.
 
-**Your data stays on your phone**
+**Your data, your choice**
 
-There is no account and no bank login. Nothing is uploaded to our servers. Export a JSON backup if you switch phones; uninstalling without a backup deletes your data.
+Works fully without an account — everything stays on this device.  
+Optional **Sign in with Google** unlocks **cloud sync** so you can upload or download your finance backup across phones. There is no bank login. You can still export or import a JSON file anytime.
 
 This app is a personal tracker, not a bank, tax tool, or financial advice.
 
 ---
 
-
-
 ## In this version
 
 - Four tabs: Home, Activity, Plans, Settings
+- Welcome: continue as guest or sign in with Google
 - Home leftover for day / week / month / year (chevrons to move; tap the label to jump to today)
 - First-run empty Home with “Add first paycheck”
 - Income: source, net amount, date
@@ -70,22 +68,34 @@ This app is a personal tracker, not a bank, tax tool, or financial advice.
 - Optional local due-day reminders (you pick the hour and lead days in Settings)
 - Display currency (formatting only — not FX conversion)
 - Export / import JSON backup; reset all finance data (stays empty)
+- Optional Google sign-in + Firestore cloud sync (upload / download; first-link keep device or use cloud)
+- Settings hub with Account, Notifications, General, Data, About
 
-
+---
 
 ## Not in this version
 
 - Bank or card sync
-- Cloud backup or multi-device sync (manual JSON export only)
-- Accounts, logins, or a website dashboard
+- Automatic background sync every change (sync is user-driven in Settings / after sign-in link)
+- A website dashboard or multi-user household sharing
 - Unpaid bills or planned savings auto-subtracted from leftover
 - Budgets with envelopes / “you’re over category X”
-- Sharing a household with other users
+- In-app “delete my cloud account” button (request deletion via support — see Privacy)
+- Tablet / large-screen layout (phone-first in 2.0.0; planned for a later 2.x)
 - Seed demo data (Metro / `__DEV__` only — not in production Settings)
 
 ---
 
+## Later ideas (after 2.0.0 — not building yet)
 
+Agreed direction for a future reminders pass (local notifications; optional toggles):
+
+1. **Leftover at risk** — user-set threshold; use **this month’s leftover**; warn when an upcoming unpaid bill/debt would push leftover under the threshold (push). If a logged payment/spend drops leftover to/under the threshold while in-app → **banner only** (no extra push).
+2. **Evening due catch-up** — optional night check; if items **due today and/or overdue** are still unpaid → one soft nudge (“not marked paid yet…”), not a guilt trip; separate toggle from leftover-at-risk.
+
+Daily “log spending?” habit nudge is lower priority than the two above.
+
+---
 
 ## Screenshot shot list
 
@@ -98,49 +108,47 @@ Use a **production** build (not the development client). Capture phone screensho
 5. **Plans → Bills** — mix of paid and unpaid, one variable bill
 6. **Plans → Savings** — a goal with progress
 7. **Plans → Debts** — a loan with a logged payment
-8. **Settings** — currency, reminders, export backup (no Development section in production)
+8. **Settings / Account** — guest vs signed-in, or Data backup (no Development section in production)
 
 **Feature graphic (Play):** dark slate `#0F172A`, leftover amount, short line “What’s left?”
 
 ---
 
-
-
 ## Play Console — Data safety (draft)
 
+Update the questionnaire for this version. Guest-only use stays on-device; signed-in sync stores data with Google Firebase.
 
-| Question                    | Answer                                                              |
-| --------------------------- | ------------------------------------------------------------------- |
-| Collects user data?         | No (not from your servers). Data stays on the device.               |
-| Account?                    | No                                                                  |
-| Finance data?               | Yes, **on device only** — the user types it. You do not receive it. |
-| Shared with third parties?  | No                                                                  |
-| Encrypted in transit?       | N/A (no backend). Backup is a file the user chooses to share.       |
-| Users can request deletion? | Reset in Settings, or uninstall                                     |
-| Children?                   | Not directed at children                                            |
+| Question | Answer |
+| --- | --- |
+| Collects user data? | **Yes, when the user opts in** to Google sign-in / sync. Guest mode keeps finance data on device only. |
+| Account? | **Optional** — Google Sign-In via Firebase Authentication |
+| Personal info collected? | Email (and related Google account identifiers) **if** the user signs in |
+| Finance data? | Yes — user-entered amounts. On device always; **also in Firestore** if they use sync |
+| Shared with third parties? | **Service providers only** — Google / Firebase for auth and optional sync storage. Not sold or used for ads by this app. |
+| Encrypted in transit? | **Yes** for sign-in and sync (HTTPS to Firebase) |
+| Encrypted at rest? | On device: OS storage. Cloud: Firebase/Google infrastructure |
+| Users can request deletion? | Reset / uninstall for device data; **contact support** to delete cloud account + sync snapshot |
+| Children? | Not directed at children |
 
-
-**Permissions to declare:** notifications (optional due-day reminders); files/sharing only when the user exports or imports a backup.
+**Permissions / features to declare:** notifications (optional due-day reminders); Google account (optional); files/sharing when the user exports or imports a backup.
 
 ---
 
-
-
 ## Pre-ship (do not skip)
 
-Done in the app: seed hidden in production, version `1.0.0`.
+Done in the app: seed hidden in production, version `2.0.0`, Firestore rules published.
 
 Still on you:
 
 1. Ship **preview/production** APK/AAB, not `--profile development`
-2. Privacy URL (public): `https://github.com/jakeezz15/bills-management-app/blob/main/docs/PRIVACY.md` — paste into Play Console if not already
-3. Support email you actually check (also linked from Settings → Contact support via GitHub Issues until you set a mailto)
-4. Test: empty first run → add income → log a bill payment → leftover moves → export backup → reset → import
-5. Dogfood one real payday cycle before inviting strangers
+2. Add **Play App signing** and **Upload** key **SHA-1** fingerprints in Firebase (Android) so production Google Sign-In works
+3. Privacy URL (public): `https://github.com/jakeezz15/bills-management-app/blob/main/docs/PRIVACY.md` — paste into Play Console after this policy is on the branch Play links to
+4. Refresh Play **Data safety** answers using the draft above
+5. Support email you actually check (also linked from Settings → Contact support via GitHub Issues until you set a mailto)
+6. Test: guest path → sign-in → first-link sync → upload/download → sign-out (local data remains) → export backup → reset → import
+7. Dogfood one real payday cycle before inviting strangers
 
 ---
-
-
 
 ## Support replies (keep handy)
 
@@ -148,7 +156,13 @@ Still on you:
 Leftover only counts money you marked paid / logged. Unpaid bills stay on Plans so you still see them due.
 
 **“I uninstalled and everything is gone.”**  
-Data lives on the phone. Export a backup from Settings before you switch devices.
+Local data lives on the phone. Export a backup or use Google sync before you switch devices.
 
 **“Is this connected to my bank?”**  
 No. You enter amounts yourself.
+
+**“Do I need a Google account?”**  
+No. Guest mode works fully on one device. Sign in only if you want cloud sync.
+
+**“How do I delete my cloud data?”**  
+Sign-out alone does not wipe the cloud copy. Contact support with the Google email you used and ask for account / sync deletion.

@@ -2,17 +2,19 @@
   "expo": {
     "name": "On Hand",
     "slug": "bills-management-app",
-    "version": "1.1.0",
+    "version": "2.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "billsmanagementapp",
     "userInterfaceStyle": "light",
     "ios": {
       "icon": "./assets/expo.icon",
-      "bundleIdentifier": "com.durantetechsolutions.onhand"
+      "bundleIdentifier": "com.durantetechsolutions.onhand",
+      "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
       "package": "com.durantetechsolutions.onhand",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#0F172A",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -53,7 +55,8 @@
       "@react-native-vector-icons/ionicons",
       "expo-sharing",
       "@react-native-community/datetimepicker",
-      "expo-image"
+      "expo-image",
+      "@react-native-google-signin/google-signin"
     ],
     "experiments": {
       "typedRoutes": true,
