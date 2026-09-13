@@ -2,7 +2,7 @@ import { WelcomeVaultArt } from "@/components/WelcomeVaultArt";
 import { useSyncProgress } from "@/components/SyncProgressOverlay";
 import { text, theme } from "@/design";
 import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
-import { signInWithGoogle } from "@/services/auth";
+import { signInWithGoogle, messageForSignInError } from "@/services/auth";
 import { markChosenGuest } from "@/services/auth-preference";
 import { runEnsureCloudLinked } from "@/utils/sync-ui";
 import Ionicons from "@react-native-vector-icons/ionicons";
@@ -68,10 +68,10 @@ export default function WelcomeScreen() {
                 });
             }, 400);
         } catch (error) {
-            Alert.alert(
-                "Sign-in failed",
-                error instanceof Error ? error.message : "Something went wrong."
-            );
+            const message = messageForSignInError(error);
+            if (message) {
+                Alert.alert("Sign-in failed", message);
+            }
         } finally {
             setBusy(false);
         }
@@ -82,10 +82,10 @@ export default function WelcomeScreen() {
             setBusy(true);
             await markChosenGuest();
             goHome();
-        } catch (error) {
+        } catch {
             Alert.alert(
                 "Could not continue",
-                error instanceof Error ? error.message : "Something went wrong."
+                "Something went wrong. Please try again."
             );
         } finally {
             setBusy(false);

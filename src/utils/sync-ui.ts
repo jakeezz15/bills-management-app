@@ -113,9 +113,7 @@ export async function runDownloadSync(
                             progress?.hideSyncProgress();
                             Alert.alert(
                                 "Download failed",
-                                error instanceof Error
-                                    ? error.message
-                                    : "Something went wrong."
+                                messageForSyncError(error)
                             );
                         }
                     })();
@@ -126,3 +124,21 @@ export async function runDownloadSync(
 }
 
 export { clearCloudSyncLinked, getLastSyncedAt };
+
+/** Short copy for sync alerts — avoid raw Firebase / network jargon. */
+export function messageForSyncError(error: unknown): string {
+    const raw =
+        error instanceof Error
+            ? error.message
+            : typeof error === "string"
+              ? error
+              : "";
+    if (/network|offline|unavailable/i.test(raw)) {
+        return "Check your internet connection and try again.";
+    }
+    if (/permission|insufficient|unauthenticated/i.test(raw)) {
+        return "You don’t have access to sync right now. Sign in again and try once more.";
+    }
+    return "Something went wrong while syncing. Please try again.";
+}
+

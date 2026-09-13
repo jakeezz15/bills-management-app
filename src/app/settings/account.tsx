@@ -7,6 +7,7 @@ import { SettingsSubpage } from "@/components/SettingsSubpage";
 import { useSyncProgress } from "@/components/SyncProgressOverlay";
 import {
     getCurrentUser,
+    messageForSignInError,
     signInWithGoogle,
     signOut,
     subscribeToAuth,
@@ -19,6 +20,7 @@ import { getStoredCurrency } from "@/utils/money";
 import {
     clearCloudSyncLinked,
     getLastSyncedAt,
+    messageForSyncError,
     runDownloadSync,
     runEnsureCloudLinked,
     runUploadSync,
@@ -71,14 +73,21 @@ export default function SettingsAccountScreen() {
         try {
             setAuthBusy(true);
             await signInWithGoogle();
+        } catch (error) {
+            const message = messageForSignInError(error);
+            if (message) {
+                Alert.alert("Sign-in failed", message);
+            }
+            setAuthBusy(false);
+            return;
+        }
+
+        try {
             await runEnsureCloudLinked({ showSyncProgress, hideSyncProgress });
             await reloadAll();
             setLastSyncedAt(await getLastSyncedAt());
         } catch (error) {
-            Alert.alert(
-                "Sign-in failed",
-                error instanceof Error ? error.message : "Something went wrong."
-            );
+            Alert.alert("Sync failed", messageForSyncError(error));
         } finally {
             setAuthBusy(false);
         }
@@ -103,9 +112,7 @@ export default function SettingsAccountScreen() {
                             } catch (error) {
                                 Alert.alert(
                                     "Sign-out failed",
-                                    error instanceof Error
-                                        ? error.message
-                                        : "Something went wrong."
+                                    "Couldn’t sign out. Please try again."
                                 );
                             } finally {
                                 setAuthBusy(false);
@@ -175,9 +182,7 @@ export default function SettingsAccountScreen() {
                                 } catch (error) {
                                     Alert.alert(
                                         "Upload failed",
-                                        error instanceof Error
-                                            ? error.message
-                                            : "Something went wrong."
+                                        messageForSyncError(error)
                                     );
                                 } finally {
                                     setAuthBusy(false);
