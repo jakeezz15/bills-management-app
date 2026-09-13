@@ -9,6 +9,7 @@ import {
     isBillPaidAsOf,
     getBillPaymentInMonth,
     getBillTotalPaid,
+    getLastBillPayment,
     isDebtFullyPaidOff,
     isDebtInstallmentPaidAsOf,
     isDebtNotStartedAsOf,
@@ -113,6 +114,43 @@ describe("getBillTotalPaid", () => {
         ];
 
         expect(getBillTotalPaid(bill.id, payments)).toBe(25);
+    });
+});
+
+describe("getLastBillPayment", () => {
+    it("returns the newest payment for that bill", () => {
+        const bill = makeBill();
+        const payments = [
+            makeBillPayment({ billId: bill.id, amount: 40, date: "2026-01-05" }),
+            makeBillPayment({ billId: bill.id, amount: 42, date: "2026-03-05" }),
+            makeBillPayment({ billId: bill.id, amount: 41, date: "2026-02-05" }),
+            makeBillPayment({
+                billId: "other",
+                amount: 99,
+                date: "2026-04-05",
+            }),
+        ];
+
+        expect(getLastBillPayment(bill.id, payments)?.amount).toBe(42);
+    });
+
+    it("ignores skipped months when picking previous payment", () => {
+        const bill = makeBill();
+        const payments = [
+            makeBillPayment({ billId: bill.id, amount: 40, date: "2026-01-05" }),
+            makeBillPayment({
+                billId: bill.id,
+                amount: 0,
+                date: "2026-03-05",
+                skipped: true,
+            }),
+        ];
+
+        expect(getLastBillPayment(bill.id, payments)?.amount).toBe(40);
+    });
+
+    it("returns null when the bill has no payments", () => {
+        expect(getLastBillPayment("missing", [])).toBeNull();
     });
 });
 
@@ -301,6 +339,7 @@ describe("dueCatalogStatus", () => {
 describe("dueCatalogLabel", () => {
     it("names paid, overdue, and soon so color is not the only cue", () => {
         expect(dueCatalogLabel("paid")).toBe("Paid");
+        expect(dueCatalogLabel("skipped")).toBe("Skipped");
         expect(dueCatalogLabel("overdue")).toBe("Overdue");
         expect(dueCatalogLabel("due-soon")).toBe("Soon");
     });

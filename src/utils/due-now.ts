@@ -128,7 +128,7 @@ export function getDueNowItems(
 
 export function dueNowLabel(item: DueNowItem): string {
     if (item.amountVaries) {
-        return "Needs amount";
+        return "Enter amount";
     }
     if (item.urgency === "overdue") {
         return "Overdue";

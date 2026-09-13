@@ -1,4 +1,4 @@
-import { theme } from "@/design";
+import { useTheme } from "@/app/contexts/ThemeContext";
 import { subscribeToAuth } from "@/services/auth";
 import {
     hasChosenGuest,
@@ -17,18 +17,18 @@ type AuthGateProps = {
 };
 
 /**
- * Soft gate (policy C): Welcome once until the user enters the app.
- * Sign-out does not return to Welcome.
- *
- * Re-reads storage on navigation so "Continue as guest" (no auth event)
- * does not loop back to Welcome.
+ * Welcome is required on first entry and again after Google sign-out.
+ * Guest or Google both clear the gate until the next sign-out.
  */
 export function AuthGate({ children }: AuthGateProps) {
     const router = useRouter();
     const segments = useSegments();
+    const { theme } = useTheme();
     const [ready, setReady] = useState(false);
+    const [signedIn, setSignedIn] = useState(false);
+    const [welcomeTick, setWelcomeTick] = useState(0);
 
-    const migrateExistingInstall = useCallback(async (signedIn: boolean) => {
+    const migrateExistingInstall = useCallback(async (isSignedIn: boolean) => {
         const welcomeDone = await hasCompletedWelcome();
         const migrated = await hasWelcomeMigrated();
 
@@ -37,7 +37,7 @@ export function AuthGate({ children }: AuthGateProps) {
                 hasChosenGuest(),
                 hasCompletedFirstRun(),
             ]);
-            if (signedIn || guest || firstRunDone) {
+            if (isSignedIn || guest || firstRunDone) {
                 await markWelcomeDone();
             }
             await markWelcomeMigrated();
@@ -49,8 +49,12 @@ export function AuthGate({ children }: AuthGateProps) {
 
         const unsubscribe = subscribeToAuth((user) => {
             void (async () => {
-                await migrateExistingInstall(user != null);
-                if (!cancelled) setReady(true);
+                const isSignedIn = user != null;
+                await migrateExistingInstall(isSignedIn);
+                if (cancelled) return;
+                setSignedIn(isSignedIn);
+                setWelcomeTick((n) => n + 1);
+                setReady(true);
             })();
         });
 
@@ -84,7 +88,7 @@ export function AuthGate({ children }: AuthGateProps) {
         return () => {
             cancelled = true;
         };
-    }, [ready, segments, router]);
+    }, [ready, segments, router, signedIn, welcomeTick]);
 
     if (!ready) {
         return (

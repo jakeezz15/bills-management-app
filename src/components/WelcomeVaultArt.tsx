@@ -276,7 +276,6 @@ export function WelcomeVaultArt() {
 
     useEffect(() => {
         if (reduceMotion) {
-            setActiveIndex(0);
             return;
         }
 
@@ -373,7 +372,7 @@ export function WelcomeVaultArt() {
             <Animated.View style={[styles.vaultRing, vaultStyle]}>
                 <View style={styles.vaultInner}>
                     <Ionicons
-                        name="safe-outline"
+                        name="lock-closed-outline"
                         size={48}
                         color={theme.text.inverse}
                     />
@@ -397,7 +396,7 @@ const styles = StyleSheet.create({
     },
     orb: {
         position: "absolute",
-        borderRadius: 999,
+        borderRadius: theme.radius.pill,
     },
     orbEmerald: {
         width: 150,
@@ -431,7 +430,7 @@ const styles = StyleSheet.create({
         position: "absolute",
         width: 168,
         height: 168,
-        borderRadius: 84,
+        borderRadius: theme.radius.pill,
         borderWidth: 1.5,
         borderColor: "rgba(255, 255, 255, 0.18)",
         borderStyle: "dashed",
@@ -442,7 +441,7 @@ const styles = StyleSheet.create({
         left: 78,
         width: 10,
         height: 10,
-        borderRadius: 5,
+        borderRadius: theme.radius.pill,
         backgroundColor: theme.chart[1],
     },
     orbitDotAlt: {
@@ -453,7 +452,7 @@ const styles = StyleSheet.create({
     vaultRing: {
         width: 108,
         height: 108,
-        borderRadius: 54,
+        borderRadius: theme.radius.pill,
         alignItems: "center",
         justifyContent: "center",
         backgroundColor: "rgba(30, 41, 59, 0.92)",
@@ -464,7 +463,7 @@ const styles = StyleSheet.create({
     vaultInner: {
         width: 88,
         height: 88,
-        borderRadius: 44,
+        borderRadius: theme.radius.pill,
         alignItems: "center",
         justifyContent: "center",
         backgroundColor: theme.bg.inverse,
@@ -477,7 +476,7 @@ const styles = StyleSheet.create({
     floatChip: {
         width: 40,
         height: 40,
-        borderRadius: 12,
+        borderRadius: theme.radius.md,
         alignItems: "center",
         justifyContent: "center",
         borderWidth: 1,
@@ -498,7 +497,7 @@ const styles = StyleSheet.create({
     },
     bubbleBody: {
         backgroundColor: "rgba(15, 23, 42, 0.96)",
-        borderRadius: 14,
+        borderRadius: theme.radius.md,
         borderWidth: 1.5,
         paddingHorizontal: 12,
         paddingVertical: 10,
@@ -506,9 +505,9 @@ const styles = StyleSheet.create({
     },
     bubbleText: {
         color: theme.text.inverse,
-        fontSize: 13,
-        lineHeight: 18,
-        fontWeight: theme.fontWeight.medium,
+        fontSize: theme.fontSize.sm,
+        lineHeight: theme.lineHeight.sm,
+        fontWeight: theme.fontWeight.semibold,
         textAlign: "center",
     },
     tailUp: {

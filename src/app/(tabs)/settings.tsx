@@ -15,9 +15,8 @@ import {
     getReminderPrefs,
     remindersUnavailableReason,
 } from "@/services/reminders";
-import { dashboard } from "@/styles/dashboard";
+import { useDashboardStyles } from "@/styles/dashboard";
 import { isDevToolsBuild } from "@/utils/dev-tools";
-import { currencyLabel } from "@/utils/money";
 import {
     formatReminderScheduleCaption,
 } from "@/utils/reminder-schedule";
@@ -27,12 +26,11 @@ import { router, useFocusEffect } from "expo-router";
 import type { User } from "firebase/auth";
 import { useCallback, useEffect, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
-import { useLocale } from "../contexts/LocaleContext";
 
 export default function SettingsScreen() {
+    const dashboard = useDashboardStyles();
     useStatusBarStyle("dark");
     const topPadding = useScreenTopPadding();
-    const { currency } = useLocale();
     const [user, setUser] = useState<User | null>(getCurrentUser());
     const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
     const [remindersOn, setRemindersOn] = useState(false);
@@ -72,16 +70,16 @@ export default function SettingsScreen() {
 
     const accountSubtitle = user
         ? user.email ??
-          (lastSyncedAt
-              ? `Synced ${new Date(lastSyncedAt).toLocaleDateString()}`
-              : "Signed in · cloud sync")
+        (lastSyncedAt
+            ? `Synced ${new Date(lastSyncedAt).toLocaleDateString()}`
+            : "Signed in · cloud sync")
         : "Sign in optional · sync across devices";
 
     const notificationsSubtitle = remindersBlocked
         ? remindersBlocked
         : remindersOn
-          ? `On · ${scheduleCaption}`
-          : "Off";
+            ? `On · ${scheduleCaption}`
+            : "Off";
 
     return (
         <View style={dashboard.screen}>
@@ -96,15 +94,17 @@ export default function SettingsScreen() {
 
                 <SettingsSection title="Preferences">
                     <SettingsRow
-                        icon="person-circle-outline"
-                        title="Account"
-                        subtitle={accountSubtitle}
+                        icon="options-outline"
+                        title="General"
+                        // subtitle={currencyLabel(currency)}
                         showChevron
                         onPress={() => {
-                            router.push("/settings/account");
+                            router.push("/settings/general");
                         }}
                     />
                     <SettingsDivider />
+
+
                     <SettingsRow
                         icon="notifications-outline"
                         title="Notifications"
@@ -115,16 +115,7 @@ export default function SettingsScreen() {
                         }}
                     />
                     <SettingsDivider />
-                    <SettingsRow
-                        icon="options-outline"
-                        title="General"
-                        subtitle={currencyLabel(currency)}
-                        showChevron
-                        onPress={() => {
-                            router.push("/settings/general");
-                        }}
-                    />
-                    <SettingsDivider />
+
                     <SettingsRow
                         icon="folder-outline"
                         title="Data & privacy"
@@ -134,6 +125,18 @@ export default function SettingsScreen() {
                             router.push("/settings/data");
                         }}
                     />
+                    <SettingsDivider />
+
+                    <SettingsRow
+                        icon="person-circle-outline"
+                        title="Account"
+                        subtitle={accountSubtitle}
+                        showChevron
+                        onPress={() => {
+                            router.push("/settings/account");
+                        }}
+                    />
+                    <SettingsDivider />
                 </SettingsSection>
 
                 <SettingsSection title="App">

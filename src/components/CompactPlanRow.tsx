@@ -1,11 +1,12 @@
-import { text, theme } from "@/design";
+import { useTheme } from "@/app/contexts/ThemeContext";
 import {
     PlanStatusTone,
     planStatusAccent,
     planStatusFg,
 } from "@/components/plan-status";
+import { text, type Theme } from "@/design";
 import Ionicons from "@react-native-vector-icons/ionicons";
-import { ReactNode } from "react";
+import { ReactNode, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 type CompactPlanRowProps = {
@@ -38,9 +39,11 @@ export function CompactPlanRow({
     onToggle,
     toggleAccessibilityLabel,
 }: CompactPlanRowProps) {
+    const { theme } = useTheme();
+    const styles = useMemo(() => createCompactStyles(theme), [theme]);
     const tone: PlanStatusTone = done ? "paid" : metaTone;
-    const accent = planStatusAccent(tone);
-    const metaColor = planStatusFg(tone);
+    const accent = planStatusAccent(tone, theme);
+    const metaColor = planStatusFg(tone, theme);
 
     const showPayChip = Boolean(actionAmountLabel) && !done;
     const spokenAmount = amountHint
@@ -150,10 +153,13 @@ type PlanGroupProps = {
 
 /** One sheet for a due-day (or Due now) group — not a card per row. */
 export function PlanGroup({ children }: PlanGroupProps) {
+    const { theme } = useTheme();
+    const styles = useMemo(() => createCompactStyles(theme), [theme]);
     return <View style={styles.group}>{children}</View>;
 }
 
-const styles = StyleSheet.create({
+function createCompactStyles(theme: Theme) {
+    return StyleSheet.create({
     group: {
         gap: theme.space.sm,
         marginBottom: theme.space.md,
@@ -263,3 +269,4 @@ const styles = StyleSheet.create({
         lineHeight: theme.lineHeight.xs,
     },
 });
+}

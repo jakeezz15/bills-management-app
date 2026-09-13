@@ -8,7 +8,7 @@ import {
 
 import { GOOGLE_WEB_CLIENT_ID } from "@/constants/google";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
-import { clearChosenGuest, markWelcomeDone } from "./auth-preference";
+import { clearChosenGuest, markWelcomeDone, requireWelcomeAgain } from "./auth-preference";
 import { auth } from "./firebase";
 
 let configure = false;
@@ -110,6 +110,7 @@ export async function signOut(): Promise<void> {
         // Still clear Firebase even if Google sign-out fails
     }
     await firebaseSignOut(auth);
+    await requireWelcomeAgain();
 }
 
 export function subscribeToAuth(

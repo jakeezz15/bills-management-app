@@ -1,8 +1,10 @@
-import { theme } from "@/design";
+import { useTheme } from "@/app/contexts/ThemeContext";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { Tabs } from "expo-router";
 
 export default function TabLayout() {
+    const { theme } = useTheme();
+
     return (
         <Tabs
             screenOptions={{
@@ -75,7 +77,6 @@ export default function TabLayout() {
                 }}
             />
 
-            {/* Kept as routes for deep links; hidden from tab bar */}
             <Tabs.Screen name="income" options={{ href: null }} />
             <Tabs.Screen name="expenses" options={{ href: null }} />
             <Tabs.Screen name="bills" options={{ href: null }} />

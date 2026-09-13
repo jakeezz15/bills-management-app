@@ -11,7 +11,7 @@ import {
 } from "@/components/SettingsList";
 import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
 import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
-import { dashboard } from "@/styles/dashboard";
+import { useDashboardStyles } from "@/styles/dashboard";
 import { formatDisplayDate } from "@/utils/date";
 import { goBackOrReplace, paramId } from "@/utils/navigation";
 import { chipFromPayCadence } from "@/utils/pay-cycle";
@@ -20,6 +20,7 @@ import { useEffect, useState } from "react";
 import { ScrollView, View } from "react-native";
 
 export default function IncomeReceiptScreen() {
+    const dashboard = useDashboardStyles();
     useStatusBarStyle("light");
     const topPadding = useScreenTopPadding();
     const { id: rawId } = useLocalSearchParams<{ id: string }>();

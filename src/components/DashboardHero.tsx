@@ -1,11 +1,11 @@
-import { dashboard } from "@/styles/dashboard";
-import { theme } from "@/design";
+import { useTheme } from "@/app/contexts/ThemeContext";
 import { AnimatedMoneyText } from "@/components/AnimatedMoneyText";
 import {
     PlanStatusTone,
     planStatusAccent,
     planStatusOnInverse,
 } from "@/components/plan-status";
+import { useDashboardStyles } from "@/styles/dashboard";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
@@ -37,14 +37,16 @@ export function DashboardHero({
     onAdd,
     addAccessibilityLabel = "Add",
 }: DashboardHeroProps) {
+    const { theme } = useTheme();
+    const dashboard = useDashboardStyles();
     const fill = Math.max(0, Math.min(100, percent ?? 0));
     const showProgress = percent !== undefined;
     const spoken = [title, kicker, value, showProgress ? `${fill} percent` : null, caption]
         .filter(Boolean)
         .join(", ");
-    const accent = statusTone ? planStatusAccent(statusTone) : null;
+    const accent = statusTone ? planStatusAccent(statusTone, theme) : null;
     const captionColor = statusTone
-        ? planStatusOnInverse(statusTone)
+        ? planStatusOnInverse(statusTone, theme)
         : undefined;
 
     return (
@@ -174,6 +176,8 @@ export function DashboardHeroCompact({
     addAccessibilityLabel = "Add",
     trailing,
 }: DashboardHeroCompactProps) {
+    const { theme } = useTheme();
+    const dashboard = useDashboardStyles();
     const figure =
         amount != null && formatAmount ? (
             <AnimatedMoneyText

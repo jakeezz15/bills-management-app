@@ -1,5 +1,6 @@
-import { theme } from "@/design";
+import { useTheme } from "@/app/contexts/ThemeContext";
 import { startOfMonth, toIsoDate } from "@/utils/date";
+import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
@@ -22,6 +23,8 @@ export function MonthGrid({
     markedIso,
     onSelectDay,
 }: MonthGridProps) {
+    const { theme } = useTheme();
+    const styles = useMemo(() => createMonthStyles(theme), [theme]);
     const start = startOfMonth(month);
     const days = new Date(start.getFullYear(), start.getMonth() + 1, 0).getDate();
     const lead = mondayOffset(start);
@@ -96,71 +99,88 @@ export function MonthGrid({
     );
 }
 
-const styles = StyleSheet.create({
-    card: {
-        marginTop: theme.space.sm,
-        marginBottom: theme.space.md,
-        paddingHorizontal: 0,
-        paddingTop: 0,
-        paddingBottom: theme.space.sm,
-    },
-    weekRow: {
-        flexDirection: "row",
-        marginBottom: theme.space.xs,
-    },
-    weekday: {
-        flex: 1,
-        textAlign: "center",
-        color: theme.text.secondary,
-        fontSize: theme.fontSize.xs,
-        lineHeight: theme.lineHeight.xs,
-        fontWeight: theme.fontWeight.bold,
-    },
-    grid: {
-        flexDirection: "row",
-        flexWrap: "wrap",
-    },
-    cell: {
-        width: "14.285%",
-        minHeight: theme.size.tap,
-        alignItems: "center",
-        justifyContent: "center",
-        paddingVertical: theme.space.xs,
-        borderRadius: theme.radius.sm,
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: "transparent",
-    },
-    cellSelected: {
-        backgroundColor: theme.bg.inverse,
-    },
-    cellToday: {
-        backgroundColor: theme.bg.surface,
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: theme.border.subtle,
-    },
-    day: {
-        color: theme.text.primary,
-        fontSize: theme.fontSize.xs,
-        lineHeight: theme.lineHeight.xs,
-        fontWeight: theme.fontWeight.semibold,
-    },
-    daySelected: {
-        color: theme.text.inverse,
-    },
-    dayToday: {
-        fontWeight: theme.fontWeight.bold,
-    },
-    dot: {
-        width: theme.space.xs,
-        height: theme.space.xs,
-        borderRadius: theme.radius.pill,
-        marginTop: theme.space.xs,
-        backgroundColor: "transparent",
-    },
-    dotOn: {
-        backgroundColor: theme.action.primary.bg,
-    },
-    dotOnSelected: {
-        backgroundColor: theme.text.inverse,
-    },
-});
+function createMonthStyles(theme: {
+    space: { sm: number; md: number; xs: number };
+    text: {
+        secondary: string;
+        primary: string;
+        inverse: string;
+    };
+    fontSize: { xs: number };
+    lineHeight: { xs: number };
+    fontWeight: { bold: "700"; semibold: "600" };
+    size: { tap: number };
+    radius: { sm: number; pill: number };
+    bg: { inverse: string; surface: string };
+    border: { subtle: string };
+    action: { primary: { bg: string } };
+}) {
+    return StyleSheet.create({
+        card: {
+            marginTop: theme.space.sm,
+            marginBottom: theme.space.md,
+            paddingHorizontal: 0,
+            paddingTop: 0,
+            paddingBottom: theme.space.sm,
+        },
+        weekRow: {
+            flexDirection: "row",
+            marginBottom: theme.space.xs,
+        },
+        weekday: {
+            flex: 1,
+            textAlign: "center",
+            color: theme.text.secondary,
+            fontSize: theme.fontSize.xs,
+            lineHeight: theme.lineHeight.xs,
+            fontWeight: theme.fontWeight.bold,
+        },
+        grid: {
+            flexDirection: "row",
+            flexWrap: "wrap",
+        },
+        cell: {
+            width: "14.285%",
+            minHeight: theme.size.tap,
+            alignItems: "center",
+            justifyContent: "center",
+            paddingVertical: theme.space.xs,
+            borderRadius: theme.radius.sm,
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: "transparent",
+        },
+        cellSelected: {
+            backgroundColor: theme.bg.inverse,
+        },
+        cellToday: {
+            backgroundColor: theme.bg.surface,
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: theme.border.subtle,
+        },
+        day: {
+            color: theme.text.primary,
+            fontSize: theme.fontSize.xs,
+            lineHeight: theme.lineHeight.xs,
+            fontWeight: theme.fontWeight.semibold,
+        },
+        daySelected: {
+            color: theme.text.inverse,
+        },
+        dayToday: {
+            fontWeight: theme.fontWeight.bold,
+        },
+        dot: {
+            width: theme.space.xs,
+            height: theme.space.xs,
+            borderRadius: theme.radius.pill,
+            marginTop: theme.space.xs,
+            backgroundColor: "transparent",
+        },
+        dotOn: {
+            backgroundColor: theme.action.primary.bg,
+        },
+        dotOnSelected: {
+            backgroundColor: theme.text.inverse,
+        },
+    });
+}

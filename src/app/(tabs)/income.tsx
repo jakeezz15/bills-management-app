@@ -19,7 +19,7 @@ import { PageHeader } from "@/components/ui";
 import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
 import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
 import { useStickyHero } from "@/hooks/useStickyHero";
-import { dashboard } from "@/styles/dashboard";
+import { useDashboardStyles } from "@/styles/dashboard";
 import { isIsoInRange, isViewingCurrentPeriod } from "@/utils/date";
 import { filterBySearch } from "@/utils/filters";
 import { router } from "expo-router";
@@ -28,12 +28,15 @@ import { ScrollView, View } from "react-native";
 import { useDateRange } from "../contexts/DateRangeContext";
 import { useIncome } from "../contexts/IncomeContext";
 import { useLocale } from "../contexts/LocaleContext";
+import { useTheme } from "../contexts/ThemeContext";
 
 type IncomeScreenProps = {
     embedded?: boolean;
 };
 
 export default function IncomeScreen({ embedded = false }: IncomeScreenProps) {
+    const { theme } = useTheme();
+    const dashboard = useDashboardStyles();
     // Standalone deep link shows the dark hero band; when embedded the
     // host tab owns the bar.
     useStatusBarStyle(embedded ? null : "light");
@@ -208,7 +211,10 @@ export default function IncomeScreen({ embedded = false }: IncomeScreenProps) {
                                     amountLabel={formatMoney(entry.net, {
                                         compact: true,
                                     })}
-                                    accentColor={accentForLabel(entry.source)}
+                                    accentColor={accentForLabel(
+                                        entry.source,
+                                        theme.chart
+                                    )}
                                     isLast={index === group.items.length - 1}
                                     onPress={() => {
                                         router.push(`/paycheck/${entry.id}`);

@@ -676,7 +676,8 @@ export async function seedScreenshotData(
             payCadence: "once",
             ...ts(isoOn(y, m, clamp(Math.min(12, day), 1, day))),
         },
-    ].filter((row) => row.date <= todayIso);
+    ]
+        .filter((row) => row.date <= todayIso) as Income[];
 
     const expenseSpecs: {
         name: string;

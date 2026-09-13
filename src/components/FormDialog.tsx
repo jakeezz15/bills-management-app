@@ -1,7 +1,8 @@
-import { elevation, text, theme } from "@/design";
+import { useTheme } from "@/app/contexts/ThemeContext";
+import { elevation, text } from "@/design";
 import { confirmDestructive } from "@/utils/confirm";
 import Ionicons from "@react-native-vector-icons/ionicons";
-import { ReactNode } from "react";
+import { ReactNode, useMemo } from "react";
 import {
     KeyboardAvoidingView,
     Modal,
@@ -37,6 +38,104 @@ export function FormDialog({
     deleteMessage,
     onDelete,
 }: FormDialogProps) {
+    const { theme } = useTheme();
+    const styles = useMemo(
+        () =>
+            StyleSheet.create({
+                overlay: {
+                    flex: 1,
+                    justifyContent: "center",
+                    padding: theme.space.md,
+                    backgroundColor: theme.overlay,
+                },
+                card: {
+                    backgroundColor: theme.bg.surface,
+                    borderRadius: theme.radius.lg,
+                    maxHeight: "88%",
+                    overflow: "hidden",
+                    width: "100%",
+                    flexShrink: 1,
+                    maxWidth: 440,
+                    alignSelf: "center",
+                    ...elevation.dialog,
+                },
+                header: {
+                    backgroundColor: theme.bg.inverse,
+                    paddingHorizontal: theme.space.md,
+                    paddingVertical: theme.space.md,
+                    flexDirection: "row",
+                    alignItems: "flex-start",
+                    justifyContent: "space-between",
+                    gap: theme.space.md,
+                },
+                kicker: {
+                    ...text.kicker,
+                    marginBottom: theme.space.xs,
+                },
+                title: text.dialogTitle,
+                close: {
+                    width: theme.size.control,
+                    height: theme.size.control,
+                    borderRadius: theme.radius.pill,
+                    backgroundColor: theme.action.onInverse.bg,
+                    alignItems: "center",
+                    justifyContent: "center",
+                },
+                closePressed: {
+                    opacity: 0.7,
+                },
+                body: {
+                    paddingHorizontal: theme.space.md,
+                    paddingTop: theme.space.md,
+                    paddingBottom: theme.space.lg,
+                },
+                footer: {
+                    flexDirection: "row",
+                    gap: theme.space.sm,
+                    paddingHorizontal: theme.space.md,
+                    paddingTop: theme.space.sm,
+                    paddingBottom: theme.space.md,
+                    borderTopWidth: StyleSheet.hairlineWidth,
+                    borderTopColor: theme.border.subtle,
+                    backgroundColor: theme.bg.surface,
+                },
+                ghost: {
+                    flex: 1,
+                    minHeight: theme.size.tap,
+                    borderRadius: theme.radius.sm,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: theme.action.secondary.bg,
+                },
+                ghostText: {
+                    color: theme.action.secondary.fg,
+                    fontSize: theme.fontSize.md,
+                    fontWeight: theme.fontWeight.semibold,
+                },
+                primary: {
+                    flex: 1.3,
+                    minHeight: theme.size.tap,
+                    borderRadius: theme.radius.sm,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: theme.action.primary.bg,
+                },
+                primaryText: text.button,
+                deleteRow: {
+                    alignItems: "center",
+                    justifyContent: "center",
+                    minHeight: theme.size.tap,
+                    marginTop: theme.space.sm,
+                },
+                deleteText: {
+                    color: theme.intent.negative.fg,
+                    fontSize: theme.fontSize.md,
+                    fontWeight: theme.fontWeight.semibold,
+                },
+            }),
+        [theme]
+    );
+
     return (
         <Modal
             visible={visible}
@@ -130,96 +229,3 @@ export function FormDialog({
         </Modal>
     );
 }
-
-const styles = StyleSheet.create({
-    overlay: {
-        flex: 1,
-        justifyContent: "center",
-        padding: theme.space.md,
-        backgroundColor: theme.overlay,
-    },
-    card: {
-        backgroundColor: theme.bg.surface,
-        borderRadius: theme.radius.lg,
-        maxHeight: "88%",
-        overflow: "hidden",
-        width: "100%",
-        flexShrink: 1,
-        maxWidth: 440,
-        alignSelf: "center",
-        ...elevation.dialog,
-    },
-    header: {
-        backgroundColor: theme.bg.inverse,
-        paddingHorizontal: theme.space.md,
-        paddingVertical: theme.space.md,
-        flexDirection: "row",
-        alignItems: "flex-start",
-        justifyContent: "space-between",
-        gap: theme.space.md,
-    },
-    kicker: {
-        ...text.kicker,
-        marginBottom: theme.space.xs,
-    },
-    title: text.dialogTitle,
-    close: {
-        width: theme.size.control,
-        height: theme.size.control,
-        borderRadius: theme.radius.pill,
-        backgroundColor: theme.action.onInverse.bg,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    closePressed: {
-        opacity: 0.7,
-    },
-    body: {
-        paddingHorizontal: theme.space.md,
-        paddingTop: theme.space.md,
-        paddingBottom: theme.space.lg,
-    },
-    footer: {
-        flexDirection: "row",
-        gap: theme.space.sm,
-        paddingHorizontal: theme.space.md,
-        paddingTop: theme.space.sm,
-        paddingBottom: theme.space.md,
-        borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: theme.border.subtle,
-        backgroundColor: theme.bg.surface,
-    },
-    ghost: {
-        flex: 1,
-        minHeight: theme.size.tap,
-        borderRadius: theme.radius.sm,
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: theme.action.secondary.bg,
-    },
-    ghostText: {
-        color: theme.action.secondary.fg,
-        fontSize: theme.fontSize.md,
-        fontWeight: theme.fontWeight.semibold,
-    },
-    primary: {
-        flex: 1.3,
-        minHeight: theme.size.tap,
-        borderRadius: theme.radius.sm,
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: theme.action.primary.bg,
-    },
-    primaryText: text.button,
-    deleteRow: {
-        alignItems: "center",
-        justifyContent: "center",
-        minHeight: theme.size.tap,
-        marginTop: theme.space.sm,
-    },
-    deleteText: {
-        color: theme.intent.negative.fg,
-        fontSize: theme.fontSize.md,
-        fontWeight: theme.fontWeight.semibold,
-    },
-});

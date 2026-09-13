@@ -1,13 +1,16 @@
 import { useBills } from "@/app/contexts/BillsContext";
 import { useDebt } from "@/app/contexts/DebtsContext";
 import { useLocale } from "@/app/contexts/LocaleContext";
+import { useTheme } from "@/app/contexts/ThemeContext";
 import { CompactPlanRow } from "@/components/CompactPlanRow";
-import { elevation, text, theme } from "@/design";
+import { elevation, text, type Theme } from "@/design";
 import { useDueNowInbox } from "@/hooks/useDueNowInbox";
 import { hapticConfirm } from "@/utils/haptics";
 import { dueNowLabel, dueNowTone } from "@/utils/due-now";
+import { getLastBillPayment } from "@/utils/filters";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { router } from "expo-router";
+import { useMemo } from "react";
 import {
     Modal,
     Pressable,
@@ -50,8 +53,10 @@ export function DueNowModal({
     clearCaption = "Nothing waiting in the next 3 days.",
     soonWithinDays,
 }: DueNowModalProps) {
+    const { theme } = useTheme();
+    const styles = useMemo(() => createDueNowStyles(theme), [theme]);
     const { formatMoney } = useLocale();
-    const { toggleBillPaid } = useBills();
+    const { toggleBillPaid, payments: billPayments } = useBills();
     const { recordPayment } = useDebt();
     const { items, showClear, asOfIso } = useDueNowInbox(soonWithinDays);
 
@@ -112,7 +117,15 @@ export function DueNowModal({
                                 items.length === 0 && styles.listIdle,
                             ]}
                         >
-                            {items.map((item) => (
+                            {items.map((item) => {
+                                const lastOpenPayment =
+                                    item.kind === "bill" && item.amountVaries
+                                        ? getLastBillPayment(
+                                              item.id,
+                                              billPayments
+                                          )
+                                        : null;
+                                return (
                                 <Animated.View
                                     key={`${item.kind}-${item.id}`}
                                     layout={layout}
@@ -122,14 +135,28 @@ export function DueNowModal({
                                     <CompactPlanRow
                                         title={item.name}
                                         meta={dueNowLabel(item)}
-                                        amountLabel={formatMoney(
-                                            item.remaining ?? item.amount,
-                                            { compact: true }
-                                        )}
+                                        amountLabel={
+                                            item.amountVaries
+                                                ? lastOpenPayment
+                                                  ? formatMoney(
+                                                        lastOpenPayment.amount,
+                                                        { compact: true }
+                                                    )
+                                                  : "—"
+                                                : formatMoney(
+                                                      item.remaining ??
+                                                          item.amount,
+                                                      { compact: true }
+                                                  )
+                                        }
                                         amountHint={
                                             item.kind === "debt"
                                                 ? "balance"
-                                                : "due"
+                                                : item.amountVaries
+                                                  ? lastOpenPayment
+                                                    ? "previous payment"
+                                                    : "when paid"
+                                                  : "due"
                                         }
                                         actionAmountLabel={
                                             item.kind === "debt"
@@ -172,7 +199,8 @@ export function DueNowModal({
                                         }
                                     />
                                 </Animated.View>
-                            ))}
+                                );
+                            })}
                         </View>
 
                         {showClear ? <DueClearCard /> : null}
@@ -214,6 +242,8 @@ export function DueNowBadgeButton({
     onPress,
     tone = "inverse",
 }: DueNowBadgeButtonProps) {
+    const { theme } = useTheme();
+    const styles = useMemo(() => createDueNowStyles(theme), [theme]);
     const inverse = tone === "inverse";
     const label =
         count > 0
@@ -254,6 +284,8 @@ export function DueNowBadgeButton({
 }
 
 function DueClearCard() {
+    const { theme } = useTheme();
+    const styles = useMemo(() => createDueNowStyles(theme), [theme]);
     return (
         <Animated.View
             entering={clearEnter}
@@ -279,7 +311,8 @@ function DueClearCard() {
     );
 }
 
-const styles = StyleSheet.create({
+function createDueNowStyles(theme: Theme) {
+    return StyleSheet.create({
     overlay: {
         flex: 1,
         justifyContent: "center",
@@ -433,3 +466,4 @@ const styles = StyleSheet.create({
         textAlign: "center",
     },
 });
+}

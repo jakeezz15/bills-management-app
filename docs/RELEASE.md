@@ -5,7 +5,7 @@ Copy from this file into Play Console (and later App Store). Do not use `PLAN.md
 **Launcher / icon name:** On Hand  
 **Store title:** On Hand: What's left?  
 **Package:** `com.durantetechsolutions.onhand` (do not change this after first public listing)  
-**Public version:** `2.0.0` (from `app.json`; Settings → About reads the same value)
+**Public version:** `2.0.1` (from `app.json`; Settings → About reads the same value)
 
 ---
 
@@ -95,6 +95,8 @@ Agreed direction for a future reminders pass (local notifications; optional togg
 
 Daily “log spending?” habit nudge is lower priority than the two above.
 
+3. **Check for updates (Settings)** — after closed testing settles: EAS Update for JS/UI OTA + Settings row; optional Play store version check for mandatory binary bumps. Skip while closed-test AABs are the update channel.
+
 ---
 
 ## Screenshot shot list
@@ -136,7 +138,7 @@ Update the questionnaire for this version. Guest-only use stays on-device; signe
 
 ## Pre-ship (do not skip)
 
-Done in the app: seed hidden in production, version `2.0.0`, Firestore rules published.
+Done in the app: seed hidden in production, version `2.0.1`, Firestore rules published.
 
 Still on you:
 
@@ -149,10 +151,10 @@ Still on you:
 3. Privacy URL on `main` stays old until you merge `version-2.0` (deferred on purpose)
 4. Refresh Play **Data safety** answers using the draft above (click path below)
 5. Support email you actually check (also linked from Settings → Contact support via GitHub Issues until you set a mailto)
-6. Test: guest path → sign-in → first-link sync → upload/download → sign-out (local data remains) → export backup → reset → import
+6. Test: guest path → sign-in → first-link sync → upload/download → sign-out (cloud backup then clear device) → sign-in restore → export backup → reset → import
 7. Dogfood one real payday cycle before inviting strangers
 
-### Play Data safety — click path (2.0.0)
+### Play Data safety — click path (2.0.1)
 
 Play Console → your app → **App content** → **Data safety** → **Start** / **Edit**
 

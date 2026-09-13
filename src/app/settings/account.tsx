@@ -18,14 +18,15 @@ import {
 } from "@/services/reminders";
 import { getStoredCurrency } from "@/utils/money";
 import {
-    clearCloudSyncLinked,
     getLastSyncedAt,
     messageForSyncError,
+    runBackupAndClearForSignOut,
     runDownloadSync,
     runEnsureCloudLinked,
     runUploadSync,
 } from "@/utils/sync-ui";
 import type { User } from "firebase/auth";
+import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { Alert } from "react-native";
 import { useBills } from "@/app/contexts/BillsContext";
@@ -96,7 +97,7 @@ export default function SettingsAccountScreen() {
     const handleSignOut = () => {
         Alert.alert(
             "Sign out?",
-            "Your data stays on this device. Sync will pause.",
+            "We’ll save a cloud backup, then clear finance data on this device and return to Welcome. Sign in again anytime to restore.",
             [
                 { text: "Cancel", style: "cancel" },
                 {
@@ -106,13 +107,18 @@ export default function SettingsAccountScreen() {
                         void (async () => {
                             try {
                                 setAuthBusy(true);
+                                await runBackupAndClearForSignOut({
+                                    showSyncProgress,
+                                    hideSyncProgress,
+                                });
+                                await reloadAll();
                                 await signOut();
-                                await clearCloudSyncLinked();
                                 setLastSyncedAt(null);
+                                router.replace("/welcome");
                             } catch (error) {
                                 Alert.alert(
-                                    "Sign-out failed",
-                                    "Couldn’t sign out. Please try again."
+                                    "Sign-out paused",
+                                    `${messageForSyncError(error)} Your data is still on this device and you’re still signed in.`
                                 );
                             } finally {
                                 setAuthBusy(false);
@@ -136,7 +142,7 @@ export default function SettingsAccountScreen() {
                     <SettingsDivider />
                     <SettingsRow
                         title="Sign out"
-                        subtitle="Keeps local data; pauses sync"
+                        subtitle="Backup to cloud, then clear this device"
                         icon="log-out-outline"
                         destructive
                         disabled={authBusy}

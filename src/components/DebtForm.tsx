@@ -4,7 +4,7 @@ import { DateField } from "@/components/DateField";
 import { DueDayPicker } from "@/components/DueDayPicker";
 import { FormDialog } from "@/components/FormDialog";
 import { SelectMenu } from "@/components/SelectMenu";
-import { form, formColors } from "@/styles/form";
+import { useFormStyles, useFormColors } from "@/styles/form";
 import { Debt } from "@/types/debt";
 import {
     moneyFieldError,
@@ -37,6 +37,8 @@ export default function DebtForm(props: DebtFormProps) {
 }
 
 function DebtEditor({ visible, onClose, debt }: DebtFormProps) {
+    const form = useFormStyles();
+    const formColors = useFormColors();
     const { addDebt, updateDebt, deleteDebt } = useDebt();
     const { currency } = useLocale();
     const symbol = currencySymbol(currency);

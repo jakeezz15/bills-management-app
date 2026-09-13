@@ -1,11 +1,17 @@
-import { theme } from "@/design";
+import { theme as defaultTheme, type Theme } from "@/design";
 import { BillDueStatus } from "@/utils/filters";
 
 export type PlanStatusTone = BillDueStatus | "default";
 
-export function planStatusAccent(tone: PlanStatusTone): string {
+export function planStatusAccent(
+    tone: PlanStatusTone,
+    theme: Theme = defaultTheme
+): string {
     if (tone === "paid") {
         return theme.intent.positive.solid;
+    }
+    if (tone === "skipped") {
+        return theme.text.tertiary;
     }
     if (tone === "overdue") {
         return theme.intent.negative.solid;
@@ -20,9 +26,15 @@ export function planStatusAccent(tone: PlanStatusTone): string {
 }
 
 /** Meta text on a light row. */
-export function planStatusFg(tone: PlanStatusTone): string {
+export function planStatusFg(
+    tone: PlanStatusTone,
+    theme: Theme = defaultTheme
+): string {
     if (tone === "paid") {
         return theme.intent.positive.fg;
+    }
+    if (tone === "skipped") {
+        return theme.text.secondary;
     }
     if (tone === "overdue") {
         return theme.intent.negative.fg;
@@ -37,9 +49,12 @@ export function planStatusFg(tone: PlanStatusTone): string {
 }
 
 /** Caption on the dark hero — solid, not fg, so it stays readable. */
-export function planStatusOnInverse(tone: PlanStatusTone): string {
+export function planStatusOnInverse(
+    tone: PlanStatusTone,
+    theme: Theme = defaultTheme
+): string {
     if (tone === "default") {
         return theme.text.inverseSecondary;
     }
-    return planStatusAccent(tone);
+    return planStatusAccent(tone, theme);
 }

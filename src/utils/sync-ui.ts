@@ -6,6 +6,7 @@ import {
     syncNowUpload,
     type SyncLinkChoice,
 } from "@/services/sync";
+import { clearAllData } from "@/services/storage";
 import { Alert } from "react-native";
 
 type ProgressHandlers = {
@@ -77,6 +78,29 @@ export async function runUploadSync(
             return;
         }
         Alert.alert("Uploaded", "This device’s data is now in the cloud.");
+    } catch (error) {
+        progress?.hideSyncProgress();
+        throw error;
+    }
+}
+
+/**
+ * Sign-out prep: upload cloud backup, then wipe local finance data.
+ * Throws on upload failure — caller must not sign out or clear further.
+ */
+export async function runBackupAndClearForSignOut(
+    progress?: ProgressHandlers
+): Promise<void> {
+    try {
+        progress?.showSyncProgress("Saving to cloud…");
+        const result = await syncNowUpload();
+        if (result.status === "skipped") {
+            throw new Error("Sign in required");
+        }
+        progress?.showSyncProgress("Clearing this device…");
+        await clearAllData();
+        await clearCloudSyncLinked();
+        progress?.hideSyncProgress();
     } catch (error) {
         progress?.hideSyncProgress();
         throw error;

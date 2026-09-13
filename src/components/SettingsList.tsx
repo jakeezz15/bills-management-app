@@ -1,7 +1,8 @@
-import { text, theme } from "@/design";
-import { formColors } from "@/styles/form";
+import { useTheme } from "@/app/contexts/ThemeContext";
+import { text } from "@/design";
+import { useFormColors } from "@/styles/form";
 import Ionicons from "@react-native-vector-icons/ionicons";
-import { ComponentProps, ReactNode } from "react";
+import { ComponentProps, ReactNode, useMemo } from "react";
 import { Pressable, StyleSheet, Switch, Text, View } from "react-native";
 
 type IconName = ComponentProps<typeof Ionicons>["name"];
@@ -12,6 +13,9 @@ type SettingsSectionProps = {
 };
 
 export function SettingsSection({ title, children }: SettingsSectionProps) {
+    const { theme } = useTheme();
+    const styles = useMemo(() => createStyles(theme), [theme]);
+
     return (
         <View style={styles.section}>
             <Text style={styles.sectionTitle}>{title}</Text>
@@ -45,6 +49,9 @@ export function SettingsRow({
     switchValue,
     onSwitchChange,
 }: SettingsRowProps) {
+    const { theme } = useTheme();
+    const formColors = useFormColors();
+    const styles = useMemo(() => createStyles(theme), [theme]);
     const isSwitch = typeof switchValue === "boolean" && onSwitchChange;
 
     const content = (
@@ -127,6 +134,7 @@ export function SettingsRow({
             onPress={onPress}
             disabled={disabled || !onPress}
             accessibilityRole="button"
+            accessibilityLabel={title}
             style={({ pressed }) => [
                 styles.row,
                 disabled && styles.rowDisabled,
@@ -139,6 +147,8 @@ export function SettingsRow({
 }
 
 export function SettingsDivider() {
+    const { theme } = useTheme();
+    const styles = useMemo(() => createStyles(theme), [theme]);
     return <View style={styles.divider} />;
 }
 
@@ -147,8 +157,9 @@ type SettingsInsetProps = {
     children: ReactNode;
 };
 
-/** Extra controls nested under a switch row (chip pickers, captions). */
 export function SettingsInset({ title, children }: SettingsInsetProps) {
+    const { theme } = useTheme();
+    const styles = useMemo(() => createStyles(theme), [theme]);
     return (
         <View style={styles.inset}>
             <Text style={styles.insetTitle}>{title}</Text>
@@ -157,90 +168,91 @@ export function SettingsInset({ title, children }: SettingsInsetProps) {
     );
 }
 
-const styles = StyleSheet.create({
-    section: {
-        marginBottom: theme.space.lg,
-    },
-    sectionTitle: {
-        ...text.sectionLabel,
-        color: theme.text.accent,
-        marginBottom: theme.space.sm,
-        marginLeft: theme.space.md,
-    },
-    group: {
-        backgroundColor: theme.bg.surface,
-        borderRadius: theme.radius.md,
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: theme.border.subtle,
-        overflow: "hidden",
-    },
-    row: {
-        flexDirection: "row",
-        alignItems: "center",
-        minHeight: 48,
-        paddingHorizontal: theme.space.md,
-        paddingVertical: theme.space.sm,
-        gap: theme.space.md,
-    },
-    rowPressed: {
-        backgroundColor: theme.bg.sunken,
-    },
-    rowDisabled: {
-        opacity: 0.55,
-    },
-    iconWrap: {
-        width: theme.size.control,
-        height: theme.size.control,
-        borderRadius: theme.radius.sm,
-        backgroundColor: theme.intent.info.bg,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    iconWrapDanger: {
-        backgroundColor: theme.intent.negative.bg,
-    },
-    copy: {
-        flex: 1,
-        minWidth: 0,
-    },
-    rowTitle: {
-        color: theme.text.primary,
-        fontSize: theme.fontSize.md,
-        lineHeight: theme.lineHeight.md,
-        fontWeight: theme.fontWeight.semibold,
-    },
-    rowTitleDanger: {
-        color: theme.intent.negative.fg,
-    },
-    rowSubtitle: {
-        ...text.caption,
-        marginTop: theme.space.xs,
-    },
-    rowValue: {
-        color: theme.text.secondary,
-        fontSize: theme.fontSize.sm,
-        lineHeight: theme.lineHeight.sm,
-        fontWeight: theme.fontWeight.semibold,
-        marginRight: theme.space.xs,
-    },
-    disabledText: {
-        color: theme.text.tertiary,
-    },
-    divider: {
-        height: StyleSheet.hairlineWidth,
-        backgroundColor: theme.border.subtle,
-        // Starts where the row copy starts: row padding + icon + gap.
-        marginLeft: theme.space.md * 2 + theme.size.control,
-    },
-    inset: {
-        paddingHorizontal: theme.space.md,
-        paddingBottom: theme.space.md,
-        paddingTop: theme.space.xs,
-        gap: theme.space.sm,
-    },
-    insetTitle: {
-        ...text.caption,
-        fontWeight: theme.fontWeight.semibold,
-        color: theme.text.secondary,
-    },
-});
+function createStyles(theme: ReturnType<typeof useTheme>["theme"]) {
+    return StyleSheet.create({
+        section: {
+            marginBottom: theme.space.lg,
+        },
+        sectionTitle: {
+            ...text.sectionLabel,
+            color: theme.text.accent,
+            marginBottom: theme.space.sm,
+            marginLeft: theme.space.md,
+        },
+        group: {
+            backgroundColor: theme.bg.surface,
+            borderRadius: theme.radius.md,
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: theme.border.subtle,
+            overflow: "hidden",
+        },
+        row: {
+            flexDirection: "row",
+            alignItems: "center",
+            minHeight: 48,
+            paddingHorizontal: theme.space.md,
+            paddingVertical: theme.space.sm,
+            gap: theme.space.md,
+        },
+        rowPressed: {
+            backgroundColor: theme.bg.sunken,
+        },
+        rowDisabled: {
+            opacity: 0.55,
+        },
+        iconWrap: {
+            width: theme.size.control,
+            height: theme.size.control,
+            borderRadius: theme.radius.sm,
+            backgroundColor: theme.intent.info.bg,
+            alignItems: "center",
+            justifyContent: "center",
+        },
+        iconWrapDanger: {
+            backgroundColor: theme.intent.negative.bg,
+        },
+        copy: {
+            flex: 1,
+            minWidth: 0,
+        },
+        rowTitle: {
+            color: theme.text.primary,
+            fontSize: theme.fontSize.md,
+            lineHeight: theme.lineHeight.md,
+            fontWeight: theme.fontWeight.semibold,
+        },
+        rowTitleDanger: {
+            color: theme.intent.negative.fg,
+        },
+        rowSubtitle: {
+            ...text.caption,
+            marginTop: theme.space.xs,
+        },
+        rowValue: {
+            color: theme.text.secondary,
+            fontSize: theme.fontSize.sm,
+            lineHeight: theme.lineHeight.sm,
+            fontWeight: theme.fontWeight.semibold,
+            marginRight: theme.space.xs,
+        },
+        disabledText: {
+            color: theme.text.tertiary,
+        },
+        divider: {
+            height: StyleSheet.hairlineWidth,
+            backgroundColor: theme.border.subtle,
+            marginLeft: theme.space.md * 2 + theme.size.control,
+        },
+        inset: {
+            paddingHorizontal: theme.space.md,
+            paddingBottom: theme.space.md,
+            paddingTop: theme.space.xs,
+            gap: theme.space.sm,
+        },
+        insetTitle: {
+            ...text.caption,
+            fontWeight: theme.fontWeight.semibold,
+            color: theme.text.secondary,
+        },
+    });
+}

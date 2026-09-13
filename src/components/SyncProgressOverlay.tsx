@@ -1,4 +1,5 @@
-import { text, theme } from "@/design";
+import { useTheme } from "@/app/contexts/ThemeContext";
+import { text } from "@/design";
 import {
     createContext,
     useCallback,
@@ -27,6 +28,7 @@ const SyncProgressContext = createContext<SyncProgressContextValue | null>(
 );
 
 export function SyncProgressProvider({ children }: { children: ReactNode }) {
+    const { theme } = useTheme();
     const [visible, setVisible] = useState(false);
     const [message, setMessage] = useState("Syncing…");
 
@@ -47,6 +49,40 @@ export function SyncProgressProvider({ children }: { children: ReactNode }) {
             hideSyncProgress,
         }),
         [visible, message, showSyncProgress, hideSyncProgress]
+    );
+
+    const styles = useMemo(
+        () =>
+            StyleSheet.create({
+                backdrop: {
+                    flex: 1,
+                    backgroundColor: "rgba(15, 23, 42, 0.45)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    paddingHorizontal: theme.space.lg,
+                },
+                card: {
+                    width: "100%",
+                    maxWidth: 320,
+                    backgroundColor: theme.bg.canvas,
+                    borderRadius: theme.radius.md,
+                    paddingVertical: theme.space.xl,
+                    paddingHorizontal: theme.space.lg,
+                    alignItems: "center",
+                    gap: theme.space.sm,
+                },
+                title: {
+                    ...text.pageTitle,
+                    textAlign: "center",
+                    marginTop: theme.space.sm,
+                },
+                caption: {
+                    ...text.body,
+                    color: theme.text.secondary,
+                    textAlign: "center",
+                },
+            }),
+        [theme]
     );
 
     return (
@@ -81,37 +117,9 @@ export function SyncProgressProvider({ children }: { children: ReactNode }) {
 export function useSyncProgress(): SyncProgressContextValue {
     const ctx = useContext(SyncProgressContext);
     if (!ctx) {
-        throw new Error("useSyncProgress must be used within SyncProgressProvider");
+        throw new Error(
+            "useSyncProgress must be used within SyncProgressProvider"
+        );
     }
     return ctx;
 }
-
-const styles = StyleSheet.create({
-    backdrop: {
-        flex: 1,
-        backgroundColor: "rgba(15, 23, 42, 0.45)",
-        alignItems: "center",
-        justifyContent: "center",
-        paddingHorizontal: theme.space.lg,
-    },
-    card: {
-        width: "100%",
-        maxWidth: 320,
-        backgroundColor: theme.bg.canvas,
-        borderRadius: theme.radius.md,
-        paddingVertical: theme.space.xl,
-        paddingHorizontal: theme.space.lg,
-        alignItems: "center",
-        gap: theme.space.sm,
-    },
-    title: {
-        ...text.pageTitle,
-        textAlign: "center",
-        marginTop: theme.space.sm,
-    },
-    caption: {
-        ...text.body,
-        color: theme.text.secondary,
-        textAlign: "center",
-    },
-});

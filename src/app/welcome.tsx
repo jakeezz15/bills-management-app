@@ -5,6 +5,7 @@ import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
 import { signInWithGoogle, messageForSignInError } from "@/services/auth";
 import { markChosenGuest } from "@/services/auth-preference";
 import { runEnsureCloudLinked } from "@/utils/sync-ui";
+import { hapticTap } from "@/utils/haptics";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { router } from "expo-router";
 import { useState } from "react";
@@ -166,16 +167,23 @@ export default function WelcomeScreen() {
                     onPress={() => {
                         void handleGoogle();
                     }}
+                    onPressIn={() => {
+                        if (!busy) hapticTap();
+                    }}
                     accessibilityRole="button"
                     accessibilityLabel="Sign in with Google"
+                    android_ripple={{
+                        color: "rgba(255, 255, 255, 0.22)",
+                        foreground: true,
+                    }}
                     style={({ pressed }) => [
                         styles.googleButton,
-                        (pressed || busy) && styles.googlePressed,
+                        pressed && !busy && styles.googlePressed,
                         busy && styles.googleDisabled,
                     ]}
                 >
                     <View style={styles.googleIconWrap}>
-                        <Ionicons name="logo-google" size={18} color="#EA4335" />
+                        <Ionicons name="logo-google" size={18} color={theme.brand.google} />
                     </View>
                     <Text style={styles.googleLabel}>Sign in with Google</Text>
                 </Pressable>
@@ -185,11 +193,18 @@ export default function WelcomeScreen() {
                     onPress={() => {
                         void handleGuest();
                     }}
+                    onPressIn={() => {
+                        if (!busy) hapticTap();
+                    }}
                     accessibilityRole="button"
                     accessibilityLabel="Continue as guest"
+                    android_ripple={{
+                        color: "rgba(15, 23, 42, 0.12)",
+                        foreground: true,
+                    }}
                     style={({ pressed }) => [
                         styles.guestButton,
-                        pressed && styles.guestPressed,
+                        pressed && !busy && styles.guestPressed,
                         busy && styles.guestDisabled,
                     ]}
                 >
@@ -220,7 +235,7 @@ const styles = StyleSheet.create({
         position: "absolute",
         width: 220,
         height: 220,
-        borderRadius: 110,
+        borderRadius: theme.radius.pill,
         top: -40,
         left: -60,
         backgroundColor: "rgba(52, 211, 153, 0.22)",
@@ -229,7 +244,7 @@ const styles = StyleSheet.create({
         position: "absolute",
         width: 180,
         height: 180,
-        borderRadius: 90,
+        borderRadius: theme.radius.pill,
         top: 80,
         right: -70,
         backgroundColor: "rgba(59, 130, 246, 0.24)",
@@ -238,7 +253,7 @@ const styles = StyleSheet.create({
         position: "absolute",
         width: 140,
         height: 140,
-        borderRadius: 70,
+        borderRadius: theme.radius.pill,
         bottom: 40,
         left: 40,
         backgroundColor: "rgba(245, 158, 11, 0.18)",
@@ -302,7 +317,7 @@ const styles = StyleSheet.create({
         alignSelf: "center",
         width: 40,
         height: 4,
-        borderRadius: 2,
+        borderRadius: theme.radius.pill,
         backgroundColor: theme.border.subtle,
         marginBottom: theme.space.xs,
     },
@@ -324,18 +339,19 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         gap: theme.space.sm,
         paddingHorizontal: theme.space.md,
+        overflow: "hidden",
     },
     googleIconWrap: {
         width: 28,
         height: 28,
-        borderRadius: 14,
+        borderRadius: theme.radius.pill,
         backgroundColor: theme.bg.surface,
         alignItems: "center",
         justifyContent: "center",
     },
     googlePressed: {
-        opacity: 0.9,
-        transform: [{ scale: 0.98 }],
+        backgroundColor: theme.bg.inverseRaised,
+        transform: [{ scale: 0.97 }],
     },
     googleDisabled: {
         opacity: 0.55,
@@ -353,9 +369,12 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
         paddingHorizontal: theme.space.md,
+        overflow: "hidden",
     },
     guestPressed: {
-        opacity: 0.85,
+        backgroundColor: theme.border.subtle,
+        borderColor: theme.text.tertiary,
+        transform: [{ scale: 0.97 }],
     },
     guestDisabled: {
         opacity: 0.55,
