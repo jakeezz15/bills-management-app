@@ -96,6 +96,9 @@ Agreed direction for a future reminders pass (local notifications; optional togg
 Daily “log spending?” habit nudge is lower priority than the two above.
 
 3. **Check for updates (Settings)** — after closed testing settles: EAS Update for JS/UI OTA + Settings row; optional Play store version check for mandatory binary bumps. Skip while closed-test AABs are the update channel.
+4. **About: what’s new** — when an update ships, surface those release notes on the Settings **About** page so users can see what changed (version + short changelog), not only that an update exists.
+5. **Swipe to delete on list rows** — Income, Spending, Bills, Savings, and Debts: swipe a row to delete (with confirm), so cleanup doesn’t require opening the detail screen every time.
+6. **Monthly financial summary** — end-of-month (or on-demand) recap of income, spending, bills/debts paid, savings progress, and leftover; **professionally formatted** for reading or sharing (clean layout, clear hierarchy — not a raw data dump).
 
 ---
 

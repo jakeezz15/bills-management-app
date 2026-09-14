@@ -10,8 +10,8 @@ import { DueNowBadgeButton, DueNowModal } from "@/components/DueNowModal";
 import { MonthGrid } from "@/components/MonthGrid";
 import { MonthTrendChart, SpendByCategoryChart } from "@/components/HomeCharts";
 import { SegmentControl } from "@/components/SegmentControl";
+import { WalkthroughAnchor } from "@/components/walkthrough/WalkthroughAnchor";
 import {
-    WalkthroughAnchor,
     useWalkthroughOptional,
     WALKTHROUGH_HOME_DEMO,
     WALKTHROUGH_DUE_DEMO,

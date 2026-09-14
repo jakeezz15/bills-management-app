@@ -10,10 +10,10 @@ import DebtForm from "@/components/DebtForm";
 import { FloatingAddButton } from "@/components/FloatingAddButton";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import { PageHeader } from "@/components/ui";
+import { WalkthroughAnchor } from "@/components/walkthrough/WalkthroughAnchor";
 import {
     useWalkthroughPlansDemo,
     walkthroughDebtDemo,
-    WalkthroughAnchor,
 } from "@/components/walkthrough";
 import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
 import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";

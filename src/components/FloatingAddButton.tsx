@@ -1,5 +1,5 @@
 import { useTheme } from "@/app/contexts/ThemeContext";
-import { WalkthroughAnchor } from "@/components/walkthrough";
+import { WalkthroughAnchor } from "@/components/walkthrough/WalkthroughAnchor";
 import { elevation } from "@/design";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { useMemo } from "react";

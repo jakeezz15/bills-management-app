@@ -1,4 +1,4 @@
-import { WalkthroughAnchor } from "@/components/walkthrough";
+import { WalkthroughAnchor } from "@/components/walkthrough/WalkthroughAnchor";
 import type { WalkthroughStepId } from "@/components/walkthrough";
 import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
 import { useDashboardStyles } from "@/styles/dashboard";

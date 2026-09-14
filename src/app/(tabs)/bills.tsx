@@ -10,10 +10,10 @@ import { FloatingAddButton } from "@/components/FloatingAddButton";
 import { SearchField } from "@/components/SearchField";
 import { StickyHeroBar } from "@/components/StickyHeroBar";
 import { PageHeader } from "@/components/ui";
+import { WalkthroughAnchor } from "@/components/walkthrough/WalkthroughAnchor";
 import {
     useWalkthroughPlansDemo,
     walkthroughBillDemo,
-    WalkthroughAnchor,
 } from "@/components/walkthrough";
 import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
 import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";

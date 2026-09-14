@@ -16,8 +16,8 @@ import {
 } from "@/components/LedgerList";
 import { SearchField } from "@/components/SearchField";
 import { StickyHeroBar } from "@/components/StickyHeroBar";
+import { WalkthroughAnchor } from "@/components/walkthrough/WalkthroughAnchor";
 import {
-    WalkthroughAnchor,
     useWalkthroughActivityDemo,
     walkthroughExpenseDemo,
 } from "@/components/walkthrough";

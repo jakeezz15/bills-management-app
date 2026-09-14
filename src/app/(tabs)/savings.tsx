@@ -10,10 +10,10 @@ import { FloatingAddButton } from "@/components/FloatingAddButton";
 import { PageHeader } from "@/components/ui";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import SavingsForm from "@/components/SavingsForm";
+import { WalkthroughAnchor } from "@/components/walkthrough/WalkthroughAnchor";
 import {
     useWalkthroughPlansDemo,
     walkthroughSavingsDemo,
-    WalkthroughAnchor,
 } from "@/components/walkthrough";
 import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
 import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
