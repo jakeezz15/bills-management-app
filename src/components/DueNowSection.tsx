@@ -1,3 +1,4 @@
+import { useAccounts } from "@/app/contexts/AccountsContext";
 import { useBills } from "@/app/contexts/BillsContext";
 import { useDebt } from "@/app/contexts/DebtsContext";
 import { useLocale } from "@/app/contexts/LocaleContext";
@@ -6,6 +7,7 @@ import { text, theme } from "@/design";
 import { useDashboardStyles } from "@/styles/dashboard";
 import { Bill } from "@/types/bill";
 import { Debt } from "@/types/debt";
+import { defaultInboundAccountId } from "@/utils/accounts";
 import { todayIsoDate } from "@/utils/date";
 import {
     dueNowLabel,
@@ -57,8 +59,10 @@ export function DueNowSection({
 }: DueNowSectionProps) {
     const dashboard = useDashboardStyles();
     const { formatMoney } = useLocale();
+    const { accounts } = useAccounts();
     const { bills, payments: billPayments, toggleBillPaid } = useBills();
     const { debts, payments: debtPayments, recordPayment } = useDebt();
+    const defaultAccountId = defaultInboundAccountId(accounts);
 
     const items = useMemo(
         () =>
@@ -146,14 +150,20 @@ export function DueNowSection({
                                             return;
                                         }
                                         hapticConfirm();
-                                        void toggleBillPaid(item.id, asOfIso);
+                                        void toggleBillPaid(
+                                            item.id,
+                                            asOfIso,
+                                            undefined,
+                                            defaultAccountId
+                                        );
                                         return;
                                     }
                                     hapticConfirm();
                                     void recordPayment(
                                         item.id,
                                         undefined,
-                                        asOfIso
+                                        asOfIso,
+                                        defaultAccountId
                                     );
                                 }}
                                 toggleAccessibilityLabel={

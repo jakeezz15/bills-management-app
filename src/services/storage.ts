@@ -1,11 +1,13 @@
 import { Bill } from "@/types/bill";
 import { BillPayment } from "@/types/bill-payment";
+import { CashAccount } from "@/types/account";
 import { Debt } from "@/types/debt";
 import { DebtPayment } from "@/types/debt-payment";
 import { Expense } from "@/types/expense";
 import { Income } from "@/types/income";
 import { SavingsGoal } from "@/types/savings";
 import { SavingsContribution } from "@/types/savings-contribution";
+import { Transfer } from "@/types/transfer";
 import {
     clearStorageHealthIssues,
     noteStorageSaveFailure,
@@ -14,6 +16,7 @@ import {
 import {
     parseBill,
     parseBillPayment,
+    parseCashAccount,
     parseDebt,
     parseDebtPayment,
     parseExpense,
@@ -22,7 +25,9 @@ import {
     parseSavingsGoal,
     parseStoredArray,
     parseStoredArrayDetailed,
+    parseTransfer,
 } from "@/utils/data-validators";
+import { createDefaultAccounts, ensureDefaultAccounts } from "@/utils/accounts";
 import {
     debtStartDate,
     ensureTimestamps,
@@ -39,6 +44,8 @@ const BILL_PAYMENTS_KEY = "billPayments";
 const SAVINGS_KEY = "savings";
 const SAVINGS_CONTRIBUTIONS_KEY = "savingsContributions";
 const INCOME_KEY = "income";
+const ACCOUNTS_KEY = "accounts";
+const TRANSFERS_KEY = "transfers";
 
 const FIRST_RUN_KEY = "hasCompletedFirstRun";
 
@@ -89,6 +96,8 @@ export async function seedEmptyData(): Promise<void> {
         saveBillPayments([]),
         saveSavings([]),
         saveSavingsContributions([]),
+        saveAccounts(createDefaultAccounts()),
+        saveTransfers([]),
     ]);
 }
 
@@ -346,6 +355,47 @@ export async function saveSavingsContributions(
         SAVINGS_CONTRIBUTIONS_KEY,
         contributions
     );
+}
+
+// Accounts (Cash + Online pots)
+
+export async function loadAccounts(): Promise<CashAccount[]> {
+    const raw = await AsyncStorage.getItem(ACCOUNTS_KEY);
+    if (raw === null) {
+        const seeded = createDefaultAccounts();
+        await saveAccounts(seeded);
+        return seeded;
+    }
+
+    const parsed = readCollection("accounts", raw, parseCashAccount).map(
+        (account) => ensureTimestamps(account)
+    );
+    const ensured = ensureDefaultAccounts(parsed);
+    if (ensured !== parsed) {
+        await saveAccounts(ensured);
+    }
+    return ensured;
+}
+
+export async function saveAccounts(accounts: CashAccount[]): Promise<void> {
+    await writeJson("accounts", ACCOUNTS_KEY, ensureDefaultAccounts(accounts));
+}
+
+// Transfers
+
+export async function loadTransfers(): Promise<Transfer[]> {
+    const raw = await AsyncStorage.getItem(TRANSFERS_KEY);
+    if (raw === null) {
+        await writeJson("transfers", TRANSFERS_KEY, []);
+        return [];
+    }
+    return readCollection("transfers", raw, parseTransfer).map((transfer) =>
+        ensureTimestamps(transfer, transfer.date)
+    );
+}
+
+export async function saveTransfers(transfers: Transfer[]): Promise<void> {
+    await writeJson("transfers", TRANSFERS_KEY, transfers);
 }
 
 /** Wipe finance data and leave empty arrays so loaders do not re-seed samples. */

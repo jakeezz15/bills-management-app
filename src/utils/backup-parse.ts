@@ -1,14 +1,17 @@
 import { Bill } from "@/types/bill";
 import { BillPayment } from "@/types/bill-payment";
+import { CashAccount } from "@/types/account";
 import { Debt } from "@/types/debt";
 import { DebtPayment } from "@/types/debt-payment";
 import { Expense } from "@/types/expense";
 import { Income } from "@/types/income";
 import { SavingsGoal } from "@/types/savings";
 import { SavingsContribution } from "@/types/savings-contribution";
+import { Transfer } from "@/types/transfer";
 import {
     parseBill,
     parseBillPayment,
+    parseCashAccount,
     parseDebt,
     parseDebtPayment,
     parseExpense,
@@ -17,7 +20,9 @@ import {
     parseRequiredArray,
     parseSavingsContribution,
     parseSavingsGoal,
+    parseTransfer,
 } from "@/utils/data-validators";
+import { ensureDefaultAccounts } from "@/utils/accounts";
 import { CurrencyCode, isCurrencyCode } from "@/utils/money";
 import {
     REMINDER_HOUR_OPTIONS,
@@ -35,7 +40,8 @@ export type BackupPrefs = {
 };
 
 export type AppBackup = {
-    version: 1;
+    /** v1 = pre-accounts; v2 = Cash/Online pots + transfers. */
+    version: 1 | 2;
     exportedAt: string;
     income: Income[];
     expenses: Expense[];
@@ -45,6 +51,8 @@ export type AppBackup = {
     debtPayments: DebtPayment[];
     billPayments: BillPayment[];
     savingsContributions: SavingsContribution[];
+    accounts?: CashAccount[];
+    transfers?: Transfer[];
     prefs?: Partial<BackupPrefs>;
 };
 
@@ -63,7 +71,7 @@ export function parseAppBackup(value: unknown): ParseAppBackupResult {
 
     const v = value as Record<string, unknown>;
 
-    if (v.version !== 1) {
+    if (v.version !== 1 && v.version !== 2) {
         return { ok: false, error: "Unsupported backup version." };
     }
     if (typeof v.exportedAt !== "string" || v.exportedAt.trim() === "") {
@@ -116,8 +124,25 @@ export function parseAppBackup(value: unknown): ParseAppBackupResult {
         return savingsContributions;
     }
 
+    const accountsParsed = parseOptionalArray(
+        v.accounts,
+        parseCashAccount,
+        "accounts"
+    );
+    if (!accountsParsed.ok) {
+        return accountsParsed;
+    }
+    const transfers = parseOptionalArray(
+        v.transfers,
+        parseTransfer,
+        "transfers"
+    );
+    if (!transfers.ok) {
+        return transfers;
+    }
+
     const backup: AppBackup = {
-        version: 1,
+        version: v.version === 2 ? 2 : 1,
         exportedAt: v.exportedAt,
         income: income.items,
         expenses: expenses.items,
@@ -127,6 +152,8 @@ export function parseAppBackup(value: unknown): ParseAppBackupResult {
         debtPayments: debtPayments.items,
         billPayments: billPayments.items,
         savingsContributions: savingsContributions.items,
+        accounts: ensureDefaultAccounts(accountsParsed.items),
+        transfers: transfers.items,
         prefs:
             v.prefs && typeof v.prefs === "object"
                 ? (v.prefs as Partial<BackupPrefs>)

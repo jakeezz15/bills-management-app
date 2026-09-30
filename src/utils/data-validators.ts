@@ -6,6 +6,8 @@ import { Expense } from "@/types/expense";
 import { Income, PayCadence } from "@/types/income";
 import { SavingsGoal } from "@/types/savings";
 import { SavingsContribution } from "@/types/savings-contribution";
+import { CASH_ACCOUNT_ID, CashAccount } from "@/types/account";
+import { Transfer } from "@/types/transfer";
 import { parseIsoDate } from "@/utils/date";
 
 const PAY_CADENCES: readonly PayCadence[] = [
@@ -14,6 +16,13 @@ const PAY_CADENCES: readonly PayCadence[] = [
     "biweekly",
     "monthly",
 ];
+
+function optionalAccountId(value: unknown): string {
+    if (typeof value === "string" && value.trim().length > 0) {
+        return value.trim();
+    }
+    return CASH_ACCOUNT_ID;
+}
 
 /** Finite number (not NaN / ±Infinity). */
 export function isFiniteNumber(value: unknown): value is number {
@@ -139,6 +148,7 @@ export function parseExpense(value: unknown): Expense | null {
         amount: v.amount,
         date: v.date,
         category: optionalString(v.category),
+        accountId: optionalAccountId(v.accountId),
         ...optionalTimestamps(v),
     } as Expense;
 }
@@ -167,6 +177,7 @@ export function parseIncome(value: unknown): Income | null {
         gross: v.gross,
         net: v.net,
         payCadence,
+        accountId: optionalAccountId(v.accountId),
         ...optionalTimestamps(v),
     } as Income;
 }
@@ -276,6 +287,7 @@ export function parseBillPayment(value: unknown): BillPayment | null {
         amount: v.amount,
         date: v.date,
         skipped: optionalBoolean(v.skipped) === true ? true : undefined,
+        accountId: optionalAccountId(v.accountId),
         ...optionalTimestamps(v),
     } as BillPayment;
 }
@@ -299,6 +311,7 @@ export function parseDebtPayment(value: unknown): DebtPayment | null {
         debtId: v.debtId.trim(),
         amount: v.amount,
         date: v.date,
+        accountId: optionalAccountId(v.accountId),
         ...optionalTimestamps(v),
     } as DebtPayment;
 }
@@ -324,8 +337,62 @@ export function parseSavingsContribution(
         savingsId: v.savingsId.trim(),
         amount: v.amount,
         date: v.date,
+        accountId: optionalAccountId(v.accountId),
         ...optionalTimestamps(v),
     } as SavingsContribution;
+}
+
+export function parseCashAccount(value: unknown): CashAccount | null {
+    if (typeof value !== "object" || value === null) {
+        return null;
+    }
+    const v = value as Record<string, unknown>;
+    if (
+        !isNonEmptyString(v.id) ||
+        !isNonEmptyString(v.name) ||
+        (v.kind !== "cash" && v.kind !== "online") ||
+        !isNonEmptyString(v.color)
+    ) {
+        return null;
+    }
+
+    return {
+        id: v.id.trim(),
+        kind: v.kind,
+        name: v.name.trim(),
+        color: v.color.trim(),
+        isPrimary: optionalBoolean(v.isPrimary) === true ? true : undefined,
+        archived: optionalBoolean(v.archived) === true ? true : undefined,
+        ...optionalTimestamps(v),
+    } as CashAccount;
+}
+
+export function parseTransfer(value: unknown): Transfer | null {
+    if (typeof value !== "object" || value === null) {
+        return null;
+    }
+    const v = value as Record<string, unknown>;
+    if (
+        !isNonEmptyString(v.id) ||
+        !isIsoDateString(v.date) ||
+        !isNonNegativeNumber(v.amount) ||
+        !isNonEmptyString(v.fromAccountId) ||
+        !isNonEmptyString(v.toAccountId) ||
+        v.fromAccountId === v.toAccountId ||
+        v.amount === 0
+    ) {
+        return null;
+    }
+
+    return {
+        id: v.id.trim(),
+        date: v.date,
+        amount: v.amount,
+        fromAccountId: v.fromAccountId.trim(),
+        toAccountId: v.toAccountId.trim(),
+        note: optionalString(v.note),
+        ...optionalTimestamps(v),
+    } as Transfer;
 }
 
 /**

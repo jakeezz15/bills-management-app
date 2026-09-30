@@ -1,5 +1,7 @@
+import { useAccounts } from "@/app/contexts/AccountsContext";
 import { useExpenses } from "@/app/contexts/ExpensesContext";
 import { useLocale } from "@/app/contexts/LocaleContext";
+import { AccountPicker } from "@/components/AccountPicker";
 import { DateField } from "@/components/DateField";
 import { CategoryPicker } from "@/components/CategoryPicker";
 import { FormDialog } from "@/components/FormDialog";
@@ -7,6 +9,7 @@ import { EXPENSE_CATEGORIES } from "@/constants/categories";
 import { useFormStyles, useFormColors } from "@/styles/form";
 import { Expense } from "@/types/expense";
 import { moneyFieldError, parseMoneyInput } from "@/utils/amount-input";
+import { defaultSpendAccountId } from "@/utils/accounts";
 import { parseIsoDate, todayIsoDate } from "@/utils/date";
 import { currencySymbol } from "@/utils/money";
 import { useFormSession } from "@/hooks/useFormSession";
@@ -28,6 +31,7 @@ function ExpenseEditor({ visible, onClose, expense }: ExpenseFormProps) {
     const form = useFormStyles();
     const formColors = useFormColors();
     const { addExpense, updateExpense, deleteExpense } = useExpenses();
+    const { accounts } = useAccounts();
     const { currency } = useLocale();
     const symbol = currencySymbol(currency);
 
@@ -38,6 +42,9 @@ function ExpenseEditor({ visible, onClose, expense }: ExpenseFormProps) {
     const [date, setDate] = useState(expense?.date ?? todayIsoDate());
     const [category, setCategory] = useState<string | null>(
         expense?.category ?? null
+    );
+    const [accountId, setAccountId] = useState(
+        expense?.accountId ?? defaultSpendAccountId(accounts)
     );
     const [focusedInput, setFocusedInput] = useState<string | null>(null);
     const [showErrors, setShowErrors] = useState(false);
@@ -58,6 +65,7 @@ function ExpenseEditor({ visible, onClose, expense }: ExpenseFormProps) {
             amount: amountNumber,
             date: date.trim(),
             category: category ?? undefined,
+            accountId,
         };
 
         if (expense) {
@@ -149,6 +157,15 @@ function ExpenseEditor({ visible, onClose, expense }: ExpenseFormProps) {
                     onChange={setDate}
                     hasError={dateHasError}
                     errorMessage="Choose a valid date."
+                />
+            </View>
+
+            <View style={form.field}>
+                <Text style={form.label}>Paid from</Text>
+                <AccountPicker
+                    value={accountId}
+                    onChange={setAccountId}
+                    title="Paid from"
                 />
             </View>
 

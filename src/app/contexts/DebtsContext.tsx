@@ -27,7 +27,8 @@ type DebtsContextValue = {
     recordPayment: (
         id: string,
         amount?: number,
-        paymentDate?: string
+        paymentDate?: string,
+        accountId?: string
     ) => Promise<void>;
     /** Undo the latest installment payment for the as-of month (restores balance). */
     undoPayment: (id: string, paymentDate?: string) => Promise<void>;
@@ -153,7 +154,12 @@ export function DebtsProvider({ children }: { children: React.ReactNode }) {
     );
 
     const recordPayment = useCallback(
-        async (id: string, amount?: number, paymentDate?: string) => {
+        async (
+            id: string,
+            amount?: number,
+            paymentDate?: string,
+            accountId?: string
+        ) => {
             const paidOn = paymentDate ?? toIsoDate(new Date());
             const asOf = parseIsoDate(paidOn);
             const debt = debts.find((item) => item.id === id);
@@ -182,6 +188,7 @@ export function DebtsProvider({ children }: { children: React.ReactNode }) {
                 debtId: id,
                 amount: paymentAmount,
                 date: paidOn,
+                ...(accountId ? { accountId } : {}),
                 ...stampCreate(),
             };
 

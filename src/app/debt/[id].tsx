@@ -1,5 +1,7 @@
+import { useAccounts } from "@/app/contexts/AccountsContext";
 import { useDebt } from "@/app/contexts/DebtsContext";
 import { useLocale } from "@/app/contexts/LocaleContext";
+import { AccountPicker } from "@/components/AccountPicker";
 import { DashboardHero } from "@/components/DashboardHero";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import DebtForm from "@/components/DebtForm";
@@ -11,6 +13,7 @@ import { useButtonStyle } from "@/styles/button-style";
 import { useDashboardStyles } from "@/styles/dashboard";
 import { useFormStyles } from "@/styles/form";
 import { text, theme } from "@/design";
+import { defaultInboundAccountId } from "@/utils/accounts";
 import { confirmDestructive } from "@/utils/confirm";
 import {
     formatDisplayDate,
@@ -52,6 +55,7 @@ export default function DebtDetailScreen() {
     };
 
     const { formatMoney } = useLocale();
+    const { accounts } = useAccounts();
     const {
         debts,
         payments,
@@ -62,6 +66,9 @@ export default function DebtDetailScreen() {
     } = useDebt();
     const [editing, setEditing] = useState(false);
     const [busy, setBusy] = useState(false);
+    const [accountId, setAccountId] = useState(() =>
+        defaultInboundAccountId(accounts)
+    );
 
     const debt = debts.find((item) => item.id === id);
     const today = useMemo(() => new Date(), []);
@@ -160,7 +167,7 @@ export default function DebtDetailScreen() {
         setBusy(true);
         try {
             hapticConfirm();
-            await recordPayment(debt.id, undefined, todayIso);
+            await recordPayment(debt.id, undefined, todayIso, accountId);
         } finally {
             setBusy(false);
         }
@@ -247,6 +254,14 @@ export default function DebtDetailScreen() {
                             {formatMoney(debt.minimumPayment)}. You can log this
                             any day — not only when it is due.
                         </Text>
+                        <View style={[form.field, { marginBottom: theme.space.md }]}>
+                            <Text style={form.label}>Paid from</Text>
+                            <AccountPicker
+                                value={accountId}
+                                onChange={setAccountId}
+                                title="Paid from"
+                            />
+                        </View>
                         <Pressable
                             style={({ pressed }) => [
                                 form.actionCardButton,

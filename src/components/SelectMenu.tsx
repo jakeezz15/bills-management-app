@@ -1,7 +1,7 @@
 import { useTheme } from "@/app/contexts/ThemeContext";
 import { useFormStyles } from "@/styles/form";
 import Ionicons from "@react-native-vector-icons/ionicons";
-import { useMemo, useState } from "react";
+import { ReactNode, useMemo, useState } from "react";
 import {
     Modal,
     Pressable,
@@ -21,6 +21,12 @@ type SelectMenuProps<T extends string> = {
     noneLabel?: string | null;
     accessibilityLabel?: string;
     disabled?: boolean;
+    /** Display label for an option id (e.g. account name for account id). */
+    getOptionLabel?: (option: T) => string;
+    /** Optional leading content in the sheet row (e.g. letter avatar). */
+    renderOptionLeading?: (option: T) => ReactNode;
+    /** Optional leading content on the closed trigger. */
+    renderTriggerLeading?: (value: T) => ReactNode;
 };
 
 /**
@@ -35,6 +41,9 @@ export function SelectMenu<T extends string>({
     noneLabel = null,
     accessibilityLabel,
     disabled = false,
+    getOptionLabel,
+    renderOptionLeading,
+    renderTriggerLeading,
 }: SelectMenuProps<T>) {
     const insets = useSafeAreaInsets();
     const { theme } = useTheme();
@@ -42,7 +51,8 @@ export function SelectMenu<T extends string>({
     const [open, setOpen] = useState(false);
     const styles = useMemo(() => createSelectStyles(theme, form), [theme, form]);
 
-    const display = value ?? placeholder;
+    const labelFor = (option: T) => getOptionLabel?.(option) ?? option;
+    const display = value !== null ? labelFor(value) : placeholder;
     const isPlaceholder = value === null;
 
     const close = () => setOpen(false);
@@ -67,6 +77,9 @@ export function SelectMenu<T extends string>({
                     pressed && !disabled && styles.triggerPressed,
                 ]}
             >
+                {value !== null && renderTriggerLeading
+                    ? renderTriggerLeading(value)
+                    : null}
                 <Text
                     style={[
                         styles.triggerText,
@@ -143,11 +156,12 @@ export function SelectMenu<T extends string>({
                             {options.map((option) => (
                                 <OptionRow
                                     key={option}
-                                    label={option}
+                                    label={labelFor(option)}
                                     selected={option === value}
                                     onPress={() => pick(option)}
                                     styles={styles}
                                     checkColor={theme.intent.positive.fg}
+                                    leading={renderOptionLeading?.(option)}
                                 />
                             ))}
                         </ScrollView>
@@ -164,6 +178,7 @@ type OptionRowProps = {
     onPress: () => void;
     styles: ReturnType<typeof createSelectStyles>;
     checkColor: string;
+    leading?: ReactNode;
 };
 
 function OptionRow({
@@ -172,6 +187,7 @@ function OptionRow({
     onPress,
     styles,
     checkColor,
+    leading,
 }: OptionRowProps) {
     return (
         <Pressable
@@ -185,6 +201,7 @@ function OptionRow({
                 pressed && styles.rowPressed,
             ]}
         >
+            {leading ?? null}
             <Text
                 style={[styles.rowText, selected && styles.rowTextSelected]}
                 numberOfLines={1}

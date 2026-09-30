@@ -7,4 +7,9 @@ export interface DebtPayment extends Timestamps {
     amount: number;
     /** ISO `YYYY-MM-DD` when the payment was recorded. */
     date: string;
+    /**
+     * Money pot this payment came from.
+     * Missing on older records → treated as Cash on load.
+     */
+    accountId?: string;
 }

@@ -1,5 +1,7 @@
+import { useAccounts } from "@/app/contexts/AccountsContext";
 import { useIncome } from "@/app/contexts/IncomeContext";
 import { useLocale } from "@/app/contexts/LocaleContext";
+import { AccountPicker } from "@/components/AccountPicker";
 import { ChoiceChips } from "@/components/ChoiceChips";
 import { DateField } from "@/components/DateField";
 import { FormDialog } from "@/components/FormDialog";
@@ -11,6 +13,7 @@ import {
     parseMoneyInput,
     parseOptionalMoneyInput,
 } from "@/utils/amount-input";
+import { defaultInboundAccountId } from "@/utils/accounts";
 import { parseIsoDate, todayIsoDate } from "@/utils/date";
 import { currencySymbol } from "@/utils/money";
 import {
@@ -38,6 +41,7 @@ function IncomeEditor({ visible, onClose, entry }: IncomeFormProps) {
     const form = useFormStyles();
     const formColors = useFormColors();
     const { addIncome, updateIncome, deleteIncome } = useIncome();
+    const { accounts } = useAccounts();
     const { currency } = useLocale();
     const symbol = currencySymbol(currency);
 
@@ -45,6 +49,9 @@ function IncomeEditor({ visible, onClose, entry }: IncomeFormProps) {
     const [net, setNet] = useState(entry ? String(entry.net) : "");
     const [gross, setGross] = useState(entry ? String(entry.gross) : "");
     const [date, setDate] = useState(entry?.date ?? todayIsoDate());
+    const [accountId, setAccountId] = useState(
+        entry?.accountId ?? defaultInboundAccountId(accounts)
+    );
     const [cadenceChip, setCadenceChip] = useState<PayCadenceChip>(
         chipFromPayCadence(entry?.payCadence)
     );
@@ -76,6 +83,7 @@ function IncomeEditor({ visible, onClose, entry }: IncomeFormProps) {
             gross: grossParsed ?? netNumber,
             date: date.trim(),
             payCadence: payCadenceFromChip(cadenceChip),
+            accountId,
         };
 
         if (entry) {
@@ -139,6 +147,15 @@ function IncomeEditor({ visible, onClose, entry }: IncomeFormProps) {
                     onChange={setDate}
                     hasError={dateHasError}
                     errorMessage="Choose a valid pay date."
+                />
+            </View>
+
+            <View style={form.field}>
+                <Text style={form.label}>Lands in</Text>
+                <AccountPicker
+                    value={accountId}
+                    onChange={setAccountId}
+                    title="Lands in"
                 />
             </View>
 

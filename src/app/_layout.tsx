@@ -9,6 +9,7 @@ import { IncomeProvider } from "@/app/contexts/IncomeContext";
 import { LocaleProvider } from "@/app/contexts/LocaleContext";
 import { ThemeProvider } from "@/app/contexts/ThemeContext";
 import { SavingsProvider } from "@/app/contexts/SavingsContext";
+import { AccountsProvider } from "@/app/contexts/AccountsContext";
 import { AuthGate } from "@/components/AuthGate";
 import { NotificationTapHandler } from "@/components/NotificationTapHandler";
 import { ReminderSync } from "@/components/ReminderSync";
@@ -29,6 +30,7 @@ export default function RootLayout() {
                 <ThemeProvider>
                     <LocaleProvider>
                         <DateRangeProvider>
+                            <AccountsProvider>
                             <IncomeProvider>
                                 <SavingsProvider>
                                     <DebtsProvider>
@@ -92,6 +94,20 @@ export default function RootLayout() {
                                                                             "slide_from_right",
                                                                     }}
                                                                 />
+                                                                <Stack.Screen
+                                                                    name="statement"
+                                                                    options={{
+                                                                        animation:
+                                                                            "slide_from_right",
+                                                                    }}
+                                                                />
+                                                                <Stack.Screen
+                                                                    name="transfer"
+                                                                    options={{
+                                                                        animation:
+                                                                            "slide_from_right",
+                                                                    }}
+                                                                />
                                                             </Stack>
                                                         </View>
                                                     </AuthGate>
@@ -102,6 +118,7 @@ export default function RootLayout() {
                                     </DebtsProvider>
                                 </SavingsProvider>
                             </IncomeProvider>
+                            </AccountsProvider>
                         </DateRangeProvider>
                     </LocaleProvider>
                 </ThemeProvider>

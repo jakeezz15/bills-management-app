@@ -1,3 +1,4 @@
+import { useAccounts } from "@/app/contexts/AccountsContext";
 import { useBills } from "@/app/contexts/BillsContext";
 import { useDebt } from "@/app/contexts/DebtsContext";
 import { useLocale } from "@/app/contexts/LocaleContext";
@@ -6,6 +7,7 @@ import { AppButton } from "@/components/AppButton";
 import { CompactPlanRow } from "@/components/CompactPlanRow";
 import { elevation, text, type Theme } from "@/design";
 import { useDueNowInbox } from "@/hooks/useDueNowInbox";
+import { defaultInboundAccountId } from "@/utils/accounts";
 import { hapticConfirm } from "@/utils/haptics";
 import { dueNowLabel, dueNowTone, type DueNowItem } from "@/utils/due-now";
 import { getLastBillPayment } from "@/utils/filters";
@@ -70,6 +72,7 @@ export function DueNowModal({
     const { theme } = useTheme();
     const styles = useMemo(() => createDueNowStyles(theme), [theme]);
     const { formatMoney } = useLocale();
+    const { accounts } = useAccounts();
     const { toggleBillPaid, payments: billPayments } = useBills();
     const { recordPayment } = useDebt();
     const inbox = useDueNowInbox(soonWithinDays);
@@ -77,6 +80,7 @@ export function DueNowModal({
     const showClear = itemsOverride ? false : inbox.showClear;
     const asOfIso = inbox.asOfIso;
     const tourMode = Boolean(tour);
+    const defaultAccountId = defaultInboundAccountId(accounts);
 
     const openPlan = (kind: "bill" | "debt", id: string) => {
         if (tourMode) return;
@@ -218,7 +222,9 @@ export function DueNowModal({
                                                 hapticConfirm();
                                                 void toggleBillPaid(
                                                     item.id,
-                                                    asOfIso
+                                                    asOfIso,
+                                                    undefined,
+                                                    defaultAccountId
                                                 );
                                                 return;
                                             }
@@ -226,7 +232,8 @@ export function DueNowModal({
                                             void recordPayment(
                                                 item.id,
                                                 undefined,
-                                                asOfIso
+                                                asOfIso,
+                                                defaultAccountId
                                             );
                                         }}
                                         toggleAccessibilityLabel={

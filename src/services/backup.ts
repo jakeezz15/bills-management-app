@@ -19,18 +19,22 @@ import {
     loadBills,
     loadDebtPayments,
     loadDebts,
+    loadAccounts,
     loadExpenses,
     loadIncome,
     loadSavings,
     loadSavingsContributions,
+    loadTransfers,
     saveBillPayments,
     saveBills,
     saveDebtPayments,
     saveDebts,
+    saveAccounts,
     saveExpenses,
     saveIncome,
     saveSavings,
     saveSavingsContributions,
+    saveTransfers,
 } from "./storage";
 
 export type { AppBackup, BackupPrefs, ParseAppBackupResult } from "@/utils/backup-parse";
@@ -60,6 +64,8 @@ export async function buildAppBackup(): Promise<AppBackup> {
         debtPayments,
         billPayments,
         savingsContributions,
+        accounts,
+        transfers,
         currencyCode,
         dueRemindersEnabled,
         reminderPrefs,
@@ -72,13 +78,15 @@ export async function buildAppBackup(): Promise<AppBackup> {
         loadDebtPayments(),
         loadBillPayments(),
         loadSavingsContributions(),
+        loadAccounts(),
+        loadTransfers(),
         getStoredCurrency(),
         areDueRemindersEnabled(),
         getReminderPrefs(),
     ]);
 
     return {
-        version: 1,
+        version: 2,
         exportedAt: new Date().toISOString(),
         income: incomes,
         expenses,
@@ -88,6 +96,8 @@ export async function buildAppBackup(): Promise<AppBackup> {
         debtPayments,
         billPayments,
         savingsContributions,
+        accounts,
+        transfers,
         prefs: {
             currencyCode,
             dueRemindersEnabled,
@@ -124,6 +134,8 @@ export async function applyAppBackup(
         saveDebtPayments(backup.debtPayments),
         saveBillPayments(backup.billPayments),
         saveSavingsContributions(backup.savingsContributions),
+        saveAccounts(backup.accounts ?? []),
+        saveTransfers(backup.transfers ?? []),
     ]);
 
     if (prefs) {

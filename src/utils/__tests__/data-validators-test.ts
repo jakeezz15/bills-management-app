@@ -59,6 +59,10 @@ describe("parseStoredArray", () => {
                 name: "Coffee",
                 amount: 4.5,
                 date: "2026-09-01",
+                category: undefined,
+                accountId: "cash",
+                createdAt: undefined,
+                updatedAt: undefined,
             },
         ]);
     });
@@ -186,8 +190,18 @@ describe("parseAppBackup", () => {
         }
     });
 
-    it("rejects the wrong version", () => {
-        const result = parseAppBackup({ ...base, version: 2 });
+    it("accepts version 2 backups with accounts", () => {
+        const result = parseAppBackup({ ...base, version: 2, accounts: [], transfers: [] });
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+            expect(result.backup.accounts?.some((a) => a.id === "cash")).toBe(
+                true
+            );
+        }
+    });
+
+    it("rejects an unsupported version", () => {
+        const result = parseAppBackup({ ...base, version: 99 });
         expect(result.ok).toBe(false);
     });
 

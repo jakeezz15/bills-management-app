@@ -36,7 +36,8 @@ type BillsContextValue = {
     toggleBillPaid: (
         id: string,
         asOfIso?: string,
-        amount?: number
+        amount?: number,
+        accountId?: string
     ) => Promise<void>;
     /** Mark this month settled with $0 — not counted in leftover. */
     skipBillThisMonth: (id: string, asOfIso?: string) => Promise<void>;
@@ -203,7 +204,12 @@ export function BillsProvider({ children }: { children: React.ReactNode }) {
     );
 
     const toggleBillPaid = useCallback(
-        async (id: string, asOfIso?: string, amount?: number) => {
+        async (
+            id: string,
+            asOfIso?: string,
+            amount?: number,
+            accountId?: string
+        ) => {
             const asOf = parseIsoDate(asOfIso ?? toIsoDate(new Date()));
             if (!asOf) {
                 return;
@@ -243,6 +249,7 @@ export function BillsProvider({ children }: { children: React.ReactNode }) {
                     billId: id,
                     amount: paymentAmount,
                     date: toIsoDate(asOf),
+                    ...(accountId ? { accountId } : {}),
                     ...stampCreate(),
                 };
                 nextPayments = [...payments, payment];

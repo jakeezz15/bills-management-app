@@ -117,6 +117,17 @@ export default function SettingsScreen() {
                     <SettingsDivider />
 
                     <SettingsRow
+                        icon="wallet-outline"
+                        title="Wallet Accounts"
+                        subtitle="Cash and Online balances"
+                        showChevron
+                        onPress={() => {
+                            router.push("/settings/accounts");
+                        }}
+                    />
+                    <SettingsDivider />
+
+                    <SettingsRow
                         icon="folder-outline"
                         title="Data & privacy"
                         subtitle="Export, import, or reset"

@@ -7,4 +7,9 @@ export interface SavingsContribution extends Timestamps {
     amount: number;
     /** ISO `YYYY-MM-DD`. */
     date: string;
+    /**
+     * Money pot this contribution came from.
+     * Missing on older records → treated as Cash on load.
+     */
+    accountId?: string;
 }

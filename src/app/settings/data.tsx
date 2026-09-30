@@ -11,12 +11,14 @@ import {
     enableDueReminders,
 } from "@/services/reminders";
 import { clearAllData, loadBills, loadDebts } from "@/services/storage";
+import { useAccounts } from "@/app/contexts/AccountsContext";
 import { useBills } from "@/app/contexts/BillsContext";
 import { useDebt } from "@/app/contexts/DebtsContext";
 import { useExpenses } from "@/app/contexts/ExpensesContext";
 import { useIncome } from "@/app/contexts/IncomeContext";
 import { useLocale } from "@/app/contexts/LocaleContext";
 import { useSavings } from "@/app/contexts/SavingsContext";
+import { router } from "expo-router";
 import { useState } from "react";
 import { Alert } from "react-native";
 
@@ -29,6 +31,7 @@ export default function SettingsDataScreen() {
     const { reload: reloadBills } = useBills();
     const { reload: reloadDebts } = useDebt();
     const { reload: reloadSavings } = useSavings();
+    const { reload: reloadAccounts } = useAccounts();
 
     const reloadAll = async () => {
         await Promise.all([
@@ -37,6 +40,7 @@ export default function SettingsDataScreen() {
             reloadBills(),
             reloadDebts(),
             reloadSavings(),
+            reloadAccounts(),
         ]);
     };
 
@@ -136,6 +140,24 @@ export default function SettingsDataScreen() {
 
     return (
         <SettingsSubpage title="Data & privacy">
+            <SettingsSection title="Reports">
+                <SettingsRow
+                    icon="document-text-outline"
+                    title="Month statement"
+                    subtitle="Bank-style in/out ledger you can share"
+                    showChevron
+                    onPress={() => router.push("/statement")}
+                />
+                <SettingsDivider />
+                <SettingsRow
+                    icon="swap-horizontal-outline"
+                    title="Transfer"
+                    subtitle="Move money between Cash and Online"
+                    showChevron
+                    onPress={() => router.push("/transfer")}
+                />
+            </SettingsSection>
+
             <SettingsSection title="Backup">
                 <SettingsRow
                     icon="download-outline"

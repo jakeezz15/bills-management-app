@@ -38,12 +38,19 @@ import {
     getMonthlyTrend,
     getTotalsForRange,
 } from "@/utils/finance";
+import { getAccountSplitThrough } from "@/utils/account-balances";
+import {
+    toMonthParam,
+    clampStatementMonth,
+    statementEarliestMonth,
+} from "@/utils/month-statement";
 import { takeOpenDuesOnHome } from "@/utils/navigation";
 import { resolvePayCycle } from "@/utils/pay-cycle";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useAccounts } from "../contexts/AccountsContext";
 import { useBills } from "../contexts/BillsContext";
 import { useDateRange } from "../contexts/DateRangeContext";
 import { useDebt } from "../contexts/DebtsContext";
@@ -75,6 +82,11 @@ export default function HomeScreen() {
         loading: savingsLoading,
     } = useSavings();
     const {
+        accounts,
+        transfers,
+        loading: accountsLoading,
+    } = useAccounts();
+    const {
         periodUnit,
         range,
         label,
@@ -95,7 +107,8 @@ export default function HomeScreen() {
         expensesLoading ||
         billsLoading ||
         debtsLoading ||
-        savingsLoading;
+        savingsLoading ||
+        accountsLoading;
 
     const payCycle = useMemo(
         () => (payMode ? resolvePayCycle(income, new Date(), payOffset) : null),
@@ -322,6 +335,32 @@ export default function HomeScreen() {
         ? WALKTHROUGH_HOME_DEMO.leftover
         : totals.leftover;
     const leftoverLabel = formatMoney(displayLeftover, { compact: true });
+    const accountSplit = useMemo(
+        () =>
+            getAccountSplitThrough(
+                homeRange,
+                accounts,
+                income,
+                expenses,
+                billPayments,
+                debtPayments,
+                savingsContributions,
+                transfers
+            ),
+        [
+            homeRange,
+            accounts,
+            income,
+            expenses,
+            billPayments,
+            debtPayments,
+            savingsContributions,
+            transfers,
+        ]
+    );
+    const accountSplitLabel = walkthroughHomeDemo
+        ? "Cash · Online"
+        : `Cash: ${formatMoney(accountSplit.cash, { compact: true })}  |  Online: ${formatMoney(accountSplit.online, { compact: true })}`;
     const availableLabel = formatMoney(
         walkthroughHomeDemo
             ? WALKTHROUGH_HOME_DEMO.leftover -
@@ -352,12 +391,6 @@ export default function HomeScreen() {
               day: "numeric",
           })}`
         : label;
-    const daysUntilPayday = payCycle
-        ? Math.max(1, calendarDaysBetween(new Date(), payCycle.nextPayday))
-        : 0;
-    const dailyLeftover =
-        daysUntilPayday > 0 ? totals.leftover / daysUntilPayday : 0;
-    const dailyLabel = formatMoney(dailyLeftover, { compact: true });
     const viewingCurrentPeriod = usingPayNav
         ? payOffset === 0
         : isViewingCurrentPeriod(range, periodUnit);
@@ -424,41 +457,6 @@ export default function HomeScreen() {
             : periodUnit === "year"
               ? "This year"
               : "This month";
-
-    // Variable bills carry no amount until they're logged, so say so rather
-    // than let "available" read as the whole picture.
-    const unknownNote =
-        committed.unknownCount > 0
-            ? ` · ${committed.unknownCount} open ${
-                  committed.unknownCount === 1 ? "bill" : "bills"
-              } not counted yet`
-            : "";
-
-    const heroCaption = (() => {
-        if (walkthroughHomeDemo) {
-            return WALKTHROUGH_HOME_DEMO.caption;
-        }
-        if (payMode && !payCycle) {
-            return "Set weekly, every 2 weeks, or monthly on a paycheck.";
-        }
-        const dailyBit =
-            payCycle && daysUntilPayday > 0 ? ` · ${dailyLabel} / day` : "";
-        if (bills.length === 0 && debts.length === 0) {
-            return (
-                (leftoverOkay
-                    ? "Income covers everything logged so far"
-                    : "Outflows are higher than income received so far") +
-                dailyBit
-            );
-        }
-        const dueWindow = payCycle ? "before payday" : "this month";
-        if (committed.total > 0) {
-            return `${formatMoney(committed.total, {
-                compact: true,
-            })} still due ${dueWindow} — not in leftover until paid${unknownNote}${dailyBit}`;
-        }
-        return `Everything due ${dueWindow} is paid${unknownNote}${dailyBit}`;
-    })();
 
     return (
         <View style={dashboard.screen}>
@@ -548,8 +546,45 @@ export default function HomeScreen() {
                             accessibilityRole="header"
                         />
                     </WalkthroughAnchor>
-                    <Text style={styles.mastCaption}>{heroCaption}</Text>
-
+                    <Pressable
+                        style={styles.mastSplit}
+                        accessibilityLabel={accountSplitLabel}
+                        accessibilityRole="button"
+                        accessibilityHint="Opens transfer"
+                        onPress={() => {
+                            if (!walkthroughHomeDemo) {
+                                router.push("/transfer");
+                            }
+                        }}
+                        disabled={walkthroughHomeDemo}
+                    >
+                        <View style={styles.mastSplitCell}>
+                            <Text style={styles.mastSplitLabel}>Cash</Text>
+                            <Text
+                                style={styles.mastSplitValue}
+                                numberOfLines={1}
+                            >
+                                {walkthroughHomeDemo
+                                    ? "—"
+                                    : formatMoney(accountSplit.cash, {
+                                          compact: true,
+                                      })}
+                            </Text>
+                        </View>
+                        <View style={styles.mastSplitCell}>
+                            <Text style={styles.mastSplitLabel}>Online</Text>
+                            <Text
+                                style={styles.mastSplitValue}
+                                numberOfLines={1}
+                            >
+                                {walkthroughHomeDemo
+                                    ? "—"
+                                    : formatMoney(accountSplit.online, {
+                                          compact: true,
+                                      })}
+                            </Text>
+                        </View>
+                    </Pressable>
                     <View style={styles.mastNav}>{periodNav(false)}</View>
                         </>
                     )}
@@ -752,6 +787,39 @@ export default function HomeScreen() {
                             </Text>
                         ) : null}
                     </View>
+                    <Pressable
+                        onPress={() => {
+                            const earliest = statementEarliestMonth(income);
+                            const monthAnchor = clampStatementMonth(
+                                !payMode && periodUnit === "month"
+                                    ? startOfMonth(
+                                          parseIsoDate(anchorIso) ??
+                                              range.start
+                                      )
+                                    : startOfMonth(new Date()),
+                                new Date(),
+                                earliest
+                            );
+                            router.push(
+                                `/statement?month=${toMonthParam(monthAnchor)}`
+                            );
+                        }}
+                        accessibilityRole="button"
+                        accessibilityLabel="View month statement"
+                        style={({ pressed }) => [
+                            styles.statementLink,
+                            pressed && styles.linePressed,
+                        ]}
+                    >
+                        <Text style={styles.statementLinkLabel}>
+                            View month statement
+                        </Text>
+                        <Ionicons
+                            name="chevron-forward"
+                            size={16}
+                            color={accentTheme.text.accent}
+                        />
+                    </Pressable>
                     </WalkthroughAnchor>
 
                     <SpendByCategoryChart rows={categorySpend} />
@@ -848,13 +916,35 @@ const styles = StyleSheet.create({
         marginBottom: theme.space.sm,
     },
     mastKicker: text.kicker,
-    mastAmount: text.hero,
-    mastCaption: {
-        color: theme.text.inverseSecondary,
+    mastAmount: {
+        ...text.hero,
+        textAlign: "center",
+        alignSelf: "stretch",
+    },
+    mastSplit: {
+        flexDirection: "row",
+        alignItems: "flex-start",
+        marginTop: theme.space.sm,
+        gap: theme.space.md,
+    },
+    mastSplitCell: {
+        flex: 1,
+    },
+    mastSplitLabel: {
+        color: theme.text.inverseTertiary,
         fontSize: theme.fontSize.xs,
         lineHeight: theme.lineHeight.xs,
-        marginTop: theme.space.sm,
-        maxWidth: 320,
+        fontWeight: theme.fontWeight.semibold,
+        textAlign: "left",
+    },
+    mastSplitValue: {
+        color: theme.text.inverseSecondary,
+        fontSize: theme.fontSize.sm,
+        lineHeight: theme.lineHeight.sm,
+        fontWeight: theme.fontWeight.semibold,
+        textAlign: "left",
+        fontVariant: ["tabular-nums"],
+        marginTop: 2,
     },
     mastNav: {
         marginTop: theme.space.lg,
@@ -883,6 +973,19 @@ const styles = StyleSheet.create({
     statement: {
         marginTop: theme.space.lg,
         marginBottom: theme.space.sm,
+    },
+    statementLink: {
+        flexDirection: "row",
+        alignItems: "center",
+        alignSelf: "flex-start",
+        gap: theme.space.xs,
+        minHeight: theme.size.tap,
+        marginBottom: theme.space.md,
+    },
+    statementLinkLabel: {
+        color: theme.text.accent,
+        fontSize: theme.fontSize.sm,
+        fontWeight: theme.fontWeight.semibold,
     },
     line: {
         paddingVertical: theme.space.sm,

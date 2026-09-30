@@ -12,4 +12,9 @@ export interface BillPayment extends Timestamps {
      * Amount is 0; leftover and due lists treat the month as settled.
      */
     skipped?: boolean;
+    /**
+     * Money pot this payment came from.
+     * Missing on older records → treated as Cash on load.
+     */
+    accountId?: string;
 }
