@@ -1,7 +1,5 @@
 import { Asset } from "expo-asset";
 import { File } from "expo-file-system";
-import * as Print from "expo-print";
-import * as Sharing from "expo-sharing";
 import { formatDisplayDate, toIsoDate } from "@/utils/date";
 import {
     MonthStatement,
@@ -455,6 +453,11 @@ export async function exportStatementPdf(options: {
     formatMoney: FormatMoneyFn;
     currencyCode: string;
 }): Promise<void> {
+    // Lazy-load native modules so importing HTML helpers / opening Statement
+    // does not crash when the current binary was built before expo-print.
+    const Print = await import("expo-print");
+    const Sharing = await import("expo-sharing");
+
     const logoDataUri = await loadStatementLogoDataUri();
     const html = buildStatementHtml({
         ...options,

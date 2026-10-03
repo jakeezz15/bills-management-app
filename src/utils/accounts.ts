@@ -1,5 +1,5 @@
+import { ACCOUNT_COLORS } from "@/design";
 import {
-    ACCOUNT_COLORS,
     CASH_ACCOUNT_ID,
     CashAccount,
     DEFAULT_ONLINE_ACCOUNT_ID,

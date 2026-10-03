@@ -27,7 +27,7 @@ import {
     savingsProgressPercent,
 } from "@/utils/savings";
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { useLocale } from "../contexts/LocaleContext";
 import { useSavings } from "../contexts/SavingsContext";
@@ -70,13 +70,15 @@ export default function SavingsScreen({
     );
     const [query, setQuery] = useState("");
     const params = useLocalSearchParams<{ add?: string }>();
+    const openFromRoute = params.add === "1";
+    const formOpen = isOpen || openFromRoute;
 
-    useEffect(() => {
-        if (params.add === "1") {
-            setIsOpen(true);
+    const closeForm = () => {
+        setIsOpen(false);
+        if (openFromRoute) {
             router.setParams({ add: undefined });
         }
-    }, [params.add]);
+    };
 
     const listed = useMemo(
         () => filterBySearch(savings, query),
@@ -173,12 +175,7 @@ export default function SavingsScreen({
                     />
                 ) : null}
 
-                <SavingsForm
-                    visible={isOpen}
-                    onClose={() => {
-                        setIsOpen(false);
-                    }}
-                />
+                <SavingsForm visible={formOpen} onClose={closeForm} />
 
                 {showHero && !loading ? (
                     <SearchField

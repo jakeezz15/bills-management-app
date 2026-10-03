@@ -31,7 +31,7 @@ import {
     isDebtNotStartedAsOf,
 } from "@/utils/filters";
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { useDebt } from "../contexts/DebtsContext";
 import { useLocale } from "../contexts/LocaleContext";
@@ -70,13 +70,15 @@ export default function DebtsScreen({ embedded = false }: DebtsScreenProps) {
     );
     const today = useMemo(() => new Date(), []);
     const params = useLocalSearchParams<{ add?: string }>();
+    const openFromRoute = params.add === "1";
+    const formOpen = isOpen || openFromRoute;
 
-    useEffect(() => {
-        if (params.add === "1") {
-            setIsOpen(true);
+    const closeForm = () => {
+        setIsOpen(false);
+        if (openFromRoute) {
             router.setParams({ add: undefined });
         }
-    }, [params.add]);
+    };
 
     const activeDebts = useMemo(
         () =>
@@ -234,12 +236,7 @@ export default function DebtsScreen({ embedded = false }: DebtsScreenProps) {
                     />
                 ) : null}
 
-                <DebtForm
-                    visible={isOpen}
-                    onClose={() => {
-                        setIsOpen(false);
-                    }}
-                />
+                <DebtForm visible={formOpen} onClose={closeForm} />
 
                 {showHero && !loading ? (
                     <SearchField

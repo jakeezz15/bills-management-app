@@ -59,6 +59,20 @@ export function AccountsProvider({ children }: { children: React.ReactNode }) {
     const [adjustments, setAdjustments] = useState<AccountAdjustment[]>([]);
     const [loading, setLoading] = useState(true);
 
+    useEffect(() => {
+        Promise.all([
+            loadAccounts(),
+            loadTransfers(),
+            loadAccountAdjustments(),
+        ])
+            .then(([nextAccounts, nextTransfers, nextAdjustments]) => {
+                setAccounts(nextAccounts);
+                setTransfers(nextTransfers);
+                setAdjustments(nextAdjustments);
+            })
+            .finally(() => setLoading(false));
+    }, []);
+
     const reload = useCallback(async () => {
         setLoading(true);
         const [nextAccounts, nextTransfers, nextAdjustments] =
@@ -72,10 +86,6 @@ export function AccountsProvider({ children }: { children: React.ReactNode }) {
         setAdjustments(nextAdjustments);
         setLoading(false);
     }, []);
-
-    useEffect(() => {
-        void reload();
-    }, [reload]);
 
     const cashAccount = useMemo(
         () =>

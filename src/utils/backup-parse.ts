@@ -27,6 +27,11 @@ import {
 import { ensureDefaultAccounts } from "@/utils/accounts";
 import { CurrencyCode, isCurrencyCode } from "@/utils/money";
 import {
+    DEFAULT_REMINDER_DELIVERY,
+    isReminderAlertStyle,
+    type ReminderAlertStyle,
+} from "@/utils/reminder-delivery";
+import {
     REMINDER_HOUR_OPTIONS,
     REMINDER_LEAD_OPTIONS,
     type ReminderHour,
@@ -39,6 +44,9 @@ export type BackupPrefs = {
     dueRemindersEnabled: boolean;
     dueReminderHour: ReminderHour;
     dueReminderLeadDays: ReminderLeadDays;
+    dueReminderSoundEnabled: boolean;
+    dueReminderVibrateEnabled: boolean;
+    dueReminderAlertStyle: ReminderAlertStyle;
 };
 
 export type AppBackup = {
@@ -216,5 +224,19 @@ export function normalizeBackupPrefs(
         dueRemindersEnabled: value.dueRemindersEnabled,
         dueReminderHour: value.dueReminderHour,
         dueReminderLeadDays: value.dueReminderLeadDays,
+        // Delivery fields are optional so older backups still restore.
+        dueReminderSoundEnabled:
+            typeof value.dueReminderSoundEnabled === "boolean"
+                ? value.dueReminderSoundEnabled
+                : DEFAULT_REMINDER_DELIVERY.soundEnabled,
+        dueReminderVibrateEnabled:
+            typeof value.dueReminderVibrateEnabled === "boolean"
+                ? value.dueReminderVibrateEnabled
+                : DEFAULT_REMINDER_DELIVERY.vibrateEnabled,
+        dueReminderAlertStyle: isReminderAlertStyle(
+            value.dueReminderAlertStyle
+        )
+            ? value.dueReminderAlertStyle
+            : DEFAULT_REMINDER_DELIVERY.alertStyle,
     };
 }

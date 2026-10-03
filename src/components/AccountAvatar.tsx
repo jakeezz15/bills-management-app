@@ -1,3 +1,4 @@
+import { useTheme } from "@/app/contexts/ThemeContext";
 import { accountAvatarLetter } from "@/utils/accounts";
 import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
@@ -18,6 +19,7 @@ export function AccountAvatar({
     color,
     size = 36,
 }: AccountAvatarProps) {
+    const { theme } = useTheme();
     const letter = accountAvatarLetter(name);
     const styles = useMemo(
         () =>
@@ -31,13 +33,13 @@ export function AccountAvatar({
                     justifyContent: "center",
                 },
                 letter: {
-                    color: "#ffffff",
+                    color: theme.text.inverse,
                     fontSize: Math.round(size * 0.42),
                     fontWeight: "700",
                     lineHeight: Math.round(size * 0.5),
                 },
             }),
-        [color, size]
+        [color, size, theme.text.inverse]
     );
 
     return (

@@ -30,7 +30,7 @@ import {
 import { exportStatementPdf } from "@/utils/statement-pdf";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { useLocalSearchParams } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -67,16 +67,24 @@ export default function StatementScreen() {
         debtsLoading ||
         savingsLoading;
 
-    const [anchor, setAnchor] = useState(() => parseMonthParam(rawMonth));
-
     const earliestMonth = useMemo(
         () => statementEarliestMonth(income),
         [income]
     );
 
-    useEffect(() => {
-        setAnchor(parseMonthParam(rawMonth, new Date(), new Date(), earliestMonth));
-    }, [rawMonth, earliestMonth]);
+    const routeAnchor = useMemo(
+        () =>
+            parseMonthParam(rawMonth, new Date(), new Date(), earliestMonth),
+        [rawMonth, earliestMonth]
+    );
+    const [anchor, setAnchor] = useState(routeAnchor);
+    const [prevRouteAnchor, setPrevRouteAnchor] = useState(routeAnchor);
+
+    // When the route month or earliest bound changes, follow the derived date.
+    if (routeAnchor.getTime() !== prevRouteAnchor.getTime()) {
+        setPrevRouteAnchor(routeAnchor);
+        setAnchor(routeAnchor);
+    }
 
     const atCurrentMonth = isStatementAtCurrentMonth(anchor);
     const atEarliestMonth = isStatementAtEarliestMonth(anchor, earliestMonth);

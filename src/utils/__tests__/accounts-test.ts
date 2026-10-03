@@ -1,3 +1,4 @@
+import { ACCOUNT_COLORS } from "@/design";
 import {
     CASH_ACCOUNT_ID,
     DEFAULT_ONLINE_ACCOUNT_ID,
@@ -116,7 +117,7 @@ describe("getAccountSplitThrough", () => {
                 id: "online-old",
                 kind: "online" as const,
                 name: "Old bank",
-                color: "#059669",
+                color: ACCOUNT_COLORS[2],
                 archived: true,
                 createdAt: "2026-01-01T00:00:00.000Z",
                 updatedAt: "2026-01-01T00:00:00.000Z",

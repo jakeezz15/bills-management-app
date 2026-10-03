@@ -108,6 +108,9 @@ export async function buildAppBackup(): Promise<AppBackup> {
             dueRemindersEnabled,
             dueReminderHour: reminderPrefs.hour,
             dueReminderLeadDays: reminderPrefs.leadDays,
+            dueReminderSoundEnabled: reminderPrefs.soundEnabled,
+            dueReminderVibrateEnabled: reminderPrefs.vibrateEnabled,
+            dueReminderAlertStyle: reminderPrefs.alertStyle,
         },
     };
 }
@@ -150,6 +153,9 @@ export async function applyAppBackup(
             setReminderPrefs({
                 hour: prefs.dueReminderHour,
                 leadDays: prefs.dueReminderLeadDays,
+                soundEnabled: prefs.dueReminderSoundEnabled,
+                vibrateEnabled: prefs.dueReminderVibrateEnabled,
+                alertStyle: prefs.dueReminderAlertStyle,
             }),
             setDueRemindersEnabled(prefs.dueRemindersEnabled),
         ]);

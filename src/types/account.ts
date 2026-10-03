@@ -17,7 +17,8 @@ export interface CashAccount extends Timestamps {
     kind: AccountKind;
     name: string;
     /**
-     * Accent for letter avatar (hex). Low-risk branding — no company logos.
+     * Accent for letter avatar. Low-risk branding — no company logos.
+     * Values come from ACCOUNT_COLORS in @/design.
      */
     color: string;
     /** Prefer this Online account for income / bills defaults. */
@@ -25,14 +26,3 @@ export interface CashAccount extends Timestamps {
     /** Hidden from pickers; history kept. */
     archived?: boolean;
 }
-
-export const ACCOUNT_COLORS = [
-    "#64748b", // slate — Cash default
-    "#2563eb", // blue — default Online
-    "#059669", // emerald
-    "#d97706", // amber
-    "#db2777", // pink
-    "#7c3aed", // violet
-    "#0891b2", // cyan
-    "#ea580c", // orange
-] as const;

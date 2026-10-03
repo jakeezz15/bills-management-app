@@ -294,6 +294,58 @@ describe("parseAppBackup", () => {
                 dueRemindersEnabled: true,
                 dueReminderHour: 9,
                 dueReminderLeadDays: 3,
+                dueReminderSoundEnabled: true,
+                dueReminderVibrateEnabled: true,
+                dueReminderAlertStyle: "default",
+            });
+        }
+    });
+
+    it("fills delivery defaults when older prefs omit them", () => {
+        const result = parseAppBackup({
+            ...base,
+            prefs: {
+                currencyCode: "USD",
+                dueRemindersEnabled: false,
+                dueReminderHour: 8,
+                dueReminderLeadDays: 1,
+            },
+        });
+
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+            expect(result.prefs).toEqual({
+                currencyCode: "USD",
+                dueRemindersEnabled: false,
+                dueReminderHour: 8,
+                dueReminderLeadDays: 1,
+                dueReminderSoundEnabled: true,
+                dueReminderVibrateEnabled: true,
+                dueReminderAlertStyle: "default",
+            });
+        }
+    });
+
+    it("keeps delivery prefs when present in the backup", () => {
+        const result = parseAppBackup({
+            ...base,
+            prefs: {
+                currencyCode: "USD",
+                dueRemindersEnabled: true,
+                dueReminderHour: 9,
+                dueReminderLeadDays: 3,
+                dueReminderSoundEnabled: false,
+                dueReminderVibrateEnabled: false,
+                dueReminderAlertStyle: "prominent",
+            },
+        });
+
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+            expect(result.prefs).toMatchObject({
+                dueReminderSoundEnabled: false,
+                dueReminderVibrateEnabled: false,
+                dueReminderAlertStyle: "prominent",
             });
         }
     });

@@ -61,9 +61,16 @@ export default function HomeScreen() {
         loading: accountsLoading,
     } = useAccounts();
     const { periodUnit, range } = useDateRange();
-    const [duesOpen, setDuesOpen] = useState(false);
+    const [duesOpenUser, setDuesOpenUser] = useState(false);
     const scrollRef = useRef<ScrollView>(null);
     const walkthrough = useWalkthroughOptional();
+    const walkthroughRunning = walkthrough?.phase === "running";
+    const walkthroughWantsDues =
+        walkthroughRunning && walkthrough?.activeId === "home-due";
+    // Walkthrough owns the modal while a tour is running; otherwise the user does.
+    const duesOpen = walkthroughRunning
+        ? Boolean(walkthroughWantsDues)
+        : duesOpenUser;
 
     const loading =
         incomeLoading ||
@@ -204,7 +211,7 @@ export default function HomeScreen() {
     useFocusEffect(
         useCallback(() => {
             if (takeOpenDuesOnHome()) {
-                setDuesOpen(true);
+                setDuesOpenUser(true);
             }
         }, [])
     );
@@ -220,16 +227,6 @@ export default function HomeScreen() {
             }, 80);
         }
     }, [walkthrough?.activeId]);
-
-    useEffect(() => {
-        if (walkthrough?.phase === "running" && walkthrough.activeId === "home-due") {
-            setDuesOpen(true);
-            return;
-        }
-        if (walkthrough?.phase === "running") {
-            setDuesOpen(false);
-        }
-    }, [walkthrough?.phase, walkthrough?.activeId]);
 
     const { collapsed, scrollProps } = useStickyHero({
         collapseAt: 100,
@@ -289,7 +286,7 @@ export default function HomeScreen() {
     const displayDueCount = walkthroughHomeDemo
         ? WALKTHROUGH_HOME_DEMO.dueCount
         : dueCount;
-    const openDues = () => setDuesOpen(true);
+    const openDues = () => setDuesOpenUser(true);
 
     const leftoverOkay = displayLeftover >= 0;
     const availableOkay = walkthroughHomeDemo ? true : available >= 0;
@@ -610,7 +607,7 @@ export default function HomeScreen() {
 
             <DueNowModal
                 visible={duesOpen}
-                onClose={() => setDuesOpen(false)}
+                onClose={() => setDuesOpenUser(false)}
                 title="Due now"
                 itemsOverride={
                     walkthrough?.phase === "running" &&

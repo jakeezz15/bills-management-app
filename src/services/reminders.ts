@@ -11,6 +11,16 @@ import {
 } from "@/utils/filters";
 import { formatMoney, getStoredCurrency } from "@/utils/money";
 import {
+    DEFAULT_REMINDER_DELIVERY,
+    parseAlertStyle,
+    parseSoundEnabled,
+    parseVibrateEnabled,
+    reminderChannelId,
+    reminderChannelName,
+    type ReminderAlertStyle,
+    type ReminderDeliveryPrefs,
+} from "@/utils/reminder-delivery";
+import {
     capReminderFires,
     DEFAULT_REMINDER_HOUR,
     DEFAULT_REMINDER_LEAD_DAYS,
@@ -31,13 +41,17 @@ import { Platform } from "react-native";
 const ENABLED_KEY = "dueRemindersEnabled";
 const HOUR_KEY = "dueReminderHour";
 const LEAD_KEY = "dueReminderLeadDays";
-const CHANNEL_ID = "due-reminders";
+const SOUND_KEY = "dueReminderSoundEnabled";
+const VIBRATE_KEY = "dueReminderVibrateEnabled";
+const ALERT_STYLE_KEY = "dueReminderAlertStyle";
 const ID_PREFIXES = ["bill-", "debt-", "digest-"] as const;
 
 export type ReminderPrefs = {
     hour: ReminderHour;
     leadDays: ReminderLeadDays;
-};
+} & ReminderDeliveryPrefs;
+
+export type { ReminderAlertStyle, ReminderDeliveryPrefs };
 
 function parseHour(raw: string | null): ReminderHour {
     const value = Number(raw);
@@ -53,30 +67,54 @@ function parseLeadDays(raw: string | null): ReminderLeadDays {
         : DEFAULT_REMINDER_LEAD_DAYS;
 }
 
+function normalizeReminderPrefs(prefs: ReminderPrefs): ReminderPrefs {
+    return {
+        hour: parseHour(String(prefs.hour)),
+        leadDays: parseLeadDays(String(prefs.leadDays)),
+        soundEnabled: prefs.soundEnabled !== false,
+        vibrateEnabled: prefs.vibrateEnabled !== false,
+        alertStyle:
+            prefs.alertStyle === "prominent" ? "prominent" : "default",
+    };
+}
+
 export async function getReminderPrefs(): Promise<ReminderPrefs> {
-    const [hourRaw, leadRaw] = await Promise.all([
-        AsyncStorage.getItem(HOUR_KEY),
-        AsyncStorage.getItem(LEAD_KEY),
-    ]);
+    const [hourRaw, leadRaw, soundRaw, vibrateRaw, styleRaw] =
+        await Promise.all([
+            AsyncStorage.getItem(HOUR_KEY),
+            AsyncStorage.getItem(LEAD_KEY),
+            AsyncStorage.getItem(SOUND_KEY),
+            AsyncStorage.getItem(VIBRATE_KEY),
+            AsyncStorage.getItem(ALERT_STYLE_KEY),
+        ]);
     return {
         hour: parseHour(hourRaw),
         leadDays: parseLeadDays(leadRaw),
+        soundEnabled: parseSoundEnabled(soundRaw),
+        vibrateEnabled: parseVibrateEnabled(vibrateRaw),
+        alertStyle: parseAlertStyle(styleRaw),
     };
 }
 
 export async function setReminderPrefs(
     prefs: ReminderPrefs
 ): Promise<ReminderPrefs> {
-    const next: ReminderPrefs = {
-        hour: parseHour(String(prefs.hour)),
-        leadDays: parseLeadDays(String(prefs.leadDays)),
-    };
+    const next = normalizeReminderPrefs(prefs);
     await Promise.all([
         AsyncStorage.setItem(HOUR_KEY, String(next.hour)),
         AsyncStorage.setItem(LEAD_KEY, String(next.leadDays)),
+        AsyncStorage.setItem(SOUND_KEY, String(next.soundEnabled)),
+        AsyncStorage.setItem(VIBRATE_KEY, String(next.vibrateEnabled)),
+        AsyncStorage.setItem(ALERT_STYLE_KEY, next.alertStyle),
     ]);
     return next;
 }
+
+export const DEFAULT_REMINDER_PREFS: ReminderPrefs = {
+    hour: DEFAULT_REMINDER_HOUR,
+    leadDays: DEFAULT_REMINDER_LEAD_DAYS,
+    ...DEFAULT_REMINDER_DELIVERY,
+};
 
 type NotificationsModule = typeof import("expo-notifications");
 
@@ -114,12 +152,15 @@ async function loadNotifications(): Promise<NotificationsModule | null> {
         const Notifications = await import("expo-notifications");
         if (!handlerReady) {
             Notifications.setNotificationHandler({
-                handleNotification: async () => ({
-                    shouldShowBanner: true,
-                    shouldShowList: true,
-                    shouldPlaySound: true,
-                    shouldSetBadge: false,
-                }),
+                handleNotification: async () => {
+                    const prefs = await getReminderPrefs();
+                    return {
+                        shouldShowBanner: true,
+                        shouldShowList: true,
+                        shouldPlaySound: prefs.soundEnabled,
+                        shouldSetBadge: false,
+                    };
+                },
             });
             handlerReady = true;
         }
@@ -143,17 +184,30 @@ export async function setDueRemindersEnabled(
 }
 
 async function ensureAndroidChannel(
-    Notifications: NotificationsModule
-): Promise<void> {
+    Notifications: NotificationsModule,
+    prefs: ReminderDeliveryPrefs
+): Promise<string | null> {
     if (Platform.OS !== "android") {
-        return;
+        return null;
     }
 
-    await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
-        name: "Due day reminders",
-        importance: Notifications.AndroidImportance.DEFAULT,
-        vibrationPattern: [0, 250, 250, 250],
+    const channelId = reminderChannelId(prefs);
+    const importance =
+        prefs.alertStyle === "prominent"
+            ? Notifications.AndroidImportance.HIGH
+            : Notifications.AndroidImportance.DEFAULT;
+
+    // Omit sound when on (system default). String "default" is treated as a custom file.
+    await Notifications.setNotificationChannelAsync(channelId, {
+        name: reminderChannelName(prefs),
+        importance,
+        enableVibrate: prefs.vibrateEnabled,
+        vibrationPattern: prefs.vibrateEnabled
+            ? [0, 250, 250, 250]
+            : null,
+        ...(prefs.soundEnabled ? {} : { sound: null }),
     });
+    return channelId;
 }
 
 export async function requestReminderPermission(): Promise<boolean> {
@@ -162,7 +216,8 @@ export async function requestReminderPermission(): Promise<boolean> {
         return false;
     }
 
-    await ensureAndroidChannel(Notifications);
+    const prefs = await getReminderPrefs();
+    await ensureAndroidChannel(Notifications, prefs);
 
     const current = await Notifications.getPermissionsAsync();
     if (current.granted) {
@@ -316,9 +371,9 @@ export async function syncDueReminders(
             return { scheduled: 0 };
         }
 
-        await ensureAndroidChannel(Notifications);
         const currency = await getStoredCurrency();
         const prefs = await getReminderPrefs();
+        const channelId = await ensureAndroidChannel(Notifications, prefs);
         const schedule = { hour: prefs.hour, leadDays: prefs.leadDays };
         const now = new Date();
         const planned: ItemFire[] = [];
@@ -409,6 +464,10 @@ export async function syncDueReminders(
         }
 
         const toSchedule = capReminderFires(toBuild);
+        const androidChannel =
+            Platform.OS === "android" && channelId
+                ? { channelId }
+                : {};
         for (const fire of toSchedule) {
             await Notifications.scheduleNotificationAsync({
                 identifier: fire.identifier,
@@ -416,17 +475,13 @@ export async function syncDueReminders(
                     title: fire.title,
                     body: fire.body,
                     data: fire.data,
-                    sound: true,
-                    ...(Platform.OS === "android"
-                        ? { channelId: CHANNEL_ID }
-                        : {}),
+                    sound: prefs.soundEnabled,
+                    ...androidChannel,
                 },
                 trigger: {
                     type: Notifications.SchedulableTriggerInputTypes.DATE,
                     date: fire.at,
-                    ...(Platform.OS === "android"
-                        ? { channelId: CHANNEL_ID }
-                        : {}),
+                    ...androidChannel,
                 },
             });
         }
@@ -539,7 +594,10 @@ export async function sendTestReminder(
         };
     }
 
-    await ensureAndroidChannel(Notifications);
+    const prefs = await getReminderPrefs();
+    const channelId = await ensureAndroidChannel(Notifications, prefs);
+    const androidChannel =
+        Platform.OS === "android" && channelId ? { channelId } : {};
     const data =
         payload && payload.type !== "digest"
             ? payload
@@ -550,14 +608,14 @@ export async function sendTestReminder(
             body: data
                 ? "Tap this banner to open Home and log it."
                 : "Due-day alerts are working on this device.",
-            sound: true,
+            sound: prefs.soundEnabled,
             ...(data ? { data } : {}),
-            ...(Platform.OS === "android" ? { channelId: CHANNEL_ID } : {}),
+            ...androidChannel,
         },
         trigger: {
             type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
             seconds: 3,
-            ...(Platform.OS === "android" ? { channelId: CHANNEL_ID } : {}),
+            ...androidChannel,
         },
     });
     return { ok: true };

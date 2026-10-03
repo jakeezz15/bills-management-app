@@ -84,10 +84,21 @@ function ExpenseEditor({ visible, onClose, expense }: ExpenseFormProps) {
         ]
     );
 
-    const exclude = expense ? { expenseId: expense.id } : undefined;
+    const excludeExpenseId = expense?.id;
+    const exclude = excludeExpenseId
+        ? { expenseId: excludeExpenseId }
+        : undefined;
     const available = useMemo(
-        () => getAvailableToDebit(accountId, date, ledger, exclude),
-        [accountId, date, ledger, exclude?.expenseId]
+        () =>
+            getAvailableToDebit(
+                accountId,
+                date,
+                ledger,
+                excludeExpenseId
+                    ? { expenseId: excludeExpenseId }
+                    : undefined
+            ),
+        [accountId, date, ledger, excludeExpenseId]
     );
 
     const accountName =

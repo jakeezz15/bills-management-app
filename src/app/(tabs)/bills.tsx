@@ -41,7 +41,7 @@ import {
 } from "@/utils/filters";
 import { hapticConfirm } from "@/utils/haptics";
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 type BillsScreenProps = {
@@ -81,14 +81,16 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
     const [paidFilter, setPaidFilter] = useState<PaidFilter>("All");
     const [pendingPayBill, setPendingPayBill] = useState<Bill | null>(null);
     const params = useLocalSearchParams<{ add?: string }>();
+    const openFromRoute = params.add === "1";
+    const formOpen = isOpen || openFromRoute;
     const today = useMemo(() => new Date(), []);
 
-    useEffect(() => {
-        if (params.add === "1") {
-            setIsOpen(true);
+    const closeForm = () => {
+        setIsOpen(false);
+        if (openFromRoute) {
             router.setParams({ add: undefined });
         }
-    }, [params.add]);
+    };
 
     const searched = useMemo(
         () => filterBySearch(bills, query),
@@ -277,10 +279,8 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
                 ) : null}
 
                 <BillForm
-                    visible={isOpen}
-                    onClose={() => {
-                        setIsOpen(false);
-                    }}
+                    visible={formOpen}
+                    onClose={closeForm}
                 />
 
                 {showHero && !loading ? (
