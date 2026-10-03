@@ -200,6 +200,44 @@ describe("parseAppBackup", () => {
         }
     });
 
+    it("accepts optional adjustments on a v2 backup", () => {
+        const result = parseAppBackup({
+            ...base,
+            version: 2,
+            accounts: [],
+            transfers: [],
+            adjustments: [
+                {
+                    id: "adj1",
+                    accountId: "cash",
+                    date: "2026-02-01",
+                    delta: 100,
+                },
+            ],
+        });
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+            expect(result.backup.adjustments).toHaveLength(1);
+            expect(result.backup.adjustments?.[0]?.delta).toBe(100);
+        }
+    });
+
+    it("rejects zero-delta adjustments", () => {
+        const result = parseAppBackup({
+            ...base,
+            version: 2,
+            adjustments: [
+                {
+                    id: "adj1",
+                    accountId: "cash",
+                    date: "2026-02-01",
+                    delta: 0,
+                },
+            ],
+        });
+        expect(result.ok).toBe(false);
+    });
+
     it("rejects an unsupported version", () => {
         const result = parseAppBackup({ ...base, version: 99 });
         expect(result.ok).toBe(false);

@@ -30,6 +30,22 @@ export type StatementKind =
     | "debt"
     | "savings";
 
+/** One ledger movement in a date range (no running balance). */
+export type ActivityLine = {
+    id: string;
+    date: string;
+    kind: StatementKind;
+    label: string;
+    direction: "in" | "out";
+    amount: number;
+    skipped?: boolean;
+    /**
+     * Entity to open: paycheck, expense, bill, debt, or savings goal id
+     * (parent id for payment / contribution rows).
+     */
+    targetId: string;
+};
+
 export type StatementLine = {
     id: string;
     date: string;
@@ -51,8 +67,7 @@ export type MonthStatement = {
     lines: StatementLine[];
 };
 
-export type MonthStatementInput = {
-    anchor: Date;
+export type ActivityLedgers = {
     income: Income[];
     expenses: Expense[];
     bills: Bill[];
@@ -63,6 +78,10 @@ export type MonthStatementInput = {
     savingsContributions: SavingsContribution[];
 };
 
+export type MonthStatementInput = {
+    anchor: Date;
+} & ActivityLedgers;
+
 const KIND_ORDER: Record<StatementKind, number> = {
     income: 0,
     expense: 1,
@@ -70,6 +89,9 @@ const KIND_ORDER: Record<StatementKind, number> = {
     debt: 3,
     savings: 4,
 };
+
+/** Max rows on the Calendar browse feed. */
+export const CALENDAR_ACTIVITY_LIMIT = 30;
 
 /** `YYYY-MM` from a date, for route params. */
 export function toMonthParam(date: Date): string {
@@ -192,10 +214,7 @@ function expenseLabel(expense: Expense): string {
     return category ? `${name} · ${category}` : name;
 }
 
-function compareLines(
-    a: Omit<StatementLine, "balanceAfter">,
-    b: Omit<StatementLine, "balanceAfter">
-): number {
+function compareLinesAsc(a: ActivityLine, b: ActivityLine): number {
     if (a.date !== b.date) {
         return a.date < b.date ? -1 : 1;
     }
@@ -204,6 +223,126 @@ function compareLines(
         return kindDiff;
     }
     return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
+function compareLinesDesc(a: ActivityLine, b: ActivityLine): number {
+    return compareLinesAsc(b, a);
+}
+
+/**
+ * Collect income / spending / bill / debt / savings movements in `range`.
+ * `newestFirst` sorts for Calendar; statement uses chronological (false).
+ */
+export function collectActivityLinesForRange(
+    range: DateRange,
+    ledgers: ActivityLedgers,
+    newestFirst = false
+): ActivityLine[] {
+    const lines: ActivityLine[] = [];
+
+    for (const item of ledgers.income) {
+        if (!isIsoInRange(item.date, range)) continue;
+        lines.push({
+            id: item.id,
+            date: item.date,
+            kind: "income",
+            label: item.source.trim() || "Income",
+            direction: "in",
+            amount: item.net,
+            targetId: item.id,
+        });
+    }
+
+    for (const item of ledgers.expenses) {
+        if (!isIsoInRange(item.date, range)) continue;
+        lines.push({
+            id: item.id,
+            date: item.date,
+            kind: "expense",
+            label: expenseLabel(item),
+            direction: "out",
+            amount: item.amount,
+            targetId: item.id,
+        });
+    }
+
+    for (const item of ledgers.billPayments) {
+        if (!isIsoInRange(item.date, range)) continue;
+        const billName = nameById(ledgers.bills, item.billId, "Bill");
+        const skipped = item.skipped === true;
+        lines.push({
+            id: item.id,
+            date: item.date,
+            kind: "bill",
+            label: skipped ? `${billName} (skipped)` : billName,
+            direction: "out",
+            amount: skipped ? 0 : item.amount,
+            skipped: skipped || undefined,
+            targetId: item.billId,
+        });
+    }
+
+    for (const item of ledgers.debtPayments) {
+        if (!isIsoInRange(item.date, range)) continue;
+        const debtName = nameById(ledgers.debts, item.debtId, "Debt");
+        const skipped = item.skipped === true;
+        lines.push({
+            id: item.id,
+            date: item.date,
+            kind: "debt",
+            label: skipped ? `${debtName} (skipped)` : debtName,
+            direction: "out",
+            amount: skipped ? 0 : item.amount,
+            skipped: skipped || undefined,
+            targetId: item.debtId,
+        });
+    }
+
+    for (const item of ledgers.savingsContributions) {
+        if (!isIsoInRange(item.date, range)) continue;
+        lines.push({
+            id: item.id,
+            date: item.date,
+            kind: "savings",
+            label: nameById(ledgers.savings, item.savingsId, "Savings"),
+            direction: "out",
+            amount: item.amount,
+            targetId: item.savingsId,
+        });
+    }
+
+    lines.sort(newestFirst ? compareLinesDesc : compareLinesAsc);
+    return lines;
+}
+
+export function activityKindLabel(line: Pick<ActivityLine, "kind" | "skipped">): string {
+    switch (line.kind) {
+        case "income":
+            return "Income";
+        case "expense":
+            return "Spending";
+        case "bill":
+            return line.skipped ? "Bill · skipped" : "Bill payment";
+        case "debt":
+            return line.skipped ? "Debt · skipped" : "Debt payment";
+        case "savings":
+            return "Savings";
+    }
+}
+
+export function activityLineHref(line: ActivityLine): string {
+    switch (line.kind) {
+        case "income":
+            return `/paycheck/${line.targetId}`;
+        case "expense":
+            return `/expense/${line.targetId}`;
+        case "bill":
+            return `/bill/${line.targetId}`;
+        case "debt":
+            return `/debt/${line.targetId}`;
+        case "savings":
+            return `/goal/${line.targetId}`;
+    }
 }
 
 /** Build a bank-style month statement from existing finance ledgers. */
@@ -256,81 +395,25 @@ export function buildMonthStatement(
         input.savingsContributions
     );
 
-    const lines: Omit<StatementLine, "balanceAfter">[] = [];
-
-    for (const item of input.income) {
-        if (!isIsoInRange(item.date, range)) continue;
-        lines.push({
-            id: item.id,
-            date: item.date,
-            kind: "income",
-            label: item.source.trim() || "Income",
-            direction: "in",
-            amount: item.net,
-        });
-    }
-
-    for (const item of input.expenses) {
-        if (!isIsoInRange(item.date, range)) continue;
-        lines.push({
-            id: item.id,
-            date: item.date,
-            kind: "expense",
-            label: expenseLabel(item),
-            direction: "out",
-            amount: item.amount,
-        });
-    }
-
-    for (const item of input.billPayments) {
-        if (!isIsoInRange(item.date, range)) continue;
-        const billName = nameById(input.bills, item.billId, "Bill");
-        const skipped = item.skipped === true;
-        lines.push({
-            id: item.id,
-            date: item.date,
-            kind: "bill",
-            label: skipped ? `${billName} (skipped)` : billName,
-            direction: "out",
-            amount: skipped ? 0 : item.amount,
-            skipped: skipped || undefined,
-        });
-    }
-
-    for (const item of input.debtPayments) {
-        if (!isIsoInRange(item.date, range)) continue;
-        lines.push({
-            id: item.id,
-            date: item.date,
-            kind: "debt",
-            label: nameById(input.debts, item.debtId, "Debt"),
-            direction: "out",
-            amount: item.amount,
-        });
-    }
-
-    for (const item of input.savingsContributions) {
-        if (!isIsoInRange(item.date, range)) continue;
-        lines.push({
-            id: item.id,
-            date: item.date,
-            kind: "savings",
-            label: nameById(input.savings, item.savingsId, "Savings"),
-            direction: "out",
-            amount: item.amount,
-        });
-    }
-
-    lines.sort(compareLines);
+    const collected = collectActivityLinesForRange(range, input, false);
 
     let running = openingLeftover;
-    const withBalances: StatementLine[] = lines.map((line) => {
+    const withBalances: StatementLine[] = collected.map((line) => {
         if (line.direction === "in") {
             running += line.amount;
         } else {
             running -= line.amount;
         }
-        return { ...line, balanceAfter: running };
+        return {
+            id: line.id,
+            date: line.date,
+            kind: line.kind,
+            label: line.label,
+            direction: line.direction,
+            amount: line.amount,
+            skipped: line.skipped,
+            balanceAfter: running,
+        };
     });
 
     return {

@@ -7,6 +7,7 @@ import { Income, PayCadence } from "@/types/income";
 import { SavingsGoal } from "@/types/savings";
 import { SavingsContribution } from "@/types/savings-contribution";
 import { CASH_ACCOUNT_ID, CashAccount } from "@/types/account";
+import { AccountAdjustment } from "@/types/account-adjustment";
 import { Transfer } from "@/types/transfer";
 import { parseIsoDate } from "@/utils/date";
 
@@ -113,6 +114,9 @@ export function parseBill(value: unknown): Bill | null {
     if (!isNonNegativeNumber(v.amount)) {
         return null;
     }
+    if (v.startDate !== undefined && !isIsoDateString(v.startDate)) {
+        return null;
+    }
 
     return {
         id: v.id.trim(),
@@ -124,6 +128,7 @@ export function parseBill(value: unknown): Bill | null {
         amountVaries: amountVaries || undefined,
         category: optionalString(v.category),
         remind: optionalBoolean(v.remind),
+        startDate: isIsoDateString(v.startDate) ? v.startDate : undefined,
         ...optionalTimestamps(v),
     } as Bill;
 }
@@ -311,6 +316,7 @@ export function parseDebtPayment(value: unknown): DebtPayment | null {
         debtId: v.debtId.trim(),
         amount: v.amount,
         date: v.date,
+        skipped: optionalBoolean(v.skipped) === true ? true : undefined,
         accountId: optionalAccountId(v.accountId),
         ...optionalTimestamps(v),
     } as DebtPayment;
@@ -393,6 +399,33 @@ export function parseTransfer(value: unknown): Transfer | null {
         note: optionalString(v.note),
         ...optionalTimestamps(v),
     } as Transfer;
+}
+
+export function parseAccountAdjustment(
+    value: unknown
+): AccountAdjustment | null {
+    if (typeof value !== "object" || value === null) {
+        return null;
+    }
+    const v = value as Record<string, unknown>;
+    if (
+        !isNonEmptyString(v.id) ||
+        !isNonEmptyString(v.accountId) ||
+        !isIsoDateString(v.date) ||
+        !isFiniteNumber(v.delta) ||
+        v.delta === 0
+    ) {
+        return null;
+    }
+
+    return {
+        id: v.id.trim(),
+        accountId: v.accountId.trim(),
+        date: v.date,
+        delta: v.delta,
+        note: optionalString(v.note),
+        ...optionalTimestamps(v),
+    } as AccountAdjustment;
 }
 
 /**

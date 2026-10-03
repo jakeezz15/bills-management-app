@@ -53,4 +53,48 @@ describe("getDueNowItems", () => {
             }),
         ]);
     });
+
+    it("does not treat a mid-month start with an earlier due day as overdue", () => {
+        const debt = makeDebt({
+            dueDay: 5,
+            minimumPayment: 500,
+            balance: 5000,
+            startDate: "2026-09-15",
+        });
+        const today = new Date(2026, 8, 16);
+
+        const items = getDueNowItems([], [], [debt], [], today);
+
+        expect(items).toHaveLength(0);
+    });
+
+    it("hides a bill before its start date", () => {
+        const bill = makeBill({ dueDay: 20, startDate: "2026-10-01" });
+        const today = new Date(2026, 8, 20);
+
+        const items = getDueNowItems([bill], [], [], [], today);
+
+        expect(items).toHaveLength(0);
+    });
+
+    it("hides a skipped debt installment", () => {
+        const debt = makeDebt({
+            dueDay: 5,
+            minimumPayment: 500,
+            balance: 5000,
+        });
+        const payments = [
+            makeDebtPayment({
+                debtId: debt.id,
+                date: "2026-09-10",
+                amount: 0,
+                skipped: true,
+            }),
+        ];
+        const today = new Date(2026, 8, 10);
+
+        const items = getDueNowItems([], [], [debt], payments, today);
+
+        expect(items).toHaveLength(0);
+    });
 });

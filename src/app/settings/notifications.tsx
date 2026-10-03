@@ -30,8 +30,8 @@ import { useBills } from "@/app/contexts/BillsContext";
 import { useDebt } from "@/app/contexts/DebtsContext";
 
 export default function SettingsNotificationsScreen() {
-    const { bills } = useBills();
-    const { debts } = useDebt();
+    const { bills, payments: billPayments } = useBills();
+    const { debts, payments: debtPayments } = useDebt();
     const [remindersOn, setRemindersOn] = useState(false);
     const [reminderBusy, setReminderBusy] = useState(false);
     const [reminderPrefs, setReminderPrefsState] = useState<ReminderPrefs>({
@@ -64,7 +64,12 @@ export default function SettingsNotificationsScreen() {
         setReminderBusy(true);
         try {
             if (next) {
-                const result = await enableDueReminders(bills, debts);
+                const result = await enableDueReminders(
+                    bills,
+                    debts,
+                    billPayments,
+                    debtPayments
+                );
                 if (!result.ok) {
                     setRemindersOn(false);
                     Alert.alert(
@@ -106,7 +111,12 @@ export default function SettingsNotificationsScreen() {
         try {
             await setReminderPrefs(next);
             if (remindersOn) {
-                await syncDueReminders(bills, debts);
+                await syncDueReminders({
+                    bills,
+                    debts,
+                    billPayments,
+                    debtPayments,
+                });
             }
         } finally {
             setReminderBusy(false);

@@ -32,7 +32,7 @@ function kindLabel(line: StatementLine): string {
         case "bill":
             return line.skipped ? "Bill · skipped" : "Bill payment";
         case "debt":
-            return "Debt payment";
+            return line.skipped ? "Debt · skipped" : "Debt payment";
         case "savings":
             return "Savings";
     }

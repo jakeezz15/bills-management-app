@@ -143,6 +143,7 @@ export async function seedDemoData(
             isPaid: false,
             category: "Housing",
             isRecurring: true,
+            remind: false,
             ...ts(startIso),
         },
         {
@@ -154,6 +155,7 @@ export async function seedDemoData(
             category: "Utilities",
             isRecurring: true,
             amountVaries: true,
+            remind: false,
             ...ts(startIso),
         },
         {
@@ -164,6 +166,7 @@ export async function seedDemoData(
             isPaid: false,
             category: "Utilities",
             isRecurring: true,
+            remind: false,
             ...ts(startIso),
         },
         {
@@ -174,6 +177,7 @@ export async function seedDemoData(
             isPaid: false,
             category: "Subscriptions",
             isRecurring: true,
+            remind: false,
             ...ts(startIso),
         },
         {
@@ -184,6 +188,7 @@ export async function seedDemoData(
             isPaid: false,
             category: "Subscriptions",
             isRecurring: true,
+            remind: false,
             ...ts(startIso),
         },
     ];
@@ -494,6 +499,7 @@ export async function seedScreenshotData(
             isPaid: true,
             category: "Housing",
             isRecurring: true,
+            remind: false,
             ...ts(thisMonthStart),
         },
         {
@@ -505,6 +511,7 @@ export async function seedScreenshotData(
             category: "Utilities",
             isRecurring: true,
             amountVaries: true,
+            remind: false,
             ...ts(thisMonthStart),
         },
         {
@@ -515,6 +522,7 @@ export async function seedScreenshotData(
             isPaid: true,
             category: "Utilities",
             isRecurring: true,
+            remind: false,
             ...ts(thisMonthStart),
         },
         {
@@ -525,6 +533,7 @@ export async function seedScreenshotData(
             isPaid: false,
             category: "Subscriptions",
             isRecurring: true,
+            remind: false,
             ...ts(thisMonthStart),
         },
         {
@@ -535,6 +544,7 @@ export async function seedScreenshotData(
             isPaid: false,
             category: "Subscriptions",
             isRecurring: true,
+            remind: false,
             ...ts(thisMonthStart),
         },
     ];
@@ -772,6 +782,7 @@ export async function seedScreenshotData(
             minimumPayment: 285,
             startDate: isoOn(prev2.year, prev2.month, 1),
             type: "Auto",
+            remind: false,
             ...ts(isoOn(prev2.year, prev2.month, 1)),
         },
         {
@@ -782,6 +793,7 @@ export async function seedScreenshotData(
             minimumPayment: 175,
             startDate: isoOn(prev2.year, prev2.month, 1),
             type: "Student",
+            remind: false,
             ...ts(isoOn(prev2.year, prev2.month, 1)),
         },
     ];

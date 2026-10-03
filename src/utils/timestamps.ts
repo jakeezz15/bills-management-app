@@ -50,6 +50,20 @@ export function debtStartDate(debt: {
     return toIsoDate(new Date());
 }
 
+/**
+ * Calendar start for a bill. Missing on legacy rows → already active
+ * (empty string means “no start gate”).
+ */
+export function billStartDate(bill: {
+    startDate?: string;
+    createdAt?: string;
+}): string | null {
+    if (bill.startDate) {
+        return bill.startDate;
+    }
+    return null;
+}
+
 /** Calendar start for a savings goal: explicit startDate, else createdAt day. */
 export function savingsStartDate(goal: {
     startDate?: string;

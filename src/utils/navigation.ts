@@ -63,6 +63,15 @@ export function goBackOrReplace(
  * returns to whatever screen was open when the app was backgrounded, then
  * push the plan with `fromReminder=1`.
  */
+/** Open Home with the Due now panel (digest banners / multi-payment nudge). */
+export function openDueNowFromReminder() {
+    if (typeof router.canDismiss === "function" && router.canDismiss()) {
+        router.dismissAll();
+    }
+    markOpenDuesOnHome();
+    router.replace("/(tabs)/" as Href);
+}
+
 export function openPlanFromReminder(type: "bill" | "debt", id: string) {
     const detail =
         type === "debt"

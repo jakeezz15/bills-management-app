@@ -1,12 +1,14 @@
 import { useBills } from "@/app/contexts/BillsContext";
 import { useLocale } from "@/app/contexts/LocaleContext";
 import { CategoryPicker } from "@/components/CategoryPicker";
+import { DateField } from "@/components/DateField";
 import { DueDayPicker } from "@/components/DueDayPicker";
 import { FormDialog } from "@/components/FormDialog";
 import { BILL_CATEGORIES } from "@/constants/categories";
 import { useFormStyles, useFormColors } from "@/styles/form";
 import { Bill } from "@/types/bill";
 import { moneyFieldError, parseMoneyInput } from "@/utils/amount-input";
+import { parseIsoDate, todayIsoDate } from "@/utils/date";
 import { currencySymbol } from "@/utils/money";
 import { useFormSession } from "@/hooks/useFormSession";
 import { useState } from "react";
@@ -44,6 +46,9 @@ function BillEditor({ visible, onClose, bill }: BillFormProps) {
     );
     const [amountVaries, setAmountVaries] = useState(varies);
     const [remind, setRemind] = useState(bill?.remind !== false);
+    const [startDate, setStartDate] = useState(
+        bill?.startDate || todayIsoDate()
+    );
     const [focusedInput, setFocusedInput] = useState<string | null>(null);
     const [showErrors, setShowErrors] = useState(false);
 
@@ -51,9 +56,10 @@ function BillEditor({ visible, onClose, bill }: BillFormProps) {
     const amountError =
         showErrors && !amountVaries ? moneyFieldError(amount) : null;
     const dueDayHasError = showErrors && dueDay === null;
+    const startDateHasError = showErrors && parseIsoDate(startDate) === null;
 
     const handleSubmit = async () => {
-        if (!name.trim() || dueDay === null) {
+        if (!name.trim() || dueDay === null || parseIsoDate(startDate) === null) {
             setShowErrors(true);
             return;
         }
@@ -68,6 +74,8 @@ function BillEditor({ visible, onClose, bill }: BillFormProps) {
             storedAmount = parsed;
         }
 
+        const start = startDate.trim();
+
         if (bill) {
             await updateBill(bill.id, {
                 name,
@@ -76,6 +84,7 @@ function BillEditor({ visible, onClose, bill }: BillFormProps) {
                 category: category ?? undefined,
                 amountVaries,
                 remind,
+                startDate: start,
             });
         } else {
             await addBill({
@@ -88,6 +97,7 @@ function BillEditor({ visible, onClose, bill }: BillFormProps) {
                 isRecurring: true,
                 amountVaries,
                 remind,
+                startDate: start,
             });
         }
 
@@ -149,7 +159,7 @@ function BillEditor({ visible, onClose, bill }: BillFormProps) {
                     <Text style={form.switchTitle}>Remind me</Text>
                     <Text style={form.switchCaption}>
                         {remind
-                            ? "Uses the time and lead from Settings"
+                            ? "Daily from Settings lead through due and 5 days after while unpaid"
                             : "No alert for this bill"}
                     </Text>
                 </View>
@@ -161,6 +171,16 @@ function BillEditor({ visible, onClose, bill }: BillFormProps) {
                         true: formColors.switchTrackOn,
                     }}
                     thumbColor={formColors.switchThumb}
+                />
+            </View>
+
+            <View style={form.field}>
+                <DateField
+                    label="Start date (optional)"
+                    value={startDate}
+                    onChange={setStartDate}
+                    hasError={startDateHasError}
+                    errorMessage="Choose a valid start date."
                 />
             </View>
 

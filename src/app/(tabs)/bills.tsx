@@ -1,3 +1,7 @@
+import { useAccounts } from "@/app/contexts/AccountsContext";
+import { useBills } from "@/app/contexts/BillsContext";
+import { useLocale } from "@/app/contexts/LocaleContext";
+import { useTheme } from "@/app/contexts/ThemeContext";
 import BillForm from "@/components/BillForm";
 import { CompactPlanRow, PlanGroup } from "@/components/CompactPlanRow";
 import { DashboardEmpty } from "@/components/DashboardEmpty";
@@ -7,6 +11,7 @@ import {
 } from "@/components/DashboardHero";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import { FloatingAddButton } from "@/components/FloatingAddButton";
+import { QuickPayAccountDialog } from "@/components/QuickPayAccountDialog";
 import { SearchField } from "@/components/SearchField";
 import { StickyHeroBar } from "@/components/StickyHeroBar";
 import { PageHeader } from "@/components/ui";
@@ -15,25 +20,29 @@ import {
     useWalkthroughPlansDemo,
     walkthroughBillDemo,
 } from "@/components/walkthrough";
+import { PAID_FILTERS, type PaidFilter } from "@/constants/categories";
+import { ensureCanDebit, useDebitLedger } from "@/hooks/useDebitLedger";
 import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
 import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
 import { useStickyHero } from "@/hooks/useStickyHero";
+import { text, theme } from "@/design";
 import { useDashboardStyles } from "@/styles/dashboard";
 import { Bill } from "@/types/bill";
-import { ordinalDay } from "@/utils/date";
+import { formatDisplayDate, ordinalDay, todayIsoDate } from "@/utils/date";
 import {
     dueCatalogLabel,
     dueCatalogStatus,
+    filterBillsByPaidStatus,
     filterBySearch,
     getLastBillPayment,
+    isBillNotStartedAsOf,
     isBillPaidAsOf,
     isBillSkippedAsOf,
 } from "@/utils/filters";
-import { router } from "expo-router";
-import { useMemo, useState } from "react";
-import { ScrollView, View } from "react-native";
-import { useBills } from "../contexts/BillsContext";
-import { useLocale } from "../contexts/LocaleContext";
+import { hapticConfirm } from "@/utils/haptics";
+import { router, useLocalSearchParams } from "expo-router";
+import { useEffect, useMemo, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 type BillsScreenProps = {
     embedded?: boolean;
@@ -53,13 +62,15 @@ function openBill(id: string) {
 
 export default function BillsScreen({ embedded = false }: BillsScreenProps) {
     const dashboard = useDashboardStyles();
-    // Standalone deep link shows the dark hero band; when embedded the
-    // host tab owns the bar.
     useStatusBarStyle(embedded ? null : "light");
     const topPadding = useScreenTopPadding();
+    const { theme: accentTheme } = useTheme();
 
     const { formatMoney } = useLocale();
-    const { bills: storedBills, payments, loading } = useBills();
+    const { accounts } = useAccounts();
+    const debitLedger = useDebitLedger();
+    const { bills: storedBills, payments, loading, toggleBillPaid } =
+        useBills();
     const demoMode = useWalkthroughPlansDemo("bills");
     const bills = useMemo(
         () => (demoMode ? walkthroughBillDemo() : storedBills),
@@ -67,12 +78,51 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
     );
     const [isOpen, setIsOpen] = useState(false);
     const [query, setQuery] = useState("");
+    const [paidFilter, setPaidFilter] = useState<PaidFilter>("All");
+    const [pendingPayBill, setPendingPayBill] = useState<Bill | null>(null);
+    const params = useLocalSearchParams<{ add?: string }>();
+    const today = useMemo(() => new Date(), []);
 
-    const listedBills = useMemo(
-        () => filterBySearch(bills, query).sort(sortByDueDayThenName),
+    useEffect(() => {
+        if (params.add === "1") {
+            setIsOpen(true);
+            router.setParams({ add: undefined });
+        }
+    }, [params.add]);
+
+    const searched = useMemo(
+        () => filterBySearch(bills, query),
         [bills, query]
     );
-    const today = useMemo(() => new Date(), []);
+    const filtered = useMemo(
+        () =>
+            filterBillsByPaidStatus(searched, paidFilter, payments, today).sort(
+                sortByDueDayThenName
+            ),
+        [searched, paidFilter, payments, today]
+    );
+
+    const openBills = useMemo(
+        () =>
+            filtered.filter((bill) => {
+                if (demoMode) return true;
+                return !isBillPaidAsOf(bill, payments, today, {
+                    anyDayInMonth: true,
+                });
+            }),
+        [filtered, payments, today, demoMode]
+    );
+    const paidBills = useMemo(
+        () =>
+            demoMode
+                ? []
+                : filtered.filter((bill) =>
+                      isBillPaidAsOf(bill, payments, today, {
+                          anyDayInMonth: true,
+                      })
+                  ),
+        [filtered, payments, today, demoMode]
+    );
 
     const typicalMonthly = bills.reduce(
         (sum, bill) => sum + (bill.amountVaries ? 0 : bill.amount),
@@ -80,9 +130,7 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
     );
     const variableCount = bills.filter((bill) => bill.amountVaries).length;
 
-    const openAdd = () => {
-        setIsOpen(true);
-    };
+    const openAdd = () => setIsOpen(true);
 
     const { collapsed, scrollProps } = useStickyHero();
     const heroValue = formatMoney(typicalMonthly, { compact: true });
@@ -95,6 +143,9 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
 
     const renderBill = (bill: Bill) => {
         const dueLabel = `Due the ${ordinalDay(bill.dueDay)}`;
+        const notStarted = demoMode
+            ? false
+            : isBillNotStartedAsOf(bill, today);
         const paid = demoMode
             ? false
             : isBillPaidAsOf(bill, payments, today, {
@@ -112,20 +163,17 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
             : isBillSkippedAsOf(bill.id, payments, today, {
                   anyDayInMonth: true,
               });
-        const status = dueCatalogStatus(
-            bill.dueDay,
-            paid,
-            today,
-            3,
-            skipped
-        );
-        const meta = [
-            dueCatalogLabel(status),
-            dueLabel,
-            bill.category,
-        ]
-            .filter(Boolean)
-            .join(" · ");
+        const status = notStarted
+            ? null
+            : dueCatalogStatus(bill.dueDay, paid, today, 3, skipped);
+        const statusLabel = status ? dueCatalogLabel(status) : null;
+        const meta = notStarted
+            ? `Starts ${formatDisplayDate(bill.startDate!)}`
+            : paid
+              ? dueLabel
+              : [statusLabel || null, dueLabel].filter(Boolean).join(" · ") ||
+                bill.category ||
+                dueLabel;
 
         return (
             <CompactPlanRow
@@ -146,11 +194,40 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
                             : "when paid"
                         : "recurring"
                 }
-                metaTone={status}
+                done={paid}
+                metaTone={
+                    notStarted ? "default" : status ?? "default"
+                }
                 onPress={() => {
                     if (demoMode) return;
                     openBill(bill.id);
                 }}
+                onToggle={
+                    demoMode
+                        ? undefined
+                        : () => {
+                              if (bill.amountVaries && !paid) {
+                                  openBill(bill.id);
+                                  return;
+                              }
+                              if (paid) {
+                                  hapticConfirm();
+                                  void toggleBillPaid(
+                                      bill.id,
+                                      todayIsoDate()
+                                  );
+                                  return;
+                              }
+                              setPendingPayBill(bill);
+                          }
+                }
+                toggleAccessibilityLabel={
+                    bill.amountVaries && !paid
+                        ? "Enter this month’s amount"
+                        : paid
+                          ? "Mark as unpaid"
+                          : "Mark as paid"
+                }
             />
         );
     };
@@ -180,6 +257,8 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
                     <PageHeader
                         title="Bills"
                         subtitle="Recurring bills — tap one to log or edit"
+                        backLabel="Plans"
+                        onBack={() => router.push("/(tabs)/plans")}
                     />
                 ) : null}
 
@@ -205,12 +284,52 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
                 />
 
                 {showHero && !loading ? (
-                    <SearchField
-                        value={query}
-                        onChange={setQuery}
-                        placeholder="Search bills"
-                        accessibilityLabel="Search bills"
-                    />
+                    <>
+                        <SearchField
+                            value={query}
+                            onChange={setQuery}
+                            placeholder="Search bills"
+                            accessibilityLabel="Search bills"
+                        />
+                        <View style={chipStyles.row}>
+                            {PAID_FILTERS.map((filter) => {
+                                const selected = paidFilter === filter;
+                                return (
+                                    <Pressable
+                                        key={filter}
+                                        onPress={() => setPaidFilter(filter)}
+                                        accessibilityRole="button"
+                                        accessibilityState={{ selected }}
+                                        accessibilityLabel={`Filter ${filter}`}
+                                        style={[
+                                            chipStyles.chip,
+                                            selected && {
+                                                backgroundColor:
+                                                    accentTheme.intent.info.bg,
+                                                borderColor:
+                                                    accentTheme.action.primary
+                                                        .bg,
+                                            },
+                                        ]}
+                                    >
+                                        <Text
+                                            style={[
+                                                chipStyles.chipLabel,
+                                                selected && {
+                                                    color: accentTheme.text
+                                                        .accent,
+                                                },
+                                            ]}
+                                        >
+                                            {filter === "Unpaid"
+                                                ? "Open"
+                                                : filter}
+                                        </Text>
+                                    </Pressable>
+                                );
+                            })}
+                        </View>
+                    </>
                 ) : null}
 
                 {bills.length === 0 && !loading && !demoMode && (
@@ -223,21 +342,35 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
                     />
                 )}
 
-                {bills.length > 0 && listedBills.length === 0 && (
+                {bills.length > 0 && filtered.length === 0 && (
                     <DashboardEmpty
                         icon="search-outline"
                         title="No matching bills"
-                        text="Nothing matches that search."
-                        actionLabel="Clear search"
-                        onAction={() => setQuery("")}
+                        text="Nothing matches that search or filter."
+                        actionLabel="Clear filters"
+                        onAction={() => {
+                            setQuery("");
+                            setPaidFilter("All");
+                        }}
                     />
                 )}
 
-                {listedBills.length > 0 ? (
-                    <WalkthroughAnchor id="plans-bills">
-                        <PlanGroup>{listedBills.map(renderBill)}</PlanGroup>
-                    </WalkthroughAnchor>
-                ) : null}
+                <WalkthroughAnchor id="plans-bills">
+                    {openBills.length > 0 ? (
+                        <View>
+                            <Text style={dashboard.sectionLabel}>Open</Text>
+                            <PlanGroup>{openBills.map(renderBill)}</PlanGroup>
+                        </View>
+                    ) : null}
+                    {paidBills.length > 0 ? (
+                        <View>
+                            <Text style={dashboard.sectionLabel}>
+                                Paid this month
+                            </Text>
+                            <PlanGroup>{paidBills.map(renderBill)}</PlanGroup>
+                        </View>
+                    ) : null}
+                </WalkthroughAnchor>
             </ScrollView>
             {!loading || demoMode ? (
                 <FloatingAddButton
@@ -245,6 +378,69 @@ export default function BillsScreen({ embedded = false }: BillsScreenProps) {
                     accessibilityLabel="Add bill"
                 />
             ) : null}
+
+            <QuickPayAccountDialog
+                visible={pendingPayBill !== null}
+                title={
+                    pendingPayBill
+                        ? `Pay ${pendingPayBill.name}`
+                        : "Pay bill"
+                }
+                onCancel={() => setPendingPayBill(null)}
+                onConfirm={(accountId) => {
+                    if (!pendingPayBill) {
+                        return;
+                    }
+                    const potName =
+                        accounts.find((account) => account.id === accountId)
+                            ?.name ?? "Account";
+                    if (
+                        !ensureCanDebit({
+                            accountId,
+                            amount: pendingPayBill.amount,
+                            asOfIso: todayIsoDate(),
+                            accountName: potName,
+                            ledger: debitLedger,
+                            formatMoney: (value) =>
+                                formatMoney(value, { compact: true }),
+                        })
+                    ) {
+                        return;
+                    }
+                    hapticConfirm();
+                    void toggleBillPaid(
+                        pendingPayBill.id,
+                        todayIsoDate(),
+                        undefined,
+                        accountId
+                    );
+                    setPendingPayBill(null);
+                }}
+            />
         </View>
     );
 }
+
+const chipStyles = StyleSheet.create({
+    row: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: theme.space.sm,
+        marginBottom: theme.space.md,
+    },
+    chip: {
+        minHeight: theme.size.control,
+        paddingHorizontal: theme.space.md,
+        borderRadius: theme.radius.pill,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: theme.border.subtle,
+        backgroundColor: theme.bg.surface,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    chipLabel: {
+        ...text.caption,
+        color: theme.text.secondary,
+        fontWeight: theme.fontWeight.semibold,
+    },
+});

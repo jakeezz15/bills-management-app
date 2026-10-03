@@ -1,6 +1,7 @@
 import { Bill } from "@/types/bill";
 import { BillPayment } from "@/types/bill-payment";
 import { CashAccount } from "@/types/account";
+import { AccountAdjustment } from "@/types/account-adjustment";
 import { Debt } from "@/types/debt";
 import { DebtPayment } from "@/types/debt-payment";
 import { Expense } from "@/types/expense";
@@ -14,6 +15,7 @@ import {
     noteStoredArrayLoad,
 } from "@/services/storage-health";
 import {
+    parseAccountAdjustment,
     parseBill,
     parseBillPayment,
     parseCashAccount,
@@ -46,6 +48,7 @@ const SAVINGS_CONTRIBUTIONS_KEY = "savingsContributions";
 const INCOME_KEY = "income";
 const ACCOUNTS_KEY = "accounts";
 const TRANSFERS_KEY = "transfers";
+const ADJUSTMENTS_KEY = "accountAdjustments";
 
 const FIRST_RUN_KEY = "hasCompletedFirstRun";
 
@@ -98,6 +101,7 @@ export async function seedEmptyData(): Promise<void> {
         saveSavingsContributions([]),
         saveAccounts(createDefaultAccounts()),
         saveTransfers([]),
+        saveAccountAdjustments([]),
     ]);
 }
 
@@ -398,9 +402,36 @@ export async function saveTransfers(transfers: Transfer[]): Promise<void> {
     await writeJson("transfers", TRANSFERS_KEY, transfers);
 }
 
+// Account balance adjustments
+
+export async function loadAccountAdjustments(): Promise<AccountAdjustment[]> {
+    const raw = await AsyncStorage.getItem(ADJUSTMENTS_KEY);
+    if (raw === null) {
+        await writeJson("account adjustments", ADJUSTMENTS_KEY, []);
+        return [];
+    }
+    return readCollection(
+        "account adjustments",
+        raw,
+        parseAccountAdjustment
+    ).map((item) => ensureTimestamps(item, item.date));
+}
+
+export async function saveAccountAdjustments(
+    adjustments: AccountAdjustment[]
+): Promise<void> {
+    await writeJson("account adjustments", ADJUSTMENTS_KEY, adjustments);
+}
+
 /** Wipe finance data and leave empty arrays so loaders do not re-seed samples. */
 export async function clearAllData(): Promise<void> {
     await seedEmptyData();
     await clearFirstRunFlag();
     clearStorageHealthIssues();
+    try {
+        const { cancelAllDueReminders } = await import("@/services/reminders");
+        await cancelAllDueReminders();
+    } catch {
+        // Reminders unavailable on this platform — finance wipe still succeeded.
+    }
 }

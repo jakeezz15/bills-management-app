@@ -1,20 +1,29 @@
 import { Bill } from "@/types/bill";
+import { BillPayment } from "@/types/bill-payment";
 import { Debt } from "@/types/debt";
+import { DebtPayment } from "@/types/debt-payment";
 import { isDevToolsBuild } from "@/utils/dev-tools";
+import {
+    isBillPaidAsOf,
+    isBillVisibleAsOf,
+    isDebtInstallmentPaidAsOf,
+    isDebtVisibleAsOf,
+} from "@/utils/filters";
 import { formatMoney, getStoredCurrency } from "@/utils/money";
 import {
     capReminderFires,
     DEFAULT_REMINDER_HOUR,
     DEFAULT_REMINDER_LEAD_DAYS,
+    groupFiresForDigest,
     itemWantsReminder,
+    nextCycleDenseFires,
     REMINDER_HOUR_OPTIONS,
     REMINDER_LEAD_OPTIONS,
-    upcomingReminderFires,
-    type ReminderFire,
     type ReminderHour,
     type ReminderKind,
     type ReminderLeadDays,
 } from "@/utils/reminder-schedule";
+import { billStartDate, debtStartDate } from "@/utils/timestamps";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { isRunningInExpoGo } from "expo";
 import { Platform } from "react-native";
@@ -23,6 +32,7 @@ const ENABLED_KEY = "dueRemindersEnabled";
 const HOUR_KEY = "dueReminderHour";
 const LEAD_KEY = "dueReminderLeadDays";
 const CHANNEL_ID = "due-reminders";
+const ID_PREFIXES = ["bill-", "debt-", "digest-"] as const;
 
 export type ReminderPrefs = {
     hour: ReminderHour;
@@ -72,6 +82,7 @@ type NotificationsModule = typeof import("expo-notifications");
 
 let notificationsModule: NotificationsModule | null | undefined;
 let handlerReady = false;
+let syncChain: Promise<unknown> = Promise.resolve();
 
 /**
  * Android Expo Go throws on import of expo-notifications (push APIs removed in SDK 53).
@@ -166,10 +177,9 @@ export async function requestReminderPermission(): Promise<boolean> {
     return next.granted;
 }
 
-export type DueReminderPayload = {
-    type: "bill" | "debt";
-    id: string;
-};
+export type DueReminderPayload =
+    | { type: "bill" | "debt"; id: string }
+    | { type: "digest" };
 
 export function parseDueReminderData(
     data: unknown
@@ -179,6 +189,9 @@ export function parseDueReminderData(
     }
     const record = data as Record<string, unknown>;
     const type = record.type;
+    if (type === "digest") {
+        return { type: "digest" };
+    }
     const id = record.id;
     if (
         (type === "bill" || type === "debt") &&
@@ -191,12 +204,15 @@ export function parseDueReminderData(
 }
 
 function reminderTitle(
-    type: DueReminderPayload["type"],
+    type: "bill" | "debt",
     kind: ReminderKind,
     leadDays: number
 ): string {
     if (kind === "due") {
         return type === "bill" ? "Bill due today" : "Debt payment due";
+    }
+    if (kind === "overdue") {
+        return type === "bill" ? "Bill overdue" : "Debt payment overdue";
     }
     const when =
         leadDays === 7
@@ -207,29 +223,21 @@ function reminderTitle(
     return type === "bill" ? `Bill due ${when}` : `Debt payment due ${when}`;
 }
 
-async function scheduleAt(
-    Notifications: NotificationsModule,
-    identifier: string,
-    title: string,
-    body: string,
-    at: Date,
-    data: DueReminderPayload
+function isOurReminderId(identifier: string): boolean {
+    return ID_PREFIXES.some((prefix) => identifier.startsWith(prefix));
+}
+
+async function cancelScheduledDueReminders(
+    Notifications: NotificationsModule
 ): Promise<void> {
-    await Notifications.scheduleNotificationAsync({
-        identifier,
-        content: {
-            title,
-            body,
-            data,
-            sound: true,
-            ...(Platform.OS === "android" ? { channelId: CHANNEL_ID } : {}),
-        },
-        trigger: {
-            type: Notifications.SchedulableTriggerInputTypes.DATE,
-            date: at,
-            ...(Platform.OS === "android" ? { channelId: CHANNEL_ID } : {}),
-        },
-    });
+    const pending = await Notifications.getAllScheduledNotificationsAsync();
+    await Promise.all(
+        pending
+            .filter((item) => isOurReminderId(item.identifier))
+            .map((item) =>
+                Notifications.cancelScheduledNotificationAsync(item.identifier)
+            )
+    );
 }
 
 export async function cancelAllDueReminders(): Promise<void> {
@@ -237,106 +245,208 @@ export async function cancelAllDueReminders(): Promise<void> {
     if (!Notifications) {
         return;
     }
-    await Notifications.cancelAllScheduledNotificationsAsync();
+    await cancelScheduledDueReminders(Notifications);
 }
 
-type PlannedFire = ReminderFire & {
+type ItemFire = {
+    at: Date;
+    kind: ReminderKind;
+    periodKey: string;
+    dayKey: string;
     identifier: string;
-    type: DueReminderPayload["type"];
+    type: "bill" | "debt";
     id: string;
     body: string;
 };
 
+export type SyncDueRemindersInput = {
+    bills: Bill[];
+    debts: Debt[];
+    billPayments?: BillPayment[];
+    debtPayments?: DebtPayment[];
+};
+
 /**
- * Rebuild due-day alerts from current bills and debts.
- * Schedules a lead ping and a due-day ping for the next few months, then
- * ReminderSync refreshes the window the next time the app opens.
+ * Rebuild due-day alerts from current bills, debts, and payment ledgers.
+ * Schedules the next unpaid dense window per plan (digest when >5 same day).
  */
 export async function syncDueReminders(
-    bills: Bill[],
-    debts: Debt[]
+    billsOrInput: Bill[] | SyncDueRemindersInput,
+    debtsArg?: Debt[],
+    billPaymentsArg: BillPayment[] = [],
+    debtPaymentsArg: DebtPayment[] = []
 ): Promise<{ scheduled: number }> {
-    if (!remindersSupported()) {
-        return { scheduled: 0 };
-    }
+    const run = async (): Promise<{ scheduled: number }> => {
+        let bills: Bill[];
+        let debts: Debt[];
+        let billPayments: BillPayment[];
+        let debtPayments: DebtPayment[];
 
-    const Notifications = await loadNotifications();
-    if (!Notifications) {
-        return { scheduled: 0 };
-    }
-
-    const enabled = await areDueRemindersEnabled();
-    await Notifications.cancelAllScheduledNotificationsAsync();
-
-    if (!enabled) {
-        return { scheduled: 0 };
-    }
-
-    const permitted = await requestReminderPermission();
-    if (!permitted) {
-        await setDueRemindersEnabled(false);
-        return { scheduled: 0 };
-    }
-
-    await ensureAndroidChannel(Notifications);
-    const currency = await getStoredCurrency();
-    const prefs = await getReminderPrefs();
-    const schedule = { hour: prefs.hour, leadDays: prefs.leadDays };
-    const now = new Date();
-    const planned: PlannedFire[] = [];
-
-    for (const bill of bills) {
-        if (!itemWantsReminder(bill)) {
-            continue;
+        if (Array.isArray(billsOrInput)) {
+            bills = billsOrInput;
+            debts = debtsArg ?? [];
+            billPayments = billPaymentsArg;
+            debtPayments = debtPaymentsArg;
+        } else {
+            bills = billsOrInput.bills;
+            debts = billsOrInput.debts;
+            billPayments = billsOrInput.billPayments ?? [];
+            debtPayments = billsOrInput.debtPayments ?? [];
         }
-        const body = bill.amountVaries
-            ? `${bill.name} · enter amount`
-            : `${bill.name} · ${formatMoney(bill.amount, currency, { compact: true })}`;
-        for (const fire of upcomingReminderFires(bill.dueDay, now, schedule)) {
-            planned.push({
-                ...fire,
-                identifier: `bill-${bill.id}-${fire.kind}-${fire.periodKey}`,
-                type: "bill",
-                id: bill.id,
-                body,
+
+        if (!remindersSupported()) {
+            return { scheduled: 0 };
+        }
+
+        const Notifications = await loadNotifications();
+        if (!Notifications) {
+            return { scheduled: 0 };
+        }
+
+        const enabled = await areDueRemindersEnabled();
+        await cancelScheduledDueReminders(Notifications);
+
+        if (!enabled) {
+            return { scheduled: 0 };
+        }
+
+        const permitted = await requestReminderPermission();
+        if (!permitted) {
+            // Keep the pref on so Settings can prompt to open system Settings.
+            return { scheduled: 0 };
+        }
+
+        await ensureAndroidChannel(Notifications);
+        const currency = await getStoredCurrency();
+        const prefs = await getReminderPrefs();
+        const schedule = { hour: prefs.hour, leadDays: prefs.leadDays };
+        const now = new Date();
+        const planned: ItemFire[] = [];
+
+        for (const bill of bills) {
+            if (!itemWantsReminder(bill) || !isBillVisibleAsOf(bill, now)) {
+                continue;
+            }
+            const start = billStartDate(bill);
+            const body = bill.amountVaries
+                ? `${bill.name} · enter amount`
+                : `${bill.name} · ${formatMoney(bill.amount, currency, { compact: true })}`;
+            for (const fire of nextCycleDenseFires(
+                bill.dueDay,
+                now,
+                (periodDue) =>
+                    isBillPaidAsOf(bill, billPayments, periodDue, {
+                        anyDayInMonth: true,
+                    }),
+                { ...schedule, startDate: start }
+            )) {
+                planned.push({
+                    ...fire,
+                    identifier: `bill-${bill.id}-${fire.kind}-${fire.dayKey}`,
+                    type: "bill",
+                    id: bill.id,
+                    body,
+                });
+            }
+        }
+
+        for (const debt of debts) {
+            if (
+                debt.balance <= 0 ||
+                debt.paidOffDate ||
+                !itemWantsReminder(debt) ||
+                !isDebtVisibleAsOf(debt, now)
+            ) {
+                continue;
+            }
+            const body = `${debt.name} · min ${formatMoney(debt.minimumPayment, currency, { compact: true })}`;
+            for (const fire of nextCycleDenseFires(
+                debt.dueDay,
+                now,
+                (periodDue) =>
+                    isDebtInstallmentPaidAsOf(debt, periodDue, debtPayments),
+                { ...schedule, startDate: debtStartDate(debt) }
+            )) {
+                planned.push({
+                    ...fire,
+                    identifier: `debt-${debt.id}-${fire.kind}-${fire.dayKey}`,
+                    type: "debt",
+                    id: debt.id,
+                    body,
+                });
+            }
+        }
+
+        const grouped = groupFiresForDigest(planned);
+        type Schedulable = {
+            at: Date;
+            identifier: string;
+            title: string;
+            body: string;
+            data: DueReminderPayload;
+        };
+        const toBuild: Schedulable[] = [];
+
+        for (const entry of grouped) {
+            if (entry.mode === "digest") {
+                toBuild.push({
+                    at: entry.at,
+                    identifier: `digest-${entry.dayKey}`,
+                    title: "Payments need attention",
+                    body: `You have ${entry.count} payments to review`,
+                    data: { type: "digest" },
+                });
+            } else {
+                const fire = entry.fire;
+                toBuild.push({
+                    at: fire.at,
+                    identifier: fire.identifier,
+                    title: reminderTitle(fire.type, fire.kind, prefs.leadDays),
+                    body: fire.body,
+                    data: { type: fire.type, id: fire.id },
+                });
+            }
+        }
+
+        const toSchedule = capReminderFires(toBuild);
+        for (const fire of toSchedule) {
+            await Notifications.scheduleNotificationAsync({
+                identifier: fire.identifier,
+                content: {
+                    title: fire.title,
+                    body: fire.body,
+                    data: fire.data,
+                    sound: true,
+                    ...(Platform.OS === "android"
+                        ? { channelId: CHANNEL_ID }
+                        : {}),
+                },
+                trigger: {
+                    type: Notifications.SchedulableTriggerInputTypes.DATE,
+                    date: fire.at,
+                    ...(Platform.OS === "android"
+                        ? { channelId: CHANNEL_ID }
+                        : {}),
+                },
             });
         }
-    }
 
-    for (const debt of debts) {
-        if (debt.balance <= 0 || debt.paidOffDate || !itemWantsReminder(debt)) {
-            continue;
-        }
-        const body = `${debt.name} · min ${formatMoney(debt.minimumPayment, currency, { compact: true })}`;
-        for (const fire of upcomingReminderFires(debt.dueDay, now, schedule)) {
-            planned.push({
-                ...fire,
-                identifier: `debt-${debt.id}-${fire.kind}-${fire.periodKey}`,
-                type: "debt",
-                id: debt.id,
-                body,
-            });
-        }
-    }
+        return { scheduled: toSchedule.length };
+    };
 
-    const toSchedule = capReminderFires(planned);
-    for (const fire of toSchedule) {
-        await scheduleAt(
-            Notifications,
-            fire.identifier,
-            reminderTitle(fire.type, fire.kind, prefs.leadDays),
-            fire.body,
-            fire.at,
-            { type: fire.type, id: fire.id }
-        );
-    }
-
-    return { scheduled: toSchedule.length };
+    const result = syncChain.then(run, run);
+    syncChain = result.then(
+        () => undefined,
+        () => undefined
+    );
+    return result;
 }
 
 export async function enableDueReminders(
     bills: Bill[],
-    debts: Debt[]
+    debts: Debt[],
+    billPayments: BillPayment[] = [],
+    debtPayments: DebtPayment[] = []
 ): Promise<{ ok: boolean; scheduled: number; reason?: string }> {
     const blocked = remindersUnavailableReason();
     if (blocked) {
@@ -353,13 +463,33 @@ export async function enableDueReminders(
     }
 
     await setDueRemindersEnabled(true);
-    const { scheduled } = await syncDueReminders(bills, debts);
+    const { scheduled } = await syncDueReminders({
+        bills,
+        debts,
+        billPayments,
+        debtPayments,
+    });
     return { ok: true, scheduled };
 }
 
 export async function disableDueReminders(): Promise<void> {
     await setDueRemindersEnabled(false);
     await cancelAllDueReminders();
+}
+
+/** After backup/cloud restore: enable or disable and resync the OS queue. */
+export async function applyDueReminderPrefsFromBackup(
+    enabled: boolean,
+    bills: Bill[],
+    debts: Debt[],
+    billPayments: BillPayment[] = [],
+    debtPayments: DebtPayment[] = []
+): Promise<void> {
+    if (enabled) {
+        await enableDueReminders(bills, debts, billPayments, debtPayments);
+    } else {
+        await disableDueReminders();
+    }
 }
 
 /** First bill or active debt the test banner can open on tap. */
@@ -410,14 +540,18 @@ export async function sendTestReminder(
     }
 
     await ensureAndroidChannel(Notifications);
+    const data =
+        payload && payload.type !== "digest"
+            ? payload
+            : undefined;
     await Notifications.scheduleNotificationAsync({
         content: {
             title: "Test reminder",
-            body: payload
+            body: data
                 ? "Tap this banner to open Home and log it."
                 : "Due-day alerts are working on this device.",
             sound: true,
-            ...(payload ? { data: payload } : {}),
+            ...(data ? { data } : {}),
             ...(Platform.OS === "android" ? { channelId: CHANNEL_ID } : {}),
         },
         trigger: {

@@ -6,11 +6,14 @@ import {
 import { SettingsSubpage } from "@/components/SettingsSubpage";
 import { useWalkthrough } from "@/components/walkthrough";
 import { exportBackup, importBackup } from "@/services/backup";
+import { applyDueReminderPrefsFromBackup } from "@/services/reminders";
 import {
-    disableDueReminders,
-    enableDueReminders,
-} from "@/services/reminders";
-import { clearAllData, loadBills, loadDebts } from "@/services/storage";
+    clearAllData,
+    loadBillPayments,
+    loadBills,
+    loadDebtPayments,
+    loadDebts,
+} from "@/services/storage";
 import { useAccounts } from "@/app/contexts/AccountsContext";
 import { useBills } from "@/app/contexts/BillsContext";
 import { useDebt } from "@/app/contexts/DebtsContext";
@@ -78,19 +81,24 @@ export default function SettingsDataScreen() {
 
                             if (result.prefs) {
                                 await setCurrency(result.prefs.currencyCode);
-                                const [nextBills, nextDebts] =
-                                    await Promise.all([
-                                        loadBills(),
-                                        loadDebts(),
-                                    ]);
-                                if (result.prefs.dueRemindersEnabled) {
-                                    await enableDueReminders(
-                                        nextBills,
-                                        nextDebts
-                                    );
-                                } else {
-                                    await disableDueReminders();
-                                }
+                                const [
+                                    nextBills,
+                                    nextDebts,
+                                    nextBillPayments,
+                                    nextDebtPayments,
+                                ] = await Promise.all([
+                                    loadBills(),
+                                    loadDebts(),
+                                    loadBillPayments(),
+                                    loadDebtPayments(),
+                                ]);
+                                await applyDueReminderPrefsFromBackup(
+                                    result.prefs.dueRemindersEnabled,
+                                    nextBills,
+                                    nextDebts,
+                                    nextBillPayments,
+                                    nextDebtPayments
+                                );
                             }
 
                             Alert.alert(

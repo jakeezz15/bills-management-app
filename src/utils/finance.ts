@@ -12,14 +12,18 @@ import {
     firstDueDateInRange,
     getRangeForPeriod,
     isIsoInRange,
+    parseIsoDate,
     rangeThrough,
     startOfMonth,
+    toIsoDate,
 } from "@/utils/date";
 import {
+    filterBillsVisibleAsOf,
     filterDebtsVisibleAsOf,
     isBillPaidAsOf,
     isDebtInstallmentPaidAsOf,
 } from "@/utils/filters";
+import { billStartDate, debtStartDate } from "@/utils/timestamps";
 
 export function getTotalIncome(income: Income[]) {
     return income.reduce((sum, item) => sum + item.net, 0);
@@ -35,7 +39,10 @@ export function getTotalBillPayments(
     range: DateRange
 ) {
     return payments
-        .filter((item) => isIsoInRange(item.date, range))
+        .filter(
+            (item) =>
+                item.skipped !== true && isIsoInRange(item.date, range)
+        )
         .reduce((sum, item) => sum + item.amount, 0);
 }
 
@@ -46,7 +53,9 @@ export function getTotalDebtPayments(
     const list = range
         ? payments.filter((item) => isIsoInRange(item.date, range))
         : payments;
-    return list.reduce((sum, item) => sum + item.amount, 0);
+    return list
+        .filter((item) => item.skipped !== true)
+        .reduce((sum, item) => sum + item.amount, 0);
 }
 
 /** Sum logged savings contributions through the period end (cash model). */
@@ -198,9 +207,13 @@ export function getCommittedInRange(
     let count = 0;
     let unknownCount = 0;
 
-    for (const bill of bills) {
+    for (const bill of filterBillsVisibleAsOf(bills, visibleAsOf)) {
         const dueOn = firstDueDateInRange(bill.dueDay, range);
         if (!dueOn) {
+            continue;
+        }
+        const start = billStartDate(bill);
+        if (start && toIsoDate(dueOn) < start) {
             continue;
         }
         if (isBillPaidAsOf(bill, billPayments, dueOn, { anyDayInMonth: true })) {
@@ -219,6 +232,10 @@ export function getCommittedInRange(
     for (const debt of filterDebtsVisibleAsOf(debts, visibleAsOf)) {
         const dueOn = firstDueDateInRange(debt.dueDay, range);
         if (!dueOn) {
+            continue;
+        }
+        const start = debtStartDate(debt);
+        if (toIsoDate(dueOn) < start) {
             continue;
         }
         if (isDebtInstallmentPaidAsOf(debt, dueOn, debtPayments)) {
@@ -294,9 +311,53 @@ export type MonthTrendPoint = {
     outflow: number;
 };
 
+const MONTH_LABELS = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+] as const;
+
+function monthKey(d: Date): number {
+    return d.getFullYear() * 12 + d.getMonth();
+}
+
+function earliestActivityMonth(
+    expenses: Expense[],
+    income: Income[],
+    debtPayments: DebtPayment[],
+    billPayments: BillPayment[],
+    savingsContributions: SavingsContribution[]
+): Date | null {
+    const dates: string[] = [
+        ...income.map((item) => item.date),
+        ...expenses.map((item) => item.date),
+        ...billPayments.map((item) => item.date),
+        ...debtPayments.map((item) => item.date),
+        ...savingsContributions.map((item) => item.date),
+    ];
+    if (dates.length === 0) return null;
+    const minIso = dates.reduce((earliest, date) =>
+        date < earliest ? date : earliest
+    );
+    const parsed = parseIsoDate(minIso);
+    if (!parsed) return null;
+    return new Date(parsed.getFullYear(), parsed.getMonth(), 1);
+}
+
 /**
- * Last `count` calendar months ending at the month of `endAnchor`.
- * Each point is the running leftover as of that month’s end.
+ * Months from first logged activity through `endAnchor`, oldest → newest
+ * (e.g. start in Oct → Oct, Nov, …). Caps at `count` months ending at
+ * `endAnchor` when history is longer. Each point is running leftover as of
+ * that month’s end. Empty when there is no activity yet.
  */
 export function getMonthlyTrend(
     endAnchor: Date,
@@ -310,28 +371,45 @@ export function getMonthlyTrend(
     billPayments: BillPayment[] = [],
     savingsContributions: SavingsContribution[] = []
 ): MonthTrendPoint[] {
-    const points: MonthTrendPoint[] = [];
-    const months = [
-        "Jan",
-        "Feb",
-        "Mar",
-        "Apr",
-        "May",
-        "Jun",
-        "Jul",
-        "Aug",
-        "Sep",
-        "Oct",
-        "Nov",
-        "Dec",
-    ];
+    const firstActivity = earliestActivityMonth(
+        expenses,
+        income,
+        debtPayments,
+        billPayments,
+        savingsContributions
+    );
+    if (firstActivity === null) {
+        return [];
+    }
 
-    for (let i = count - 1; i >= 0; i -= 1) {
-        const monthDate = new Date(
-            endAnchor.getFullYear(),
-            endAnchor.getMonth() - i,
-            1
-        );
+    const endMonth = new Date(
+        endAnchor.getFullYear(),
+        endAnchor.getMonth(),
+        1
+    );
+    const windowStart = new Date(
+        endMonth.getFullYear(),
+        endMonth.getMonth() - (count - 1),
+        1
+    );
+    const startMonth =
+        monthKey(firstActivity) > monthKey(windowStart)
+            ? firstActivity
+            : windowStart;
+
+    if (monthKey(startMonth) > monthKey(endMonth)) {
+        return [];
+    }
+
+    const points: MonthTrendPoint[] = [];
+    for (
+        let key = monthKey(startMonth);
+        key <= monthKey(endMonth);
+        key += 1
+    ) {
+        const year = Math.floor(key / 12);
+        const month = key % 12;
+        const monthDate = new Date(year, month, 1);
         const range = getRangeForPeriod(monthDate, "month");
         const totals = getTotalsForRange(
             range,
@@ -351,8 +429,8 @@ export function getMonthlyTrend(
             totals.savings;
 
         points.push({
-            key: `${monthDate.getFullYear()}-${monthDate.getMonth()}`,
-            label: months[monthDate.getMonth()],
+            key: `${year}-${month}`,
+            label: MONTH_LABELS[month],
             leftover: totals.leftover,
             income: totals.income,
             outflow,

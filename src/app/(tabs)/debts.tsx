@@ -27,10 +27,11 @@ import {
     filterBySearch,
     isDebtFullyPaidOff,
     isDebtInstallmentPaidAsOf,
+    isDebtSkippedInMonth,
     isDebtNotStartedAsOf,
 } from "@/utils/filters";
-import { router } from "expo-router";
-import { useMemo, useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+import { useEffect, useMemo, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { useDebt } from "../contexts/DebtsContext";
 import { useLocale } from "../contexts/LocaleContext";
@@ -68,6 +69,14 @@ export default function DebtsScreen({ embedded = false }: DebtsScreenProps) {
         [demoMode, storedDebts]
     );
     const today = useMemo(() => new Date(), []);
+    const params = useLocalSearchParams<{ add?: string }>();
+
+    useEffect(() => {
+        if (params.add === "1") {
+            setIsOpen(true);
+            router.setParams({ add: undefined });
+        }
+    }, [params.add]);
 
     const activeDebts = useMemo(
         () =>
@@ -134,10 +143,20 @@ export default function DebtsScreen({ embedded = false }: DebtsScreenProps) {
             !paidOff &&
             !notStarted &&
             isDebtInstallmentPaidAsOf(debt, today, payments);
+        const skippedThisMonth =
+            !paidOff &&
+            !notStarted &&
+            isDebtSkippedInMonth(debt.id, payments, today);
         const status =
             paidOff || notStarted
                 ? null
-                : dueCatalogStatus(debt.dueDay, paidThisMonth, today);
+                : dueCatalogStatus(
+                      debt.dueDay,
+                      paidThisMonth,
+                      today,
+                      3,
+                      skippedThisMonth
+                  );
         const meta = paidOff
             ? "Paid off"
             : notStarted
@@ -196,6 +215,8 @@ export default function DebtsScreen({ embedded = false }: DebtsScreenProps) {
                     <PageHeader
                         title="Debts"
                         subtitle="Installment plans — tap one to log or edit"
+                        backLabel="Plans"
+                        onBack={() => router.push("/(tabs)/plans")}
                     />
                 ) : null}
 
