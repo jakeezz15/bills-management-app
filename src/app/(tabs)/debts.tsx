@@ -10,6 +10,11 @@ import DebtForm from "@/components/DebtForm";
 import { FloatingAddButton } from "@/components/FloatingAddButton";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import { PageHeader } from "@/components/ui";
+import { WalkthroughAnchor } from "@/components/walkthrough/WalkthroughAnchor";
+import {
+    useWalkthroughPlansDemo,
+    walkthroughDebtDemo,
+} from "@/components/walkthrough";
 import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
 import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
 import { useStickyHero } from "@/hooks/useStickyHero";
@@ -22,9 +27,10 @@ import {
     filterBySearch,
     isDebtFullyPaidOff,
     isDebtInstallmentPaidAsOf,
+    isDebtSkippedInMonth,
     isDebtNotStartedAsOf,
 } from "@/utils/filters";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { useDebt } from "../contexts/DebtsContext";
@@ -56,8 +62,23 @@ export default function DebtsScreen({ embedded = false }: DebtsScreenProps) {
     const { formatMoney } = useLocale();
     const [isOpen, setIsOpen] = useState(false);
     const [query, setQuery] = useState("");
-    const { debts, payments, loading } = useDebt();
+    const { debts: storedDebts, payments, loading } = useDebt();
+    const demoMode = useWalkthroughPlansDemo("debts");
+    const debts = useMemo(
+        () => (demoMode ? walkthroughDebtDemo() : storedDebts),
+        [demoMode, storedDebts]
+    );
     const today = useMemo(() => new Date(), []);
+    const params = useLocalSearchParams<{ add?: string }>();
+    const openFromRoute = params.add === "1";
+    const formOpen = isOpen || openFromRoute;
+
+    const closeForm = () => {
+        setIsOpen(false);
+        if (openFromRoute) {
+            router.setParams({ add: undefined });
+        }
+    };
 
     const activeDebts = useMemo(
         () =>
@@ -124,10 +145,20 @@ export default function DebtsScreen({ embedded = false }: DebtsScreenProps) {
             !paidOff &&
             !notStarted &&
             isDebtInstallmentPaidAsOf(debt, today, payments);
+        const skippedThisMonth =
+            !paidOff &&
+            !notStarted &&
+            isDebtSkippedInMonth(debt.id, payments, today);
         const status =
             paidOff || notStarted
                 ? null
-                : dueCatalogStatus(debt.dueDay, paidThisMonth, today);
+                : dueCatalogStatus(
+                      debt.dueDay,
+                      paidThisMonth,
+                      today,
+                      3,
+                      skippedThisMonth
+                  );
         const meta = paidOff
             ? "Paid off"
             : notStarted
@@ -153,7 +184,10 @@ export default function DebtsScreen({ embedded = false }: DebtsScreenProps) {
                           ? "default"
                           : status ?? "default"
                 }
-                onPress={() => openDebt(debt.id)}
+                onPress={() => {
+                    if (demoMode) return;
+                    openDebt(debt.id);
+                }}
             />
         );
     };
@@ -183,25 +217,26 @@ export default function DebtsScreen({ embedded = false }: DebtsScreenProps) {
                     <PageHeader
                         title="Debts"
                         subtitle="Installment plans — tap one to log or edit"
+                        backLabel="Plans"
+                        onBack={() => router.push("/(tabs)/plans")}
                     />
                 ) : null}
 
-                {loading ? (
+                {loading && !demoMode ? (
                     <DashboardSkeleton />
                 ) : showHero ? (
                     <DashboardHero
                         kicker="Remaining"
                         value={heroValue}
-                        caption={heroCaption}
+                        caption={
+                            demoMode
+                                ? "Sample debts for this tour"
+                                : heroCaption
+                        }
                     />
                 ) : null}
 
-                <DebtForm
-                    visible={isOpen}
-                    onClose={() => {
-                        setIsOpen(false);
-                    }}
-                />
+                <DebtForm visible={formOpen} onClose={closeForm} />
 
                 {showHero && !loading ? (
                     <SearchField
@@ -212,7 +247,7 @@ export default function DebtsScreen({ embedded = false }: DebtsScreenProps) {
                     />
                 ) : null}
 
-                {debts.length === 0 && !loading && (
+                {debts.length === 0 && !loading && !demoMode && (
                     <DashboardEmpty
                         icon="card-outline"
                         title="No debts yet"
@@ -232,28 +267,38 @@ export default function DebtsScreen({ embedded = false }: DebtsScreenProps) {
                     />
                 )}
 
-                {activeListed.length > 0 ? (
-                    <View>
-                        <Text style={dashboard.sectionLabel}>Active</Text>
-                        <PlanGroup>{activeListed.map(renderDebt)}</PlanGroup>
-                    </View>
-                ) : null}
+                <WalkthroughAnchor id="plans-debts">
+                    {activeListed.length > 0 ? (
+                        <View>
+                            <Text style={dashboard.sectionLabel}>Active</Text>
+                            <PlanGroup>
+                                {activeListed.map(renderDebt)}
+                            </PlanGroup>
+                        </View>
+                    ) : null}
 
-                {upcomingListed.length > 0 ? (
-                    <View>
-                        <Text style={dashboard.sectionLabel}>Starts later</Text>
-                        <PlanGroup>{upcomingListed.map(renderDebt)}</PlanGroup>
-                    </View>
-                ) : null}
+                    {upcomingListed.length > 0 ? (
+                        <View>
+                            <Text style={dashboard.sectionLabel}>
+                                Starts later
+                            </Text>
+                            <PlanGroup>
+                                {upcomingListed.map(renderDebt)}
+                            </PlanGroup>
+                        </View>
+                    ) : null}
 
-                {paidOffListed.length > 0 ? (
-                    <View>
-                        <Text style={dashboard.sectionLabel}>Paid off</Text>
-                        <PlanGroup>{paidOffListed.map(renderDebt)}</PlanGroup>
-                    </View>
-                ) : null}
+                    {paidOffListed.length > 0 ? (
+                        <View>
+                            <Text style={dashboard.sectionLabel}>Paid off</Text>
+                            <PlanGroup>
+                                {paidOffListed.map(renderDebt)}
+                            </PlanGroup>
+                        </View>
+                    ) : null}
+                </WalkthroughAnchor>
             </ScrollView>
-            {!loading ? (
+            {!loading || demoMode ? (
                 <FloatingAddButton
                     onPress={openAdd}
                     accessibilityLabel="Add debt"

@@ -29,7 +29,8 @@ type SavingsContextValue = {
     addContribution: (
         savingsId: string,
         amount: number,
-        date?: string
+        date?: string,
+        accountId?: string
     ) => Promise<void>;
     undoContribution: (savingsId: string, asOfIso?: string) => Promise<void>;
     /** Undo one contribution row by id (lowers saved). */
@@ -96,7 +97,12 @@ export function SavingsProvider({ children }: { children: React.ReactNode }) {
     );
 
     const addContribution = useCallback(
-        async (savingsId: string, amount: number, date?: string) => {
+        async (
+            savingsId: string,
+            amount: number,
+            date?: string,
+            accountId?: string
+        ) => {
             if (amount <= 0) {
                 return;
             }
@@ -107,6 +113,7 @@ export function SavingsProvider({ children }: { children: React.ReactNode }) {
                 savingsId,
                 amount,
                 date: contributionDate,
+                ...(accountId ? { accountId } : {}),
                 ...stampCreate(),
             };
 

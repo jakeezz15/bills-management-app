@@ -1,16 +1,20 @@
+import { useAccounts } from "@/app/contexts/AccountsContext";
 import { useDebt } from "@/app/contexts/DebtsContext";
 import { useLocale } from "@/app/contexts/LocaleContext";
+import { AccountPicker } from "@/components/AccountPicker";
 import { DashboardHero } from "@/components/DashboardHero";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import DebtForm from "@/components/DebtForm";
 import { DetailHeroNav } from "@/components/DetailHeroNav";
 import { SettingsDivider, SettingsRow, SettingsSection } from "@/components/SettingsList";
+import { ensureCanDebit, useDebitLedger } from "@/hooks/useDebitLedger";
 import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
 import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
 import { useButtonStyle } from "@/styles/button-style";
 import { useDashboardStyles } from "@/styles/dashboard";
 import { useFormStyles } from "@/styles/form";
 import { text, theme } from "@/design";
+import { defaultInboundAccountId } from "@/utils/accounts";
 import { confirmDestructive } from "@/utils/confirm";
 import {
     formatDisplayDate,
@@ -24,6 +28,7 @@ import {
     isDebtNotStartedAsOf,
     dueCatalogLabel,
     dueCatalogStatus,
+    isDebtSkippedInMonth,
 } from "@/utils/filters";
 import { hapticConfirm, hapticUndo } from "@/utils/haptics";
 import { goBackOrReplace, paramFlag, paramId } from "@/utils/navigation";
@@ -52,6 +57,8 @@ export default function DebtDetailScreen() {
     };
 
     const { formatMoney } = useLocale();
+    const { accounts } = useAccounts();
+    const debitLedger = useDebitLedger();
     const {
         debts,
         payments,
@@ -59,9 +66,13 @@ export default function DebtDetailScreen() {
         recordPayment,
         undoPayment,
         undoPaymentById,
+        skipDebtThisMonth,
     } = useDebt();
     const [editing, setEditing] = useState(false);
     const [busy, setBusy] = useState(false);
+    const [accountId, setAccountId] = useState(() =>
+        defaultInboundAccountId(accounts)
+    );
 
     const debt = debts.find((item) => item.id === id);
     const today = useMemo(() => new Date(), []);
@@ -78,6 +89,9 @@ export default function DebtDetailScreen() {
 
     const paidThisMonth = debt
         ? isDebtInstallmentPaidAsOf(debt, today, payments)
+        : false;
+    const skippedThisMonth = debt
+        ? isDebtSkippedInMonth(debt.id, payments, today)
         : false;
     const paidOff = debt ? isDebtFullyPaidOff(debt) : false;
     const notStarted = debt ? isDebtNotStartedAsOf(debt, today) : false;
@@ -141,7 +155,13 @@ export default function DebtDetailScreen() {
     const status =
         paidOff || notStarted
             ? null
-            : dueCatalogStatus(debt.dueDay, paidThisMonth, today);
+            : dueCatalogStatus(
+                  debt.dueDay,
+                  paidThisMonth,
+                  today,
+                  3,
+                  skippedThisMonth
+              );
     const heroCaption = paidOff
         ? debt.paidOffDate
             ? `Paid off ${formatDisplayDate(debt.paidOffDate)}`
@@ -157,10 +177,45 @@ export default function DebtDetailScreen() {
         if (paidOff || paidThisMonth || busy) {
             return;
         }
+        const payAmount = Math.min(
+            Math.max(debt.minimumPayment, 0),
+            debt.balance
+        );
+        if (!(payAmount > 0)) {
+            return;
+        }
+        const potName =
+            accounts.find((account) => account.id === accountId)?.name ??
+            "Account";
+        if (
+            !ensureCanDebit({
+                accountId,
+                amount: payAmount,
+                asOfIso: todayIso,
+                accountName: potName,
+                ledger: debitLedger,
+                formatMoney: (value) => formatMoney(value, { compact: true }),
+            })
+        ) {
+            return;
+        }
         setBusy(true);
         try {
             hapticConfirm();
-            await recordPayment(debt.id, undefined, todayIso);
+            await recordPayment(debt.id, undefined, todayIso, accountId);
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const handleSkipMonth = async () => {
+        if (paidOff || paidThisMonth || notStarted || busy) {
+            return;
+        }
+        setBusy(true);
+        try {
+            hapticConfirm();
+            await skipDebtThisMonth(debt.id, todayIso);
         } finally {
             setBusy(false);
         }
@@ -214,10 +269,15 @@ export default function DebtDetailScreen() {
                     </View>
                 ) : paidThisMonth ? (
                     <View style={[form.actionCard, form.actionCardLead]}>
-                        <Text style={form.actionCardTitle}>Paid this month</Text>
+                        <Text style={form.actionCardTitle}>
+                            {skippedThisMonth
+                                ? "Skipped this month"
+                                : "Paid this month"}
+                        </Text>
                         <Text style={form.actionCardCaption}>
-                            This month’s installment is on the ledger. Undo if
-                            you marked it by mistake.
+                            {skippedThisMonth
+                                ? "Remaining is unchanged. Undo if you need to record a payment instead."
+                                : "This month’s installment is on the ledger. Undo if you marked it by mistake."}
                         </Text>
                         <Pressable
                             style={({ pressed }) => [
@@ -247,10 +307,19 @@ export default function DebtDetailScreen() {
                             {formatMoney(debt.minimumPayment)}. You can log this
                             any day — not only when it is due.
                         </Text>
+                        <View style={[form.field, { marginBottom: theme.space.md }]}>
+                            <Text style={form.label}>Paid from</Text>
+                            <AccountPicker
+                                value={accountId}
+                                onChange={setAccountId}
+                                title="Paid from"
+                            />
+                        </View>
                         <Pressable
                             style={({ pressed }) => [
                                 form.actionCardButton,
                                 pressed && buttonStyle.buttonPressed,
+                                form.actionCardButtonSpacer,
                                 busy && { opacity: 0.6 },
                             ]}
                             disabled={busy}
@@ -264,6 +333,26 @@ export default function DebtDetailScreen() {
                                 Record {formatMoney(debt.minimumPayment)}
                             </Text>
                         </Pressable>
+                        {!notStarted ? (
+                            <Pressable
+                                style={({ pressed }) => [
+                                    form.actionCardButton,
+                                    form.actionCardButtonMuted,
+                                    pressed && buttonStyle.buttonPressed,
+                                    busy && { opacity: 0.6 },
+                                ]}
+                                disabled={busy}
+                                onPress={() => {
+                                    void handleSkipMonth();
+                                }}
+                                accessibilityRole="button"
+                                accessibilityLabel="Skip this month"
+                            >
+                                <Text style={buttonStyle.buttonText}>
+                                    Skip this month
+                                </Text>
+                            </Pressable>
+                        ) : null}
                     </View>
                 )}
 
@@ -280,11 +369,19 @@ export default function DebtDetailScreen() {
                                 {index > 0 ? <SettingsDivider /> : null}
                                 <SettingsRow
                                     title={formatDisplayDate(payment.date)}
-                                    value={formatMoney(payment.amount)}
+                                    value={
+                                        payment.skipped
+                                            ? "Skipped"
+                                            : formatMoney(payment.amount)
+                                    }
                                     onPress={() => {
                                         confirmDestructive(
-                                            "Remove this payment?",
-                                            "The amount is added back to remaining.",
+                                            payment.skipped
+                                                ? "Remove this skip?"
+                                                : "Remove this payment?",
+                                            payment.skipped
+                                                ? "This month will show as unpaid again."
+                                                : "The amount is added back to remaining.",
                                             () => {
                                                 hapticUndo();
                                                 void undoPaymentById(payment.id);

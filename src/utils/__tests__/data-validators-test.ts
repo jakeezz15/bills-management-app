@@ -59,6 +59,10 @@ describe("parseStoredArray", () => {
                 name: "Coffee",
                 amount: 4.5,
                 date: "2026-09-01",
+                category: undefined,
+                accountId: "cash",
+                createdAt: undefined,
+                updatedAt: undefined,
             },
         ]);
     });
@@ -186,8 +190,56 @@ describe("parseAppBackup", () => {
         }
     });
 
-    it("rejects the wrong version", () => {
-        const result = parseAppBackup({ ...base, version: 2 });
+    it("accepts version 2 backups with accounts", () => {
+        const result = parseAppBackup({ ...base, version: 2, accounts: [], transfers: [] });
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+            expect(result.backup.accounts?.some((a) => a.id === "cash")).toBe(
+                true
+            );
+        }
+    });
+
+    it("accepts optional adjustments on a v2 backup", () => {
+        const result = parseAppBackup({
+            ...base,
+            version: 2,
+            accounts: [],
+            transfers: [],
+            adjustments: [
+                {
+                    id: "adj1",
+                    accountId: "cash",
+                    date: "2026-02-01",
+                    delta: 100,
+                },
+            ],
+        });
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+            expect(result.backup.adjustments).toHaveLength(1);
+            expect(result.backup.adjustments?.[0]?.delta).toBe(100);
+        }
+    });
+
+    it("rejects zero-delta adjustments", () => {
+        const result = parseAppBackup({
+            ...base,
+            version: 2,
+            adjustments: [
+                {
+                    id: "adj1",
+                    accountId: "cash",
+                    date: "2026-02-01",
+                    delta: 0,
+                },
+            ],
+        });
+        expect(result.ok).toBe(false);
+    });
+
+    it("rejects an unsupported version", () => {
+        const result = parseAppBackup({ ...base, version: 99 });
         expect(result.ok).toBe(false);
     });
 
@@ -242,6 +294,58 @@ describe("parseAppBackup", () => {
                 dueRemindersEnabled: true,
                 dueReminderHour: 9,
                 dueReminderLeadDays: 3,
+                dueReminderSoundEnabled: true,
+                dueReminderVibrateEnabled: true,
+                dueReminderAlertStyle: "default",
+            });
+        }
+    });
+
+    it("fills delivery defaults when older prefs omit them", () => {
+        const result = parseAppBackup({
+            ...base,
+            prefs: {
+                currencyCode: "USD",
+                dueRemindersEnabled: false,
+                dueReminderHour: 8,
+                dueReminderLeadDays: 1,
+            },
+        });
+
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+            expect(result.prefs).toEqual({
+                currencyCode: "USD",
+                dueRemindersEnabled: false,
+                dueReminderHour: 8,
+                dueReminderLeadDays: 1,
+                dueReminderSoundEnabled: true,
+                dueReminderVibrateEnabled: true,
+                dueReminderAlertStyle: "default",
+            });
+        }
+    });
+
+    it("keeps delivery prefs when present in the backup", () => {
+        const result = parseAppBackup({
+            ...base,
+            prefs: {
+                currencyCode: "USD",
+                dueRemindersEnabled: true,
+                dueReminderHour: 9,
+                dueReminderLeadDays: 3,
+                dueReminderSoundEnabled: false,
+                dueReminderVibrateEnabled: false,
+                dueReminderAlertStyle: "prominent",
+            },
+        });
+
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+            expect(result.prefs).toMatchObject({
+                dueReminderSoundEnabled: false,
+                dueReminderVibrateEnabled: false,
+                dueReminderAlertStyle: "prominent",
             });
         }
     });

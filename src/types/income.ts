@@ -10,4 +10,9 @@ export interface Income extends Timestamps {
     source: string;
     /** How often this paycheck repeats. Missing means a one-off. */
     payCadence?: PayCadence;
+    /**
+     * Money pot this paycheck landed in.
+     * Missing on older records → treated as Cash on load.
+     */
+    accountId?: string;
 }

@@ -170,7 +170,7 @@ function DebtEditor({ visible, onClose, debt }: DebtFormProps) {
                     <Text style={form.switchTitle}>Remind me</Text>
                     <Text style={form.switchCaption}>
                         {remind
-                            ? "Uses the time and lead from Settings"
+                            ? "Daily from Settings lead through due and 5 days after while unpaid"
                             : "No alert for this debt"}
                     </Text>
                 </View>

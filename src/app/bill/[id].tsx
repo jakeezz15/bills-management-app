@@ -1,5 +1,7 @@
+import { useAccounts } from "@/app/contexts/AccountsContext";
 import { useBills } from "@/app/contexts/BillsContext";
 import { useLocale } from "@/app/contexts/LocaleContext";
+import { AccountPicker } from "@/components/AccountPicker";
 import BillForm from "@/components/BillForm";
 import { DashboardHero } from "@/components/DashboardHero";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
@@ -10,12 +12,14 @@ import {
     SettingsSection,
 } from "@/components/SettingsList";
 import { text, theme } from "@/design";
+import { ensureCanDebit, useDebitLedger } from "@/hooks/useDebitLedger";
 import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
 import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
 import { useButtonStyle } from "@/styles/button-style";
 import { useDashboardStyles } from "@/styles/dashboard";
 import { useFormColors, useFormStyles } from "@/styles/form";
 import { parseMoneyInput } from "@/utils/amount-input";
+import { defaultInboundAccountId } from "@/utils/accounts";
 import { confirmDestructive } from "@/utils/confirm";
 import {
     formatDisplayDate,
@@ -61,6 +65,8 @@ export default function BillDetailScreen() {
 
     const { currency, formatMoney } = useLocale();
     const symbol = currencySymbol(currency);
+    const { accounts } = useAccounts();
+    const debitLedger = useDebitLedger();
     const {
         bills,
         payments,
@@ -76,6 +82,9 @@ export default function BillDetailScreen() {
     const [logError, setLogError] = useState(false);
     const [focused, setFocused] = useState(false);
     const [logSeedKey, setLogSeedKey] = useState("");
+    const [accountId, setAccountId] = useState(() =>
+        defaultInboundAccountId(accounts)
+    );
 
     const bill = bills.find((item) => item.id === id);
     const today = useMemo(() => new Date(), []);
@@ -205,16 +214,36 @@ export default function BillDetailScreen() {
         if (paidThisMonth || busy) {
             return;
         }
+        const payAmount = bill.amountVaries
+            ? parseMoneyInput(logAmount)
+            : bill.amount;
+        if (bill.amountVaries && payAmount === null) {
+            setLogError(true);
+            return;
+        }
+        if (payAmount === null || !(payAmount > 0)) {
+            return;
+        }
+        const potName =
+            accounts.find((account) => account.id === accountId)?.name ??
+            "Account";
+        if (
+            !ensureCanDebit({
+                accountId,
+                amount: payAmount,
+                asOfIso: todayIso,
+                accountName: potName,
+                ledger: debitLedger,
+                formatMoney: (value) => formatMoney(value, { compact: true }),
+            })
+        ) {
+            return;
+        }
         if (bill.amountVaries) {
-            const amount = parseMoneyInput(logAmount);
-            if (amount === null) {
-                setLogError(true);
-                return;
-            }
             setBusy(true);
             try {
                 hapticConfirm();
-                await toggleBillPaid(bill.id, todayIso, amount);
+                await toggleBillPaid(bill.id, todayIso, payAmount, accountId);
                 setLogError(false);
             } finally {
                 setBusy(false);
@@ -224,7 +253,7 @@ export default function BillDetailScreen() {
         setBusy(true);
         try {
             hapticConfirm();
-            await toggleBillPaid(bill.id, todayIso);
+            await toggleBillPaid(bill.id, todayIso, undefined, accountId);
             setLogError(false);
         } finally {
             setBusy(false);
@@ -238,6 +267,24 @@ export default function BillDetailScreen() {
         const amount = parseMoneyInput(logAmount);
         if (amount === null) {
             setLogError(true);
+            return;
+        }
+        const potName =
+            accounts.find((account) => account.id === accountId)?.name ??
+            "Account";
+        if (
+            !ensureCanDebit({
+                accountId,
+                amount,
+                asOfIso: todayIso,
+                accountName: potName,
+                ledger: debitLedger,
+                exclude: monthPayment
+                    ? { billPaymentId: monthPayment.id }
+                    : undefined,
+                formatMoney: (value) => formatMoney(value, { compact: true }),
+            })
+        ) {
             return;
         }
         setBusy(true);
@@ -441,6 +488,14 @@ export default function BillDetailScreen() {
                                 ) : null}
                             </>
                         ) : null}
+                        <View style={[form.field, { marginBottom: theme.space.md }]}>
+                            <Text style={form.label}>Paid from</Text>
+                            <AccountPicker
+                                value={accountId}
+                                onChange={setAccountId}
+                                title="Paid from"
+                            />
+                        </View>
                         <Pressable
                             style={({ pressed }) => [
                                 form.actionCardButton,

@@ -70,6 +70,7 @@ This app is a personal tracker, not a bank, tax tool, or financial advice.
 - Export / import JSON backup; reset all finance data (stays empty)
 - Optional Google sign-in + Firestore cloud sync (upload / download; first-link keep device or use cloud)
 - Settings hub with Account, Notifications, General, Data, About
+- Month statement — bank-style in/out ledger for a calendar month (opening/closing balance, dated transactions); open from Home or Settings → Data; export as a branded PDF statement of account
 
 ---
 
@@ -83,6 +84,7 @@ This app is a personal tracker, not a bank, tax tool, or financial advice.
 - In-app “delete my cloud account” button (request deletion via support — see Privacy)
 - Tablet / large-screen layout (phone-first in 2.0.0; planned for a later 2.x)
 - Seed demo data (Metro / `__DEV__` only — not in production Settings)
+- Image share of the month statement (PDF export is available)
 
 ---
 
@@ -96,6 +98,8 @@ Agreed direction for a future reminders pass (local notifications; optional togg
 Daily “log spending?” habit nudge is lower priority than the two above.
 
 3. **Check for updates (Settings)** — after closed testing settles: EAS Update for JS/UI OTA + Settings row; optional Play store version check for mandatory binary bumps. Skip while closed-test AABs are the update channel.
+4. **About: what’s new** — when an update ships, surface those release notes on the Settings **About** page so users can see what changed (version + short changelog), not only that an update exists.
+5. **Swipe to delete on list rows** — Income, Spending, Bills, Savings, and Debts: swipe a row to delete (with confirm), so cleanup doesn’t require opening the detail screen every time.
 
 ---
 
@@ -111,6 +115,7 @@ Use a **production** build (not the development client). Capture phone screensho
 6. **Plans → Savings** — a goal with progress
 7. **Plans → Debts** — a loan with a logged payment
 8. **Settings / Account** — guest vs signed-in, or Data backup (no Development section in production)
+9. **Month statement** — opening/closing balance + dated transaction list; export PDF statement of account
 
 **Feature graphic (Play):** dark slate `#0F172A`, leftover amount, short line “What’s left?”
 
@@ -132,7 +137,7 @@ Update the questionnaire for this version. Guest-only use stays on-device; signe
 | Users can request deletion? | Reset / uninstall for device data; **contact support** to delete cloud account + sync snapshot |
 | Children? | Not directed at children |
 
-**Permissions / features to declare:** notifications (optional due-day reminders); Google account (optional); files/sharing when the user exports or imports a backup.
+**Permissions / features to declare:** notifications (optional due-day reminders); Google account (optional); files/sharing when the user exports or imports a backup, or exports a month statement PDF.
 
 ---
 

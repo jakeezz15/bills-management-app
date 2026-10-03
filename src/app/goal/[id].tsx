@@ -1,5 +1,7 @@
+import { useAccounts } from "@/app/contexts/AccountsContext";
 import { useLocale } from "@/app/contexts/LocaleContext";
 import { useSavings } from "@/app/contexts/SavingsContext";
+import { AccountPicker } from "@/components/AccountPicker";
 import { DashboardHero } from "@/components/DashboardHero";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import { DateField } from "@/components/DateField";
@@ -10,12 +12,14 @@ import {
     SettingsRow,
     SettingsSection,
 } from "@/components/SettingsList";
+import { ensureCanDebit, useDebitLedger } from "@/hooks/useDebitLedger";
 import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
 import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
 import { useButtonStyle } from "@/styles/button-style";
 import { useDashboardStyles } from "@/styles/dashboard";
 import { useFormStyles, useFormColors } from "@/styles/form";
 import { text, theme } from "@/design";
+import { defaultInboundAccountId } from "@/utils/accounts";
 import { confirmDestructive } from "@/utils/confirm";
 import { parseMoneyInput } from "@/utils/amount-input";
 import {
@@ -49,6 +53,8 @@ export default function SavingsGoalScreen() {
 
     const { currency, formatMoney } = useLocale();
     const symbol = currencySymbol(currency);
+    const { accounts } = useAccounts();
+    const debitLedger = useDebitLedger();
     const {
         savings,
         contributions,
@@ -64,6 +70,9 @@ export default function SavingsGoalScreen() {
     const [logError, setLogError] = useState(false);
     const [focused, setFocused] = useState(false);
     const [logSeedKey, setLogSeedKey] = useState("");
+    const [accountId, setAccountId] = useState(() =>
+        defaultInboundAccountId(accounts)
+    );
 
     const goal = savings.find((item) => item.id === id);
     const today = useMemo(() => new Date(), []);
@@ -151,10 +160,25 @@ export default function SavingsGoalScreen() {
             setLogError(true);
             return;
         }
+        const potName =
+            accounts.find((account) => account.id === accountId)?.name ??
+            "Account";
+        if (
+            !ensureCanDebit({
+                accountId,
+                amount,
+                asOfIso: logDate.trim(),
+                accountName: potName,
+                ledger: debitLedger,
+                formatMoney: (value) => formatMoney(value, { compact: true }),
+            })
+        ) {
+            return;
+        }
         setBusy(true);
         try {
             hapticConfirm();
-            await addContribution(goal.id, amount, logDate.trim());
+            await addContribution(goal.id, amount, logDate.trim(), accountId);
             setLogError(false);
             setLogDate(todayIso);
         } finally {
@@ -261,6 +285,14 @@ export default function SavingsGoalScreen() {
                             onChange={setLogDate}
                             hasError={logError && parseIsoDate(logDate) === null}
                             errorMessage="Choose a valid date."
+                        />
+                    </View>
+                    <View style={form.field}>
+                        <Text style={form.label}>Paid from</Text>
+                        <AccountPicker
+                            value={accountId}
+                            onChange={setAccountId}
+                            title="Paid from"
                         />
                     </View>
                     {(() => {

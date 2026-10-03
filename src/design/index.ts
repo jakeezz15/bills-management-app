@@ -6,4 +6,5 @@ export {
     getAccentPreset,
     isAccentId,
 } from "./accents";
+export { ACCOUNT_COLORS } from "./account-colors";
 export { text, elevation } from "./typography";

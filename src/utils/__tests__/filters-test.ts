@@ -12,6 +12,8 @@ import {
     getLastBillPayment,
     isDebtFullyPaidOff,
     isDebtInstallmentPaidAsOf,
+    getPlanDueOffset,
+    isBillNotStartedAsOf,
     isDebtNotStartedAsOf,
     isDebtVisibleAsOf,
 } from "@/utils/filters";
@@ -219,6 +221,33 @@ describe("isDebtNotStartedAsOf", () => {
     it("has started on the start date", () => {
         const debt = makeDebt({ startDate: "2026-03-01" });
         expect(isDebtNotStartedAsOf(debt, new Date(2026, 2, 1))).toBe(false);
+    });
+});
+
+describe("isBillNotStartedAsOf", () => {
+    it("treats missing startDate as already active", () => {
+        expect(isBillNotStartedAsOf(makeBill(), new Date(2026, 1, 1))).toBe(
+            false
+        );
+    });
+
+    it("is upcoming before an explicit start date", () => {
+        const bill = makeBill({ startDate: "2026-04-01" });
+        expect(isBillNotStartedAsOf(bill, new Date(2026, 2, 15))).toBe(true);
+    });
+});
+
+describe("getPlanDueOffset", () => {
+    it("returns null before the plan starts", () => {
+        expect(
+            getPlanDueOffset(5, new Date(2026, 2, 10), "2026-03-15")
+        ).toBeNull();
+    });
+
+    it("points at the next due after a mid-month start", () => {
+        expect(getPlanDueOffset(5, new Date(2026, 2, 16), "2026-03-15")).toBe(
+            20
+        );
     });
 });
 

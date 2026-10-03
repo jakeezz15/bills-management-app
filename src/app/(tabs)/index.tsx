@@ -1,16 +1,17 @@
-import { AppButton } from "@/components/AppButton";
 import { DashboardEmpty } from "@/components/DashboardEmpty";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import { Bone } from "@/components/Skeleton";
 import { DashboardHeroCompact } from "@/components/DashboardHero";
 import { AnimatedMoneyText } from "@/components/AnimatedMoneyText";
 import { StickyHeroBar } from "@/components/StickyHeroBar";
-import { HeroPeriodNav } from "@/components/HeroPeriodNav";
 import { DueNowBadgeButton, DueNowModal } from "@/components/DueNowModal";
-import { FirstRunCoach } from "@/components/FirstRunCoach";
-import { MonthGrid } from "@/components/MonthGrid";
 import { MonthTrendChart, SpendByCategoryChart } from "@/components/HomeCharts";
-import { SegmentControl } from "@/components/SegmentControl";
+import { WalkthroughAnchor } from "@/components/walkthrough/WalkthroughAnchor";
+import {
+    useWalkthroughOptional,
+    WALKTHROUGH_HOME_DEMO,
+    WALKTHROUGH_DUE_DEMO,
+} from "@/components/walkthrough";
 import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
 import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
 import { useStickyHero } from "@/hooks/useStickyHero";
@@ -18,31 +19,18 @@ import { useDueNowInbox } from "@/hooks/useDueNowInbox";
 import { useDashboardStyles } from "@/styles/dashboard";
 import { text, theme } from "@/design";
 import {
-    hasCompletedFirstRun,
-    markFirstRunComplete,
-} from "@/services/storage";
-import {
-    calendarDaysBetween,
-    isViewingCurrentPeriod,
-    PERIOD_UNITS,
-    PERIOD_UNIT_LABELS,
-    parseIsoDate,
-    startOfMonth,
-} from "@/utils/date";
-import {
     getActivityForRange,
     getCommittedForMonth,
-    getCommittedInRange,
     getExpenseSpendByCategory,
     getMonthlyTrend,
     getTotalsForRange,
 } from "@/utils/finance";
+import { getAccountSplitThrough } from "@/utils/account-balances";
 import { takeOpenDuesOnHome } from "@/utils/navigation";
-import { resolvePayCycle } from "@/utils/pay-cycle";
-import Ionicons from "@react-native-vector-icons/ionicons";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useAccounts } from "../contexts/AccountsContext";
 import { useBills } from "../contexts/BillsContext";
 import { useDateRange } from "../contexts/DateRangeContext";
 import { useDebt } from "../contexts/DebtsContext";
@@ -50,15 +38,8 @@ import { useExpenses } from "../contexts/ExpensesContext";
 import { useIncome } from "../contexts/IncomeContext";
 import { useLocale } from "../contexts/LocaleContext";
 import { useSavings } from "../contexts/SavingsContext";
-import { useTheme } from "../contexts/ThemeContext";
-
-const UNIT_OPTIONS = [
-    ...PERIOD_UNITS.map((unit) => PERIOD_UNIT_LABELS[unit]),
-    "Payday",
-];
 
 export default function HomeScreen() {
-    const { theme: accentTheme } = useTheme();
     const dashboard = useDashboardStyles();
     // The masthead is a dark band, so the clock needs to be light.
     useStatusBarStyle("light");
@@ -74,37 +55,35 @@ export default function HomeScreen() {
         loading: savingsLoading,
     } = useSavings();
     const {
-        periodUnit,
-        range,
-        label,
-        setPeriodUnit,
-        shiftPeriod,
-        resetToToday,
-        selectDay,
-        anchorIso,
-    } = useDateRange();
-    const [payMode, setPayMode] = useState(false);
-    const [payOffset, setPayOffset] = useState(0);
-    const [duesOpen, setDuesOpen] = useState(false);
-    const [coachOpen, setCoachOpen] = useState(false);
+        accounts,
+        transfers,
+        adjustments,
+        loading: accountsLoading,
+    } = useAccounts();
+    const { periodUnit, range } = useDateRange();
+    const [duesOpenUser, setDuesOpenUser] = useState(false);
+    const scrollRef = useRef<ScrollView>(null);
+    const walkthrough = useWalkthroughOptional();
+    const walkthroughRunning = walkthrough?.phase === "running";
+    const walkthroughWantsDues =
+        walkthroughRunning && walkthrough?.activeId === "home-due";
+    // Walkthrough owns the modal while a tour is running; otherwise the user does.
+    const duesOpen = walkthroughRunning
+        ? Boolean(walkthroughWantsDues)
+        : duesOpenUser;
 
     const loading =
         incomeLoading ||
         expensesLoading ||
         billsLoading ||
         debtsLoading ||
-        savingsLoading;
-
-    const payCycle = useMemo(
-        () => (payMode ? resolvePayCycle(income, new Date(), payOffset) : null),
-        [payMode, income, payOffset]
-    );
-    const homeRange = payCycle?.range ?? range;
+        savingsLoading ||
+        accountsLoading;
 
     const totals = useMemo(
         () =>
             getTotalsForRange(
-                homeRange,
+                range,
                 expenses,
                 bills,
                 debts,
@@ -115,7 +94,7 @@ export default function HomeScreen() {
                 savingsContributions
             ),
         [
-            homeRange,
+            range,
             expenses,
             bills,
             debts,
@@ -130,7 +109,7 @@ export default function HomeScreen() {
     const activity = useMemo(
         () =>
             getActivityForRange(
-                homeRange,
+                range,
                 expenses,
                 bills,
                 debts,
@@ -141,7 +120,7 @@ export default function HomeScreen() {
                 savingsContributions
             ),
         [
-            homeRange,
+            range,
             expenses,
             bills,
             debts,
@@ -153,93 +132,53 @@ export default function HomeScreen() {
         ]
     );
 
-    const committed = useMemo(() => {
-        if (payCycle) {
-            return getCommittedInRange(
-                payCycle.range,
+    const committed = useMemo(
+        () =>
+            getCommittedForMonth(
+                range.end,
                 bills,
                 billPayments,
                 debts,
-                debtPayments,
-                new Date()
-            );
-        }
-        return getCommittedForMonth(
-            range.end,
-            bills,
-            billPayments,
-            debts,
-            debtPayments
-        );
-    }, [
-        payCycle,
-        range.end,
-        bills,
-        billPayments,
-        debts,
-        debtPayments,
-    ]);
+                debtPayments
+            ),
+        [range.end, bills, billPayments, debts, debtPayments]
+    );
 
-    const lines: {
+    const incomeLine = {
+        label: "Income",
+        value: activity.income,
+        href: "/(tabs)/activity" as const,
+    };
+    const outLines: {
         label: string;
         value: number;
-        sign: "+" | "−";
-        href: "/(tabs)/activity" | "/(tabs)/plans";
+        href: "/(tabs)/activity" | "/(tabs)/bills" | "/(tabs)/savings" | "/(tabs)/debts";
     }[] = [
-        {
-            label: "Income",
-            value: activity.income,
-            sign: "+" as const,
-            href: "/(tabs)/activity",
-        },
         {
             label: "Spending",
             value: activity.expenses,
-            sign: "−" as const,
             href: "/(tabs)/activity",
         },
         {
             label: "Bills",
             value: activity.bills,
-            sign: "−" as const,
-            href: "/(tabs)/plans",
+            href: "/(tabs)/bills",
         },
         {
             label: "Debt payments",
             value: activity.debtPayments,
-            sign: "−" as const,
-            href: "/(tabs)/plans",
+            href: "/(tabs)/debts",
         },
         {
             label: "Savings",
             value: activity.savings,
-            sign: "−" as const,
-            href: "/(tabs)/plans",
+            href: "/(tabs)/savings",
         },
     ];
 
-    const maxLine = Math.max(...lines.map((line) => line.value), 1);
-
-    const markedIso = useMemo(() => {
-        const dates = [
-            ...income.map((item) => item.date),
-            ...expenses.map((item) => item.date),
-            ...billPayments.map((item) => item.date),
-            ...debtPayments.map((item) => item.date),
-            ...savingsContributions.map((item) => item.date),
-        ];
-        return new Set(dates);
-    }, [
-        income,
-        expenses,
-        billPayments,
-        debtPayments,
-        savingsContributions,
-    ]);
-
     const categorySpend = useMemo(
-        () => getExpenseSpendByCategory(expenses, homeRange),
-        [expenses, homeRange]
+        () => getExpenseSpendByCategory(expenses, range),
+        [expenses, range]
     );
 
     const monthTrend = useMemo(
@@ -272,151 +211,110 @@ export default function HomeScreen() {
     useFocusEffect(
         useCallback(() => {
             if (takeOpenDuesOnHome()) {
-                setDuesOpen(true);
+                setDuesOpenUser(true);
             }
-            void hasCompletedFirstRun().then((done) => {
-                if (!done) {
-                    setCoachOpen(true);
-                }
-            });
         }, [])
     );
 
-    const dismissCoach = () => {
-        setCoachOpen(false);
-        void markFirstRunComplete();
-    };
+    useEffect(() => {
+        const id = walkthrough?.activeId;
+        if (!id) return;
+        if (id === "home-leftover" || id === "home-due") {
+            scrollRef.current?.scrollTo({ y: 0, animated: true });
+        } else if (id === "home-breakdown") {
+            setTimeout(() => {
+                scrollRef.current?.scrollTo({ y: 120, animated: true });
+            }, 80);
+        }
+    }, [walkthrough?.activeId]);
 
     const { collapsed, scrollProps } = useStickyHero({
-        collapseAt: 140,
-        expandAt: 48,
+        collapseAt: 100,
+        expandAt: 40,
     });
     const topPadding = useScreenTopPadding();
     // The pinned bar is chrome, not a page header, so it hugs the status bar.
     const stickyTopPadding = useScreenTopPadding(theme.space.sm);
     const available = totals.leftover - committed.total;
-    const leftoverLabel = formatMoney(totals.leftover, { compact: true });
-    const availableLabel = formatMoney(available, { compact: true });
-    const needsFirstPaycheck = !loading && income.length === 0;
-    const usingPayNav = Boolean(payMode && payCycle);
-    const dueSoonWithinDays =
-        payMode && payCycle && payOffset === 0
-            ? Math.max(
-                  0,
-                  calendarDaysBetween(new Date(), payCycle.nextPayday) - 1
-              )
-            : undefined;
-    const { count: dueCount } = useDueNowInbox(dueSoonWithinDays);
-    const openDues = () => setDuesOpen(true);
-    const payLabel = payCycle
-        ? `Until ${payCycle.nextPayday.toLocaleDateString(undefined, {
-              weekday: "short",
-              month: "short",
-              day: "numeric",
-          })}`
-        : label;
-    const daysUntilPayday = payCycle
-        ? Math.max(1, calendarDaysBetween(new Date(), payCycle.nextPayday))
-        : 0;
-    const dailyLeftover =
-        daysUntilPayday > 0 ? totals.leftover / daysUntilPayday : 0;
-    const dailyLabel = formatMoney(dailyLeftover, { compact: true });
-    const viewingCurrentPeriod = usingPayNav
-        ? payOffset === 0
-        : isViewingCurrentPeriod(range, periodUnit);
-    const periodNav = (forCompact: boolean) => (
-        <HeroPeriodNav
-            label={usingPayNav ? payLabel : label}
-            onShift={
-                usingPayNav
-                    ? (delta) => {
-                          setPayOffset((offset) => offset + delta);
-                      }
-                    : shiftPeriod
-            }
-            onResetToToday={
-                usingPayNav
-                    ? () => {
-                          setPayOffset(0);
-                      }
-                    : resetToToday
-            }
-            isCurrentPeriod={viewingCurrentPeriod}
-            style={
-                forCompact
-                    ? { marginTop: theme.space.sm }
-                    : { marginTop: 0, flex: 1 }
-            }
-        />
+    const walkthroughHomeDemo =
+        walkthrough?.phase === "running" &&
+        typeof walkthrough.activeId === "string" &&
+        walkthrough.activeId.startsWith("home-");
+    const displayLeftover = walkthroughHomeDemo
+        ? WALKTHROUGH_HOME_DEMO.leftover
+        : totals.leftover;
+    const leftoverLabel = formatMoney(displayLeftover, { compact: true });
+    const accountSplit = useMemo(
+        () =>
+            getAccountSplitThrough(
+                range,
+                accounts,
+                income,
+                expenses,
+                billPayments,
+                debtPayments,
+                savingsContributions,
+                transfers,
+                adjustments
+            ),
+        [
+            range,
+            accounts,
+            income,
+            expenses,
+            billPayments,
+            debtPayments,
+            savingsContributions,
+            transfers,
+            adjustments,
+        ]
     );
+    const accountSplitLabel = walkthroughHomeDemo
+        ? "Cash · Online"
+        : `Cash: ${formatMoney(accountSplit.cash, { compact: true })}  |  Online: ${formatMoney(accountSplit.online, { compact: true })}`;
+    const availableLabel = formatMoney(
+        walkthroughHomeDemo
+            ? WALKTHROUGH_HOME_DEMO.leftover -
+                  WALKTHROUGH_HOME_DEMO.lines.Bills -
+                  WALKTHROUGH_HOME_DEMO.lines["Debt payments"]
+            : available,
+        { compact: true }
+    );
+    const needsFirstPaycheck =
+        !loading && income.length === 0 && !walkthroughHomeDemo;
+    const { count: dueCount } = useDueNowInbox();
+    const displayDueCount = walkthroughHomeDemo
+        ? WALKTHROUGH_HOME_DEMO.dueCount
+        : dueCount;
+    const openDues = () => setDuesOpenUser(true);
 
-    const selectUnit = (value: string) => {
-        if (value === "Payday") {
-            setPayMode(true);
-            setPayOffset(0);
-            return;
-        }
-        setPayMode(false);
-        setPayOffset(0);
-        const next = PERIOD_UNITS.find(
-            (unit) => PERIOD_UNIT_LABELS[unit] === value
-        );
-        if (next) {
-            setPeriodUnit(next);
-        }
-    };
-
-    const pickDay = (iso: string) => {
-        setPayMode(false);
-        setPayOffset(0);
-        selectDay(iso);
-    };
-
-    const leftoverOkay = totals.leftover >= 0;
-    const availableOkay = available >= 0;
-    const activityNetOkay = activity.leftover >= 0;
-    const activityNetLabel = formatMoney(activity.leftover, { compact: true });
-    const activitySectionTitle = payCycle
-        ? "This pay cycle"
-        : periodUnit === "day"
-          ? "This day"
-          : periodUnit === "week"
-            ? "This week"
-            : periodUnit === "year"
-              ? "This year"
-              : "This month";
-
-    // Variable bills carry no amount until they're logged, so say so rather
-    // than let "available" read as the whole picture.
-    const unknownNote =
-        committed.unknownCount > 0
-            ? ` · ${committed.unknownCount} open ${
-                  committed.unknownCount === 1 ? "bill" : "bills"
-              } not counted yet`
-            : "";
-
-    const heroCaption = (() => {
-        if (payMode && !payCycle) {
-            return "Set weekly, every 2 weeks, or monthly on a paycheck.";
-        }
-        const dailyBit =
-            payCycle && daysUntilPayday > 0 ? ` · ${dailyLabel} / day` : "";
-        if (bills.length === 0 && debts.length === 0) {
-            return (
-                (leftoverOkay
-                    ? "Income covers everything logged so far"
-                    : "Outflows are higher than income received so far") +
-                dailyBit
-            );
-        }
-        const dueWindow = payCycle ? "before payday" : "this month";
-        if (committed.total > 0) {
-            return `${formatMoney(committed.total, {
-                compact: true,
-            })} still due ${dueWindow} — not in leftover until paid${unknownNote}${dailyBit}`;
-        }
-        return `Everything due ${dueWindow} is paid${unknownNote}${dailyBit}`;
-    })();
+    const leftoverOkay = displayLeftover >= 0;
+    const availableOkay = walkthroughHomeDemo ? true : available >= 0;
+    const showDuesPrediction =
+        committed.total > 0 || walkthroughHomeDemo;
+    const displayIncome = walkthroughHomeDemo
+        ? WALKTHROUGH_HOME_DEMO.lines.Income
+        : incomeLine.value;
+    const displayOutLines = outLines.map((line) => ({
+        ...line,
+        value: walkthroughHomeDemo
+            ? WALKTHROUGH_HOME_DEMO.lines[
+                  line.label as keyof typeof WALKTHROUGH_HOME_DEMO.lines
+              ] ?? line.value
+            : line.value,
+    }));
+    const displayOutTotal = displayOutLines.reduce(
+        (sum, line) => sum + line.value,
+        0
+    );
+    const activitySectionTitle =
+        periodUnit === "day"
+            ? "This day"
+            : periodUnit === "week"
+              ? "This week"
+              : periodUnit === "year"
+                ? "This year"
+                : "This month";
 
     return (
         <View style={dashboard.screen}>
@@ -430,23 +328,23 @@ export default function HomeScreen() {
                     <DashboardHeroCompact
                         kicker="Leftover"
                         value={leftoverLabel}
-                        amount={totals.leftover}
+                        amount={displayLeftover}
                         formatAmount={(n) =>
                             formatMoney(n, { compact: true })
                         }
                         trailing={
                             <DueNowBadgeButton
-                                count={dueCount}
+                                count={displayDueCount}
                                 onPress={openDues}
                                 tone="default"
                             />
                         }
-                        pace={periodNav(true)}
                     />
                 </StickyHeroBar>
             ) : null}
 
             <ScrollView
+                ref={scrollRef}
                 style={dashboard.list}
                 contentContainerStyle={styles.scroll}
                 {...scrollProps}
@@ -472,38 +370,71 @@ export default function HomeScreen() {
                                 tone="inverse"
                                 style={{ marginTop: theme.space.sm }}
                             />
-                            <View style={styles.mastNav}>
-                                <Bone
-                                    width="36%"
-                                    height={theme.lineHeight.xs}
-                                    tone="inverse"
-                                />
-                            </View>
                         </View>
                     ) : (
                         <>
                     <View style={styles.mastEyebrow}>
                         <Text style={styles.mastKicker}>Leftover</Text>
-                        <DueNowBadgeButton
-                            count={dueCount}
-                            onPress={openDues}
-                            tone="inverse"
-                        />
+                        <WalkthroughAnchor id="home-due">
+                            <DueNowBadgeButton
+                                count={displayDueCount}
+                                onPress={openDues}
+                                tone="inverse"
+                            />
+                        </WalkthroughAnchor>
                     </View>
-                    <AnimatedMoneyText
-                        amount={totals.leftover}
-                        format={(n) => formatMoney(n, { compact: true })}
-                        style={[
-                            styles.mastAmount,
-                            !leftoverOkay
-                                ? { color: theme.intent.negative.fg }
-                                : null,
-                        ]}
-                        accessibilityRole="header"
-                    />
-                    <Text style={styles.mastCaption}>{heroCaption}</Text>
-
-                    <View style={styles.mastNav}>{periodNav(false)}</View>
+                    <WalkthroughAnchor id="home-leftover">
+                        <AnimatedMoneyText
+                            amount={displayLeftover}
+                            format={(n) => formatMoney(n, { compact: true })}
+                            style={[
+                                styles.mastAmount,
+                                !leftoverOkay
+                                    ? { color: theme.intent.negative.fg }
+                                    : null,
+                            ]}
+                            accessibilityRole="header"
+                        />
+                    </WalkthroughAnchor>
+                    <Pressable
+                        style={styles.mastSplit}
+                        accessibilityLabel={accountSplitLabel}
+                        accessibilityRole="button"
+                        accessibilityHint="Opens transfer"
+                        onPress={() => {
+                            if (!walkthroughHomeDemo) {
+                                router.push("/transfer");
+                            }
+                        }}
+                        disabled={walkthroughHomeDemo}
+                    >
+                        <View style={styles.mastSplitCell}>
+                            <Text style={styles.mastSplitLabel}>Cash</Text>
+                            <Text
+                                style={styles.mastSplitValue}
+                                numberOfLines={1}
+                            >
+                                {walkthroughHomeDemo
+                                    ? "—"
+                                    : formatMoney(accountSplit.cash, {
+                                          compact: true,
+                                      })}
+                            </Text>
+                        </View>
+                        <View style={styles.mastSplitCell}>
+                            <Text style={styles.mastSplitLabel}>Online</Text>
+                            <Text
+                                style={styles.mastSplitValue}
+                                numberOfLines={1}
+                            >
+                                {walkthroughHomeDemo
+                                    ? "—"
+                                    : formatMoney(accountSplit.online, {
+                                          compact: true,
+                                      })}
+                            </Text>
+                        </View>
+                    </Pressable>
                         </>
                     )}
                 </View>
@@ -513,15 +444,6 @@ export default function HomeScreen() {
                         <DashboardSkeleton variant="home" />
                     ) : (
                         <>
-                    <SegmentControl
-                        options={UNIT_OPTIONS}
-                        selected={
-                            payMode ? "Payday" : PERIOD_UNIT_LABELS[periodUnit]
-                        }
-                        onSelect={selectUnit}
-                        compact
-                    />
-
                     {needsFirstPaycheck ? (
                         <View style={styles.emptyWrap}>
                             <DashboardEmpty
@@ -534,101 +456,87 @@ export default function HomeScreen() {
                         </View>
                     ) : null}
 
-                    <Text style={[dashboard.sectionLabel, styles.calLabel]}>
-                        Calendar
-                    </Text>
-                    <MonthGrid
-                        month={startOfMonth(
-                            parseIsoDate(anchorIso) ?? range.start
-                        )}
-                        selectedIso={
-                            periodUnit === "day" ? anchorIso : undefined
-                        }
-                        markedIso={markedIso}
-                        onSelectDay={pickDay}
-                    />
-
-                    <View style={styles.statement}>
-                        <Text style={dashboard.sectionLabel}>
+                    <WalkthroughAnchor id="home-breakdown">
+                    <View style={[dashboard.card, styles.statement]}>
+                        <Text style={[dashboard.sectionLabel, styles.statementTitle]}>
                             {activitySectionTitle}
                         </Text>
-                        {lines.map((line, index) => (
-                            <Pressable
-                                key={line.label}
-                                onPress={() => router.push(line.href)}
-                                accessibilityRole="button"
-                                accessibilityLabel={`${line.label}, ${formatMoney(line.value, { compact: true, sign: line.sign })}`}
-                                style={({ pressed }) => [
-                                    styles.line,
-                                    index < lines.length - 1 && styles.lineGap,
-                                    pressed && styles.linePressed,
-                                ]}
-                            >
-                                <View style={styles.lineTop}>
-                                    <Text style={styles.lineLabel}>{line.label}</Text>
-                                    <Text
-                                        style={[
-                                            styles.lineValue,
-                                            line.sign === "+"
-                                                ? styles.lineIn
-                                                : styles.lineOut,
-                                        ]}
-                                    >
-                                        {formatMoney(line.value, {
+
+                        <View style={styles.inOutRow}>
+                            <View style={styles.inOutCol}>
+                                <Text style={styles.inOutKicker}>In</Text>
+                                <Text style={[styles.inOutTotal, styles.lineIn]}>
+                                    {formatMoney(displayIncome, {
+                                        compact: true,
+                                    })}
+                                </Text>
+                                <View style={styles.inOutColRule} />
+                                <Pressable
+                                    onPress={() =>
+                                        router.push(incomeLine.href)
+                                    }
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Income, ${formatMoney(displayIncome, { compact: true })}`}
+                                    style={({ pressed }) => [
+                                        styles.flowRow,
+                                        pressed && styles.linePressed,
+                                    ]}
+                                >
+                                    <Text style={styles.flowLabel}>
+                                        {incomeLine.label}
+                                    </Text>
+                                    <Text style={styles.flowValue}>
+                                        {formatMoney(displayIncome, {
                                             compact: true,
-                                            sign: line.sign,
                                         })}
                                     </Text>
-                                </View>
-                                <View style={dashboard.barTrack}>
-                                    <View
-                                        style={[
-                                            dashboard.barFill,
-                                            {
-                                                width: `${Math.min(
-                                                    100,
-                                                    (line.value / maxLine) * 100
-                                                )}%`,
-                                                backgroundColor:
-                                                    line.sign === "+"
-                                                        ? accentTheme.intent
-                                                              .positive.solid
-                                                        : accentTheme.chart[
-                                                              (index + 1) %
-                                                                  accentTheme
-                                                                      .chart
-                                                                      .length
-                                                          ],
-                                            },
-                                        ]}
-                                    />
-                                </View>
-                            </Pressable>
-                        ))}
+                                </Pressable>
+                            </View>
 
-                        <View style={styles.totalRow}>
-                            <Text style={styles.totalLabel}>Net this period</Text>
-                            <Text
-                                style={[
-                                    styles.totalValue,
-                                    {
-                                        color: activityNetOkay
-                                            ? theme.intent.positive.fg
-                                            : theme.intent.negative.fg,
-                                    },
-                                ]}
-                            >
-                                {activityNetLabel}
-                            </Text>
+                            <View style={styles.inOutDivider} />
+
+                            <View style={styles.inOutCol}>
+                                <Text style={styles.inOutKicker}>Out</Text>
+                                <Text style={styles.inOutTotal}>
+                                    {formatMoney(displayOutTotal, {
+                                        compact: true,
+                                    })}
+                                </Text>
+                                <View style={styles.inOutColRule} />
+                                {displayOutLines.map((line) => (
+                                    <Pressable
+                                        key={line.label}
+                                        onPress={() => router.push(line.href)}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={`${line.label}, ${formatMoney(line.value, { compact: true, sign: "−" })}`}
+                                        style={({ pressed }) => [
+                                            styles.flowRow,
+                                            pressed && styles.linePressed,
+                                        ]}
+                                    >
+                                        <Text
+                                            style={styles.flowLabel}
+                                            numberOfLines={1}
+                                        >
+                                            {line.label}
+                                        </Text>
+                                        <Text style={styles.flowValue}>
+                                            {formatMoney(line.value, {
+                                                compact: true,
+                                            })}
+                                        </Text>
+                                    </Pressable>
+                                ))}
+                            </View>
                         </View>
 
+                        {showDuesPrediction || committed.unknownCount > 0 ? (
+                        <View style={styles.totalsFooter}>
                         {committed.total > 0 ? (
                             <Pressable
-                                onPress={() => router.push("/(tabs)/plans")}
+                                onPress={() => router.push("/(tabs)/bills")}
                                 accessibilityRole="button"
-                                accessibilityLabel={`Still due ${
-                                    payCycle ? "this cycle" : "this month"
-                                }, ${formatMoney(
+                                accessibilityLabel={`Still due this month, ${formatMoney(
                                     committed.total,
                                     { compact: true, sign: "−" }
                                 )}`}
@@ -638,9 +546,7 @@ export default function HomeScreen() {
                                 ]}
                             >
                                 <Text style={styles.dueLabel}>
-                                    {payCycle
-                                        ? "Still due this cycle"
-                                        : "Still due this month"}
+                                    Still due this month
                                 </Text>
                                 <Text style={styles.dueValue}>
                                     {formatMoney(committed.total, {
@@ -651,7 +557,13 @@ export default function HomeScreen() {
                             </Pressable>
                         ) : null}
 
-                        <View style={styles.grandRow}>
+                        {showDuesPrediction ? (
+                        <View
+                            style={[
+                                styles.grandRow,
+                                committed.total === 0 && styles.grandRowFlush,
+                            ]}
+                        >
                             <Text style={styles.grandLabel}>After dues</Text>
                             <Text
                                 style={[
@@ -666,6 +578,7 @@ export default function HomeScreen() {
                                 {availableLabel}
                             </Text>
                         </View>
+                        ) : null}
 
                         {committed.unknownCount > 0 ? (
                             <Text style={styles.grandNote}>
@@ -680,35 +593,13 @@ export default function HomeScreen() {
                                 not subtracted.
                             </Text>
                         ) : null}
+                        </View>
+                        ) : null}
                     </View>
+                    </WalkthroughAnchor>
 
                     <SpendByCategoryChart rows={categorySpend} />
                     <MonthTrendChart points={monthTrend} />
-
-                    <View style={styles.actions}>
-                        <AppButton
-                            label="Log activity"
-                            onPress={() => router.push("/(tabs)/activity")}
-                        />
-                        <Pressable
-                            onPress={() => router.push("/(tabs)/plans")}
-                            accessibilityRole="button"
-                            accessibilityLabel="Review plans"
-                            style={({ pressed }) => [
-                                styles.secondaryAction,
-                                pressed && { opacity: 0.7 },
-                            ]}
-                        >
-                            <Text style={styles.secondaryActionText}>
-                                Review plans
-                            </Text>
-                            <Ionicons
-                                name="arrow-forward"
-                                size={16}
-                                color={theme.text.primary}
-                            />
-                        </Pressable>
-                    </View>
                         </>
                     )}
                 </View>
@@ -716,25 +607,29 @@ export default function HomeScreen() {
 
             <DueNowModal
                 visible={duesOpen}
-                onClose={() => setDuesOpen(false)}
-                title={
-                    payMode && payCycle && payOffset === 0
-                        ? "Due before payday"
-                        : "Due now"
-                }
-                caption={
-                    payMode && payCycle && payOffset === 0
-                        ? "Unpaid plans that land before your next check."
+                onClose={() => setDuesOpenUser(false)}
+                title="Due now"
+                itemsOverride={
+                    walkthrough?.phase === "running" &&
+                    walkthrough.activeId === "home-due"
+                        ? WALKTHROUGH_DUE_DEMO
                         : undefined
                 }
-                clearCaption={
-                    payMode && payCycle && payOffset === 0
-                        ? "Nothing waiting before this payday."
+                tour={
+                    walkthrough?.phase === "running" &&
+                    walkthrough.activeId === "home-due" &&
+                    walkthrough.step
+                        ? {
+                              title: walkthrough.step.title,
+                              body: walkthrough.step.body,
+                              stepIndex: walkthrough.stepIndex,
+                              totalSteps: walkthrough.totalSteps,
+                              onNext: walkthrough.next,
+                              onSkip: walkthrough.skip,
+                          }
                         : undefined
                 }
-                soonWithinDays={dueSoonWithinDays}
             />
-            <FirstRunCoach visible={coachOpen} onDismiss={dismissCoach} />
         </View>
     );
 }
@@ -757,19 +652,35 @@ const styles = StyleSheet.create({
         marginBottom: theme.space.sm,
     },
     mastKicker: text.kicker,
-    mastAmount: text.hero,
-    mastCaption: {
-        color: theme.text.inverseSecondary,
+    mastAmount: {
+        ...text.hero,
+        textAlign: "center",
+        alignSelf: "stretch",
+    },
+    mastSplit: {
+        flexDirection: "row",
+        alignItems: "flex-start",
+        marginTop: theme.space.sm,
+        gap: theme.space.md,
+    },
+    mastSplitCell: {
+        flex: 1,
+    },
+    mastSplitLabel: {
+        color: theme.text.inverseTertiary,
         fontSize: theme.fontSize.xs,
         lineHeight: theme.lineHeight.xs,
-        marginTop: theme.space.sm,
-        maxWidth: 320,
+        fontWeight: theme.fontWeight.semibold,
+        textAlign: "left",
     },
-    mastNav: {
-        marginTop: theme.space.lg,
-        paddingTop: theme.space.md,
-        borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: theme.border.inverse,
+    mastSplitValue: {
+        color: theme.text.inverseSecondary,
+        fontSize: theme.fontSize.sm,
+        lineHeight: theme.lineHeight.sm,
+        fontWeight: theme.fontWeight.semibold,
+        textAlign: "left",
+        fontVariant: ["tabular-nums"],
+        marginTop: 2,
     },
     mastCompactSticky: {
         paddingBottom: theme.space.md,
@@ -785,58 +696,67 @@ const styles = StyleSheet.create({
         marginTop: theme.space.md,
         marginBottom: theme.space.sm,
     },
-    calLabel: {
-        marginTop: theme.space.md,
-        marginBottom: theme.space.sm,
-    },
     statement: {
-        marginTop: theme.space.lg,
+        marginTop: theme.space.md,
+    },
+    statementTitle: {
+        marginTop: 0,
+    },
+    inOutRow: {
+        flexDirection: "row",
+        alignItems: "flex-start",
+        gap: theme.space.md,
+    },
+    inOutCol: {
+        flex: 1,
+        minWidth: 0,
+    },
+    inOutDivider: {
+        width: StyleSheet.hairlineWidth,
+        alignSelf: "stretch",
+        backgroundColor: theme.border.subtle,
+    },
+    inOutKicker: {
+        ...text.kicker,
+        color: theme.text.tertiary,
+        marginBottom: theme.space.xs,
+    },
+    inOutTotal: {
+        ...text.money,
+        fontSize: theme.fontSize.xl,
+        lineHeight: theme.lineHeight.xl,
+        color: theme.text.primary,
         marginBottom: theme.space.sm,
     },
-    line: {
-        paddingVertical: theme.space.sm,
-    },
-    lineGap: {
+    inOutColRule: {
+        height: StyleSheet.hairlineWidth,
+        backgroundColor: theme.border.subtle,
         marginBottom: theme.space.sm,
+    },
+    flowRow: {
+        paddingVertical: theme.space.xs,
+        gap: 2,
+    },
+    flowLabel: {
+        ...text.caption,
+        color: theme.text.tertiary,
+    },
+    flowValue: {
+        ...text.caption,
+        color: theme.text.secondary,
+        fontVariant: ["tabular-nums"],
+    },
+    totalsFooter: {
+        marginTop: theme.space.md,
+        paddingTop: theme.space.sm,
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: theme.border.base,
     },
     linePressed: {
         opacity: 0.85,
     },
-    lineTop: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "baseline",
-        marginBottom: theme.space.sm,
-    },
-    lineLabel: {
-        ...text.body,
-        fontWeight: theme.fontWeight.semibold,
-    },
-    lineValue: {
-        ...text.money,
-        fontSize: theme.fontSize.sm,
-        lineHeight: theme.lineHeight.sm,
-    },
     lineIn: {
         color: theme.intent.positive.fg,
-    },
-    lineOut: {
-        color: theme.text.primary,
-    },
-    totalRow: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: theme.border.subtle,
-        paddingTop: theme.space.md,
-        marginTop: theme.space.sm,
-    },
-    totalLabel: text.sectionLabel,
-    totalValue: {
-        ...text.money,
-        fontSize: theme.fontSize.lg,
-        lineHeight: theme.lineHeight.lg,
     },
     dueRow: {
         flexDirection: "row",
@@ -864,6 +784,11 @@ const styles = StyleSheet.create({
         paddingTop: theme.space.md,
         marginTop: theme.space.sm,
     },
+    grandRowFlush: {
+        borderTopWidth: 0,
+        paddingTop: 0,
+        marginTop: 0,
+    },
     grandLabel: {
         ...text.sectionLabel,
         color: theme.text.primary,
@@ -876,23 +801,5 @@ const styles = StyleSheet.create({
     grandNote: {
         ...text.caption,
         marginTop: theme.space.sm,
-    },
-    actions: {
-        marginTop: theme.space.md,
-        marginBottom: theme.space.sm,
-        gap: theme.space.sm,
-    },
-    secondaryAction: {
-        minHeight: theme.size.tap,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: theme.space.sm,
-    },
-    secondaryActionText: {
-        color: theme.text.primary,
-        fontSize: theme.fontSize.md,
-        lineHeight: theme.lineHeight.md,
-        fontWeight: theme.fontWeight.semibold,
     },
 });

@@ -27,12 +27,15 @@ type DebtsContextValue = {
     recordPayment: (
         id: string,
         amount?: number,
-        paymentDate?: string
+        paymentDate?: string,
+        accountId?: string
     ) => Promise<void>;
     /** Undo the latest installment payment for the as-of month (restores balance). */
     undoPayment: (id: string, paymentDate?: string) => Promise<void>;
     /** Undo one ledger row by id (restores remaining). */
     undoPaymentById: (paymentId: string) => Promise<void>;
+    /** Settle this month without reducing remaining (amount 0, skipped). */
+    skipDebtThisMonth: (id: string, asOfIso?: string) => Promise<void>;
     reload: () => Promise<void>;
 };
 
@@ -153,7 +156,12 @@ export function DebtsProvider({ children }: { children: React.ReactNode }) {
     );
 
     const recordPayment = useCallback(
-        async (id: string, amount?: number, paymentDate?: string) => {
+        async (
+            id: string,
+            amount?: number,
+            paymentDate?: string,
+            accountId?: string
+        ) => {
             const paidOn = paymentDate ?? toIsoDate(new Date());
             const asOf = parseIsoDate(paidOn);
             const debt = debts.find((item) => item.id === id);
@@ -182,6 +190,7 @@ export function DebtsProvider({ children }: { children: React.ReactNode }) {
                 debtId: id,
                 amount: paymentAmount,
                 date: paidOn,
+                ...(accountId ? { accountId } : {}),
                 ...stampCreate(),
             };
 
@@ -266,6 +275,37 @@ export function DebtsProvider({ children }: { children: React.ReactNode }) {
         [debts, payments]
     );
 
+    const skipDebtThisMonth = useCallback(
+        async (id: string, asOfIso?: string) => {
+            const asOf = parseIsoDate(asOfIso ?? toIsoDate(new Date()));
+            if (!asOf) {
+                return;
+            }
+
+            const debt = debts.find((item) => item.id === id);
+            if (!debt || debt.balance <= 0 || debt.paidOffDate) {
+                return;
+            }
+
+            if (isDebtInstallmentPaidAsOf(debt, asOf, payments)) {
+                return;
+            }
+
+            const payment: DebtPayment = {
+                id: `${Date.now()}-${id}`,
+                debtId: id,
+                amount: 0,
+                date: toIsoDate(asOf),
+                skipped: true,
+                ...stampCreate(),
+            };
+            const updatedPayments = [...payments, payment];
+            setPayments(updatedPayments);
+            await saveDebtPayments(updatedPayments);
+        },
+        [debts, payments]
+    );
+
     const reload = useCallback(async () => {
         setLoading(true);
         const [nextDebts, nextPayments] = await Promise.all([
@@ -289,6 +329,7 @@ export function DebtsProvider({ children }: { children: React.ReactNode }) {
                 recordPayment,
                 undoPayment,
                 undoPaymentById,
+                skipDebtThisMonth,
                 reload,
             }}
         >
