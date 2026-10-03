@@ -12,6 +12,7 @@ import {
     SettingsSection,
 } from "@/components/SettingsList";
 import { text, theme } from "@/design";
+import { ensureCanDebit, useDebitLedger } from "@/hooks/useDebitLedger";
 import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
 import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
 import { useButtonStyle } from "@/styles/button-style";
@@ -65,6 +66,7 @@ export default function BillDetailScreen() {
     const { currency, formatMoney } = useLocale();
     const symbol = currencySymbol(currency);
     const { accounts } = useAccounts();
+    const debitLedger = useDebitLedger();
     const {
         bills,
         payments,
@@ -212,16 +214,36 @@ export default function BillDetailScreen() {
         if (paidThisMonth || busy) {
             return;
         }
+        const payAmount = bill.amountVaries
+            ? parseMoneyInput(logAmount)
+            : bill.amount;
+        if (bill.amountVaries && payAmount === null) {
+            setLogError(true);
+            return;
+        }
+        if (payAmount === null || !(payAmount > 0)) {
+            return;
+        }
+        const potName =
+            accounts.find((account) => account.id === accountId)?.name ??
+            "Account";
+        if (
+            !ensureCanDebit({
+                accountId,
+                amount: payAmount,
+                asOfIso: todayIso,
+                accountName: potName,
+                ledger: debitLedger,
+                formatMoney: (value) => formatMoney(value, { compact: true }),
+            })
+        ) {
+            return;
+        }
         if (bill.amountVaries) {
-            const amount = parseMoneyInput(logAmount);
-            if (amount === null) {
-                setLogError(true);
-                return;
-            }
             setBusy(true);
             try {
                 hapticConfirm();
-                await toggleBillPaid(bill.id, todayIso, amount, accountId);
+                await toggleBillPaid(bill.id, todayIso, payAmount, accountId);
                 setLogError(false);
             } finally {
                 setBusy(false);
@@ -245,6 +267,24 @@ export default function BillDetailScreen() {
         const amount = parseMoneyInput(logAmount);
         if (amount === null) {
             setLogError(true);
+            return;
+        }
+        const potName =
+            accounts.find((account) => account.id === accountId)?.name ??
+            "Account";
+        if (
+            !ensureCanDebit({
+                accountId,
+                amount,
+                asOfIso: todayIso,
+                accountName: potName,
+                ledger: debitLedger,
+                exclude: monthPayment
+                    ? { billPaymentId: monthPayment.id }
+                    : undefined,
+                formatMoney: (value) => formatMoney(value, { compact: true }),
+            })
+        ) {
             return;
         }
         setBusy(true);

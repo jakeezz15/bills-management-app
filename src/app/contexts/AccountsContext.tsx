@@ -1,10 +1,13 @@
 import {
     loadAccounts,
+    loadAccountAdjustments,
     loadTransfers,
     saveAccounts,
+    saveAccountAdjustments,
     saveTransfers,
 } from "@/services/storage";
 import { CASH_ACCOUNT_ID, CashAccount } from "@/types/account";
+import { AccountAdjustment } from "@/types/account-adjustment";
 import { Transfer } from "@/types/transfer";
 import {
     createDefaultAccounts,
@@ -26,6 +29,7 @@ import {
 type AccountsContextValue = {
     accounts: CashAccount[];
     transfers: Transfer[];
+    adjustments: AccountAdjustment[];
     loading: boolean;
     cashAccount: CashAccount;
     primaryOnlineId: string;
@@ -34,10 +38,15 @@ type AccountsContextValue = {
     renameAccount: (id: string, name: string) => Promise<void>;
     setPrimaryOnline: (id: string) => Promise<void>;
     archiveOnlineAccount: (id: string) => Promise<void>;
+    unarchiveOnlineAccount: (id: string) => Promise<void>;
     addTransfer: (
         entry: Omit<Transfer, "id" | "createdAt" | "updatedAt">
     ) => Promise<void>;
     deleteTransfer: (id: string) => Promise<void>;
+    addAdjustment: (
+        entry: Omit<AccountAdjustment, "id" | "createdAt" | "updatedAt">
+    ) => Promise<void>;
+    deleteAdjustment: (id: string) => Promise<void>;
 };
 
 const AccountsContext = createContext<AccountsContextValue | null>(null);
@@ -47,16 +56,20 @@ export function AccountsProvider({ children }: { children: React.ReactNode }) {
         createDefaultAccounts()
     );
     const [transfers, setTransfers] = useState<Transfer[]>([]);
+    const [adjustments, setAdjustments] = useState<AccountAdjustment[]>([]);
     const [loading, setLoading] = useState(true);
 
     const reload = useCallback(async () => {
         setLoading(true);
-        const [nextAccounts, nextTransfers] = await Promise.all([
-            loadAccounts(),
-            loadTransfers(),
-        ]);
+        const [nextAccounts, nextTransfers, nextAdjustments] =
+            await Promise.all([
+                loadAccounts(),
+                loadTransfers(),
+                loadAccountAdjustments(),
+            ]);
         setAccounts(nextAccounts);
         setTransfers(nextTransfers);
+        setAdjustments(nextAdjustments);
         setLoading(false);
     }, []);
 
@@ -143,7 +156,12 @@ export function AccountsProvider({ children }: { children: React.ReactNode }) {
             if (onlineAccounts(accounts).length <= 1) {
                 return;
             }
-            const next = accounts.map((account) =>
+            const target = accounts.find((account) => account.id === id);
+            if (!target || target.kind !== "online" || target.archived) {
+                return;
+            }
+
+            let next = accounts.map((account) =>
                 account.id === id
                     ? {
                           ...account,
@@ -153,7 +171,48 @@ export function AccountsProvider({ children }: { children: React.ReactNode }) {
                       }
                     : account
             );
+
+            // Reassign primary when archiving the current primary.
+            if (target.isPrimary) {
+                const replacement = next.find(
+                    (account) =>
+                        account.kind === "online" && account.archived !== true
+                );
+                if (replacement) {
+                    next = next.map((account) => {
+                        if (account.kind !== "online") {
+                            return account;
+                        }
+                        return {
+                            ...account,
+                            isPrimary: account.id === replacement.id,
+                            ...stampUpdate(),
+                        };
+                    });
+                }
+            }
+
             await persistAccounts(next);
+        },
+        [accounts, persistAccounts]
+    );
+
+    const unarchiveOnlineAccount = useCallback(
+        async (id: string) => {
+            if (id === CASH_ACCOUNT_ID) {
+                return;
+            }
+            await persistAccounts(
+                accounts.map((account) =>
+                    account.id === id
+                        ? {
+                              ...account,
+                              archived: false,
+                              ...stampUpdate(),
+                          }
+                        : account
+                )
+            );
         },
         [accounts, persistAccounts]
     );
@@ -164,7 +223,9 @@ export function AccountsProvider({ children }: { children: React.ReactNode }) {
                 entry.amount <= 0 ||
                 entry.fromAccountId === entry.toAccountId
             ) {
-                throw new Error("Transfer needs two different accounts and an amount.");
+                throw new Error(
+                    "Transfer needs two different accounts and an amount."
+                );
             }
             const stamped: Transfer = {
                 ...entry,
@@ -178,13 +239,41 @@ export function AccountsProvider({ children }: { children: React.ReactNode }) {
         [transfers]
     );
 
-    const deleteTransfer = useCallback(
-        async (id: string) => {
-            const updated = transfers.filter((item) => item.id !== id);
-            setTransfers(updated);
-            await saveTransfers(updated);
+    const deleteTransfer = useCallback(async (id: string) => {
+        let updated: Transfer[] = [];
+        setTransfers((prev) => {
+            updated = prev.filter((item) => item.id !== id);
+            return updated;
+        });
+        await saveTransfers(updated);
+    }, []);
+
+    const addAdjustment = useCallback(
+        async (
+            entry: Omit<AccountAdjustment, "id" | "createdAt" | "updatedAt">
+        ) => {
+            if (entry.delta === 0) {
+                return;
+            }
+            const stamped: AccountAdjustment = {
+                ...entry,
+                id: `adj-${Date.now()}`,
+                ...stampCreate(),
+            };
+            const updated = [...adjustments, stamped];
+            setAdjustments(updated);
+            await saveAccountAdjustments(updated);
         },
-        [transfers]
+        [adjustments]
+    );
+
+    const deleteAdjustment = useCallback(
+        async (id: string) => {
+            const updated = adjustments.filter((item) => item.id !== id);
+            setAdjustments(updated);
+            await saveAccountAdjustments(updated);
+        },
+        [adjustments]
     );
 
     return (
@@ -192,6 +281,7 @@ export function AccountsProvider({ children }: { children: React.ReactNode }) {
             value={{
                 accounts,
                 transfers,
+                adjustments,
                 loading,
                 cashAccount,
                 primaryOnlineId,
@@ -200,8 +290,11 @@ export function AccountsProvider({ children }: { children: React.ReactNode }) {
                 renameAccount,
                 setPrimaryOnline,
                 archiveOnlineAccount,
+                unarchiveOnlineAccount,
                 addTransfer,
                 deleteTransfer,
+                addAdjustment,
+                deleteAdjustment,
             }}
         >
             {children}

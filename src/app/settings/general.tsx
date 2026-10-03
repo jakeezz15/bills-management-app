@@ -35,7 +35,8 @@ export default function SettingsGeneralScreen() {
                 <View style={styles.accentBlock}>
                     <Text style={styles.accentTitle}>Accent color</Text>
                     <Text style={styles.accentSubtitle}>
-                        Buttons, tabs, charts, and highlights. More themes later.
+                        Buttons, tabs, and category charts. Income and spending
+                        colors stay green and red.
                     </Text>
                     <View style={styles.swatchRow}>
                         {presets.map((preset) => {

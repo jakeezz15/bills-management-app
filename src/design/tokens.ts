@@ -13,7 +13,9 @@ import { palette } from "./palette";
  * can stay on the static default export longer; **accent-facing color roles**
  * (`action.primary`, `text.accent`, `border.focus`, `intent.info`, chart[0])
  * should go through `useTheme()` / style factories so Settings can change them
- * live. Full look presets later = extend `buildTheme` (lookId + accentId).
+ * live. Use `money.in` / `money.out` (same as `intent.positive` / `negative`)
+ * for income and expense — never `theme.chart[]`. Full look presets later =
+ * extend `buildTheme` (lookId + accentId).
  */
 
 const space = {
@@ -70,6 +72,20 @@ const size = {
 export function buildTheme(accentId: AccentId = DEFAULT_ACCENT_ID) {
     const { ramp, chart } = getAccentPreset(accentId);
 
+    const moneyIn = {
+        fg: palette.emerald[700],
+        bg: palette.emerald[50],
+        solid: palette.emerald[600],
+        bright: palette.emerald[400],
+        strong: palette.emerald[100],
+    } as const;
+
+    const moneyOut = {
+        fg: palette.red[600],
+        bg: palette.red[50],
+        solid: palette.red[600],
+    } as const;
+
     return {
         accentId,
         bg: {
@@ -95,19 +111,14 @@ export function buildTheme(accentId: AccentId = DEFAULT_ACCENT_ID) {
             focus: ramp[600],
             inverse: palette.slate[800],
         },
+        /** Fixed income / expense colors — never derived from accentId. */
+        money: {
+            in: moneyIn,
+            out: moneyOut,
+        },
         intent: {
-            positive: {
-                fg: palette.emerald[700],
-                bg: palette.emerald[50],
-                solid: palette.emerald[600],
-                bright: palette.emerald[400],
-                strong: palette.emerald[100],
-            },
-            negative: {
-                fg: palette.red[600],
-                bg: palette.red[50],
-                solid: palette.red[600],
-            },
+            positive: moneyIn,
+            negative: moneyOut,
             caution: {
                 fg: palette.amber[700],
                 bg: palette.amber[50],

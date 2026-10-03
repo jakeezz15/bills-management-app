@@ -5,17 +5,46 @@ import { useDashboardStyles } from "@/styles/dashboard";
 import { screenStyles } from "@/styles/screen";
 import { theme } from "@/design";
 import { ReactNode } from "react";
-import { Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
 type PageHeaderProps = {
     title: string;
     subtitle?: string;
+    backLabel?: string;
+    onBack?: () => void;
 };
 
-export function PageHeader({ title, subtitle }: PageHeaderProps) {
+export function PageHeader({
+    title,
+    subtitle,
+    backLabel,
+    onBack,
+}: PageHeaderProps) {
     const dashboard = useDashboardStyles();
     return (
         <View style={dashboard.standaloneHeader}>
+            {backLabel && onBack ? (
+                <Pressable
+                    onPress={onBack}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Back to ${backLabel}`}
+                    hitSlop={8}
+                    style={({ pressed }) => [
+                        { marginBottom: theme.space.sm, alignSelf: "flex-start" },
+                        pressed && { opacity: 0.7 },
+                    ]}
+                >
+                    <Text
+                        style={{
+                            color: theme.text.accent,
+                            fontSize: theme.fontSize.sm,
+                            fontWeight: theme.fontWeight.semibold,
+                        }}
+                    >
+                        ← {backLabel}
+                    </Text>
+                </Pressable>
+            ) : null}
             <Text style={screenStyles.title}>{title}</Text>
             {subtitle ? (
                 <Text style={screenStyles.screenDescription}>{subtitle}</Text>

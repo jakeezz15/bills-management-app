@@ -5,15 +5,16 @@ import { useLocale } from "@/app/contexts/LocaleContext";
 import { useTheme } from "@/app/contexts/ThemeContext";
 import { AppButton } from "@/components/AppButton";
 import { CompactPlanRow } from "@/components/CompactPlanRow";
+import { QuickPayAccountDialog } from "@/components/QuickPayAccountDialog";
 import { elevation, text, type Theme } from "@/design";
+import { ensureCanDebit, useDebitLedger } from "@/hooks/useDebitLedger";
 import { useDueNowInbox } from "@/hooks/useDueNowInbox";
-import { defaultInboundAccountId } from "@/utils/accounts";
 import { hapticConfirm } from "@/utils/haptics";
 import { dueNowLabel, dueNowTone, type DueNowItem } from "@/utils/due-now";
 import { getLastBillPayment } from "@/utils/filters";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { router } from "expo-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
     Modal,
     Pressable,
@@ -38,6 +39,10 @@ const clearEnter = FadeInDown.duration(280).reduceMotion(ReduceMotion.System);
 const badgeEnter = ZoomIn.springify()
     .damping(14)
     .reduceMotion(ReduceMotion.System);
+
+type PendingPay =
+    | { kind: "bill"; id: string; name: string; amount: number }
+    | { kind: "debt"; id: string; name: string; amount: number };
 
 type DueNowModalProps = {
     visible: boolean;
@@ -73,6 +78,7 @@ export function DueNowModal({
     const styles = useMemo(() => createDueNowStyles(theme), [theme]);
     const { formatMoney } = useLocale();
     const { accounts } = useAccounts();
+    const debitLedger = useDebitLedger();
     const { toggleBillPaid, payments: billPayments } = useBills();
     const { recordPayment } = useDebt();
     const inbox = useDueNowInbox(soonWithinDays);
@@ -80,7 +86,7 @@ export function DueNowModal({
     const showClear = itemsOverride ? false : inbox.showClear;
     const asOfIso = inbox.asOfIso;
     const tourMode = Boolean(tour);
-    const defaultAccountId = defaultInboundAccountId(accounts);
+    const [pendingPay, setPendingPay] = useState<PendingPay | null>(null);
 
     const openPlan = (kind: "bill" | "debt", id: string) => {
         if (tourMode) return;
@@ -88,7 +94,46 @@ export function DueNowModal({
         router.push(kind === "debt" ? `/debt/${id}` : `/bill/${id}`);
     };
 
+    const confirmPay = (accountId: string) => {
+        if (!pendingPay) {
+            return;
+        }
+        const potName =
+            accounts.find((account) => account.id === accountId)?.name ??
+            "Account";
+        if (
+            !ensureCanDebit({
+                accountId,
+                amount: pendingPay.amount,
+                asOfIso,
+                accountName: potName,
+                ledger: debitLedger,
+                formatMoney: (value) => formatMoney(value, { compact: true }),
+            })
+        ) {
+            return;
+        }
+        hapticConfirm();
+        if (pendingPay.kind === "bill") {
+            void toggleBillPaid(
+                pendingPay.id,
+                asOfIso,
+                undefined,
+                accountId
+            );
+        } else {
+            void recordPayment(
+                pendingPay.id,
+                undefined,
+                asOfIso,
+                accountId
+            );
+        }
+        setPendingPay(null);
+    };
+
     return (
+        <>
         <Modal
             visible={visible}
             animationType="fade"
@@ -219,22 +264,20 @@ export function DueNowModal({
                                                     openPlan("bill", item.id);
                                                     return;
                                                 }
-                                                hapticConfirm();
-                                                void toggleBillPaid(
-                                                    item.id,
-                                                    asOfIso,
-                                                    undefined,
-                                                    defaultAccountId
-                                                );
+                                                setPendingPay({
+                                                    kind: "bill",
+                                                    id: item.id,
+                                                    name: item.name,
+                                                    amount: item.amount,
+                                                });
                                                 return;
                                             }
-                                            hapticConfirm();
-                                            void recordPayment(
-                                                item.id,
-                                                undefined,
-                                                asOfIso,
-                                                defaultAccountId
-                                            );
+                                            setPendingPay({
+                                                kind: "debt",
+                                                id: item.id,
+                                                name: item.name,
+                                                amount: item.amount,
+                                            });
                                         }}
                                         toggleAccessibilityLabel={
                                             item.kind === "bill" &&
@@ -296,6 +339,19 @@ export function DueNowModal({
                 </View>
             </View>
         </Modal>
+
+            <QuickPayAccountDialog
+                visible={pendingPay !== null}
+                title={pendingPay ? `Pay ${pendingPay.name}` : "Pay"}
+                subtitle={
+                    pendingPay?.kind === "debt"
+                        ? `Records ${formatMoney(pendingPay.amount, { compact: true })} from this pot.`
+                        : "Money leaves this pot."
+                }
+                onCancel={() => setPendingPay(null)}
+                onConfirm={confirmPay}
+            />
+        </>
     );
 }
 

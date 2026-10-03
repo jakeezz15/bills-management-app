@@ -24,12 +24,34 @@ export type AccentPreset = {
     swatch: string;
     ramp: AccentRamp;
     /**
-     * Punchy categorical series for charts / statement bars.
-     * Pattern: accent first, then alternate warm↔cool so neighbors pop.
-     * Keep ≤8; end on a deep slate for quiet leftovers.
+     * Categorical series for spend-by-category (and similar) only — not P&L.
+     * Avoids green/red/rose so slices are not read as income or expense.
      */
     chart: readonly string[];
 };
+
+/** Hues safe for multi-series charts (no profit/loss green or red). */
+const CATEGORICAL_POOL: readonly string[] = [
+    palette.blue[600],
+    palette.violet[600],
+    palette.amber[500],
+    palette.cyan[500],
+    palette.orange[500],
+    palette.teal[600],
+    palette.indigo[500],
+    palette.gold[500],
+    palette.fuchsia[500],
+];
+
+function buildCategoricalChart(
+    accentId: AccentId,
+    swatch: string
+): readonly string[] {
+    /** Emerald accent keeps green primary UI but must not tint category series like income. */
+    const lead = accentId === "emerald" ? palette.blue[600] : swatch;
+    const rest = CATEGORICAL_POOL.filter((color) => color !== lead).slice(0, 7);
+    return [lead, ...rest, palette.slate[600]];
+}
 
 export const ACCENT_PRESETS: readonly AccentPreset[] = [
     {
@@ -41,16 +63,7 @@ export const ACCENT_PRESETS: readonly AccentPreset[] = [
             600: palette.blue[600],
             700: palette.blue[700],
         },
-        chart: [
-            palette.blue[600],
-            palette.amber[500],
-            palette.emerald[500],
-            palette.rose[600],
-            palette.cyan[500],
-            palette.orange[500],
-            palette.violet[500],
-            palette.slate[600],
-        ],
+        chart: buildCategoricalChart("blue", palette.blue[600]),
     },
     {
         id: "emerald",
@@ -61,16 +74,7 @@ export const ACCENT_PRESETS: readonly AccentPreset[] = [
             600: palette.emerald[600],
             700: palette.emerald[700],
         },
-        chart: [
-            palette.emerald[600],
-            palette.amber[500],
-            palette.teal[500],
-            palette.orange[500],
-            palette.cyan[400],
-            palette.rose[600],
-            palette.lime[500],
-            palette.slate[600],
-        ],
+        chart: buildCategoricalChart("emerald", palette.emerald[600]),
     },
     {
         id: "amber",
@@ -81,16 +85,7 @@ export const ACCENT_PRESETS: readonly AccentPreset[] = [
             600: palette.amber[600],
             700: palette.amber[700],
         },
-        chart: [
-            palette.amber[600],
-            palette.blue[600],
-            palette.orange[500],
-            palette.violet[600],
-            palette.gold[500],
-            palette.rose[600],
-            palette.teal[600],
-            palette.slate[600],
-        ],
+        chart: buildCategoricalChart("amber", palette.amber[600]),
     },
     {
         id: "violet",
@@ -101,16 +96,7 @@ export const ACCENT_PRESETS: readonly AccentPreset[] = [
             600: palette.violet[600],
             700: palette.violet[700],
         },
-        chart: [
-            palette.violet[600],
-            palette.amber[500],
-            palette.fuchsia[500],
-            palette.cyan[500],
-            palette.rose[500],
-            palette.green[500],
-            palette.indigo[500],
-            palette.slate[600],
-        ],
+        chart: buildCategoricalChart("violet", palette.violet[600]),
     },
 ] as const;
 

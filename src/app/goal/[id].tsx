@@ -12,6 +12,7 @@ import {
     SettingsRow,
     SettingsSection,
 } from "@/components/SettingsList";
+import { ensureCanDebit, useDebitLedger } from "@/hooks/useDebitLedger";
 import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
 import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
 import { useButtonStyle } from "@/styles/button-style";
@@ -53,6 +54,7 @@ export default function SavingsGoalScreen() {
     const { currency, formatMoney } = useLocale();
     const symbol = currencySymbol(currency);
     const { accounts } = useAccounts();
+    const debitLedger = useDebitLedger();
     const {
         savings,
         contributions,
@@ -156,6 +158,21 @@ export default function SavingsGoalScreen() {
         const amount = parseMoneyInput(logAmount);
         if (amount === null || parseIsoDate(logDate) === null) {
             setLogError(true);
+            return;
+        }
+        const potName =
+            accounts.find((account) => account.id === accountId)?.name ??
+            "Account";
+        if (
+            !ensureCanDebit({
+                accountId,
+                amount,
+                asOfIso: logDate.trim(),
+                accountName: potName,
+                ledger: debitLedger,
+                formatMoney: (value) => formatMoney(value, { compact: true }),
+            })
+        ) {
             return;
         }
         setBusy(true);

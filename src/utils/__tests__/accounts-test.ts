@@ -9,10 +9,14 @@ import {
     primaryOnlineAccount,
 } from "@/utils/accounts";
 import {
+    getAccountBalanceThrough,
     getAccountSplitThrough,
+    getAvailableToDebit,
     getAvailableToTransfer,
+    getDebitShortfall,
+    getPotActivity,
 } from "@/utils/account-balances";
-import { getRangeForPeriod } from "@/utils/date";
+import { getRangeForPeriod, rangeThrough } from "@/utils/date";
 import {
     makeExpense,
     makeIncome,
@@ -104,6 +108,80 @@ describe("getAccountSplitThrough", () => {
         expect(split.cash).toBe(800);
         expect(split.total).toBe(4800);
     });
+
+    it("keeps archived Online balances in the Online rollup", () => {
+        const withArchived = [
+            ...accounts,
+            {
+                id: "online-old",
+                kind: "online" as const,
+                name: "Old bank",
+                color: "#059669",
+                archived: true,
+                createdAt: "2026-01-01T00:00:00.000Z",
+                updatedAt: "2026-01-01T00:00:00.000Z",
+            },
+        ];
+        const split = getAccountSplitThrough(
+            february,
+            withArchived,
+            [
+                makeIncome({
+                    date: "2026-02-01",
+                    net: 300,
+                    source: "Side",
+                    accountId: "online-old",
+                }),
+                makeIncome({
+                    date: "2026-02-01",
+                    net: 700,
+                    source: "Job",
+                    accountId: DEFAULT_ONLINE_ACCOUNT_ID,
+                }),
+            ],
+            [],
+            [],
+            [],
+            [],
+            []
+        );
+        expect(split.online).toBe(1000);
+        expect(
+            split.byAccount.find((row) => row.accountId === "online-old")
+                ?.balance
+        ).toBe(300);
+    });
+
+    it("applies balance adjustments", () => {
+        const split = getAccountSplitThrough(
+            february,
+            accounts,
+            [
+                makeIncome({
+                    date: "2026-02-01",
+                    net: 100,
+                    source: "Job",
+                    accountId: CASH_ACCOUNT_ID,
+                }),
+            ],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [
+                {
+                    id: "adj1",
+                    accountId: CASH_ACCOUNT_ID,
+                    date: "2026-02-01",
+                    delta: 50,
+                    createdAt: "2026-02-01T00:00:00.000Z",
+                    updatedAt: "2026-02-01T00:00:00.000Z",
+                },
+            ]
+        );
+        expect(split.cash).toBe(150);
+    });
 });
 
 describe("getAvailableToTransfer", () => {
@@ -169,5 +247,199 @@ describe("getAvailableToTransfer", () => {
             []
         );
         expect(available).toBe(600);
+    });
+
+    it("includes adjustments in available funds", () => {
+        const available = getAvailableToTransfer(
+            CASH_ACCOUNT_ID,
+            "2026-02-10",
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [
+                {
+                    id: "adj1",
+                    accountId: CASH_ACCOUNT_ID,
+                    date: "2026-02-01",
+                    delta: 250,
+                    createdAt: "2026-02-01T00:00:00.000Z",
+                    updatedAt: "2026-02-01T00:00:00.000Z",
+                },
+            ]
+        );
+        expect(available).toBe(250);
+    });
+});
+
+describe("getPotActivity", () => {
+    it("lists tagged activity and treats untagged as Cash", () => {
+        const rows = getPotActivity(
+            CASH_ACCOUNT_ID,
+            [makeIncome({ date: "2026-02-01", net: 100, source: "Tip" })],
+            [
+                makeExpense({
+                    date: "2026-02-02",
+                    amount: 20,
+                    name: "Snack",
+                    accountId: CASH_ACCOUNT_ID,
+                }),
+            ],
+            [],
+            [],
+            [],
+            [],
+            [
+                {
+                    id: "adj1",
+                    accountId: CASH_ACCOUNT_ID,
+                    date: "2026-02-03",
+                    delta: 5,
+                    note: "Opening",
+                    createdAt: "2026-02-03T00:00:00.000Z",
+                    updatedAt: "2026-02-03T00:00:00.000Z",
+                },
+            ]
+        );
+        expect(rows.map((row) => row.kind)).toEqual([
+            "adjustment",
+            "expense",
+            "income",
+        ]);
+        expect(
+            getAccountBalanceThrough(
+                CASH_ACCOUNT_ID,
+                rangeThrough(new Date(2026, 1, 28)),
+                [makeIncome({ date: "2026-02-01", net: 100, source: "Tip" })],
+                [
+                    makeExpense({
+                        date: "2026-02-02",
+                        amount: 20,
+                        name: "Snack",
+                        accountId: CASH_ACCOUNT_ID,
+                    }),
+                ],
+                [],
+                [],
+                [],
+                [],
+                [
+                    {
+                        id: "adj1",
+                        accountId: CASH_ACCOUNT_ID,
+                        date: "2026-02-03",
+                        delta: 5,
+                        createdAt: "2026-02-03T00:00:00.000Z",
+                        updatedAt: "2026-02-03T00:00:00.000Z",
+                    },
+                ]
+            )
+        ).toBe(85);
+    });
+});
+
+describe("getDebitShortfall", () => {
+    const ledgerBase = {
+        income: [] as ReturnType<typeof makeIncome>[],
+        expenses: [] as ReturnType<typeof makeExpense>[],
+        billPayments: [] as [],
+        debtPayments: [] as [],
+        savingsContributions: [] as [],
+        transfers: [] as [],
+        adjustments: [] as {
+            id: string;
+            accountId: string;
+            date: string;
+            delta: number;
+            createdAt: string;
+            updatedAt: string;
+        }[],
+    };
+
+    it("rejects when the pot is negative", () => {
+        const ledger = {
+            ...ledgerBase,
+            adjustments: [
+                {
+                    id: "adj1",
+                    accountId: DEFAULT_ONLINE_ACCOUNT_ID,
+                    date: "2026-02-01",
+                    delta: -50,
+                    createdAt: "2026-02-01T00:00:00.000Z",
+                    updatedAt: "2026-02-01T00:00:00.000Z",
+                },
+            ],
+        };
+        expect(
+            getDebitShortfall(
+                DEFAULT_ONLINE_ACCOUNT_ID,
+                10,
+                "2026-02-10",
+                ledger
+            )
+        ).toBe(60);
+        expect(
+            getAvailableToDebit(
+                DEFAULT_ONLINE_ACCOUNT_ID,
+                "2026-02-10",
+                ledger
+            )
+        ).toBe(-50);
+    });
+
+    it("allows when funds cover the amount", () => {
+        const ledger = {
+            ...ledgerBase,
+            income: [
+                makeIncome({
+                    date: "2026-02-01",
+                    net: 100,
+                    source: "Job",
+                    accountId: DEFAULT_ONLINE_ACCOUNT_ID,
+                }),
+            ],
+        };
+        expect(
+            getDebitShortfall(
+                DEFAULT_ONLINE_ACCOUNT_ID,
+                40,
+                "2026-02-10",
+                ledger
+            )
+        ).toBe(0);
+    });
+
+    it("excludes the expense being edited from available", () => {
+        const expense = makeExpense({
+            id: "e1",
+            date: "2026-02-05",
+            amount: 30,
+            name: "Food",
+            accountId: CASH_ACCOUNT_ID,
+        });
+        const ledger = {
+            ...ledgerBase,
+            income: [
+                makeIncome({
+                    date: "2026-02-01",
+                    net: 50,
+                    source: "Job",
+                    accountId: CASH_ACCOUNT_ID,
+                }),
+            ],
+            expenses: [expense],
+        };
+        // With e1 counted: available = 20; raising to 50 would shortfall.
+        expect(
+            getDebitShortfall(CASH_ACCOUNT_ID, 50, "2026-02-10", ledger)
+        ).toBe(30);
+        // Excluding e1: available = 50; same amount ok.
+        expect(
+            getDebitShortfall(CASH_ACCOUNT_ID, 50, "2026-02-10", ledger, {
+                expenseId: "e1",
+            })
+        ).toBe(0);
     });
 });

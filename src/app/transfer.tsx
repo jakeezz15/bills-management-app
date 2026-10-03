@@ -45,7 +45,7 @@ export default function TransferScreen() {
     const { theme } = useTheme();
     const { currency, formatMoney } = useLocale();
     const symbol = currencySymbol(currency);
-    const { accounts, transfers, addTransfer } = useAccounts();
+    const { accounts, transfers, adjustments, addTransfer } = useAccounts();
     const { income } = useIncome();
     const { expenses } = useExpenses();
     const { payments: billPayments } = useBills();
@@ -90,7 +90,8 @@ export default function TransferScreen() {
                 billPayments,
                 debtPayments,
                 savingsContributions,
-                transfers
+                transfers,
+                adjustments
             ),
         [
             fromAccountId,
@@ -101,6 +102,7 @@ export default function TransferScreen() {
             debtPayments,
             savingsContributions,
             transfers,
+            adjustments,
         ]
     );
 

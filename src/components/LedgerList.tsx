@@ -90,8 +90,11 @@ export function LedgerDayGroup({ label, children }: LedgerDayGroupProps) {
 
 type LedgerRowProps = {
     title: string;
-    meta: string;
+    /** Optional category / kind pill. Omit to hide. */
+    meta?: string;
     amountLabel: string;
+    /** Overrides default money color (e.g. income / spending). */
+    amountColor?: string;
     accentColor?: string;
     isLast?: boolean;
     onPress: () => void;
@@ -101,6 +104,7 @@ export function LedgerRow({
     title,
     meta,
     amountLabel,
+    amountColor,
     accentColor,
     isLast = false,
     onPress,
@@ -123,12 +127,20 @@ export function LedgerRow({
             <Text style={styles.title} numberOfLines={1}>
                 {title}
             </Text>
-            <View style={styles.pill}>
-                <Text style={styles.pillText} numberOfLines={1}>
-                    {meta}
-                </Text>
-            </View>
-            <Text style={styles.amount} numberOfLines={1}>
+            {meta ? (
+                <View style={styles.pill}>
+                    <Text style={styles.pillText} numberOfLines={1}>
+                        {meta}
+                    </Text>
+                </View>
+            ) : null}
+            <Text
+                style={[
+                    styles.amount,
+                    amountColor ? { color: amountColor } : null,
+                ]}
+                numberOfLines={1}
+            >
                 {amountLabel}
             </Text>
         </Pressable>

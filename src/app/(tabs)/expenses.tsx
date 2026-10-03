@@ -243,7 +243,7 @@ export default function ExpensesScreen({
                     />
                 )}
 
-                <WalkthroughAnchor id="activity-spending">
+                <WalkthroughAnchor id="activity-income">
                     {dayGroups.map((group) => (
                         <LedgerDayGroup key={group.date} label={group.label}>
                             {group.items.map((expense, index) => {

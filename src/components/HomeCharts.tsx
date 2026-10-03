@@ -1,10 +1,15 @@
 import { useLocale } from "@/app/contexts/LocaleContext";
 import { useTheme } from "@/app/contexts/ThemeContext";
+import { iconForExpenseCategory } from "@/constants/categoryIcons";
 import { text, type Theme } from "@/design";
 import { useDashboardStyles } from "@/styles/dashboard";
 import { CategorySpend, MonthTrendPoint } from "@/utils/finance";
+import Ionicons from "@react-native-vector-icons/ionicons";
 import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
+
+const CHART_BAR_HEIGHT = 12;
+const TREND_TRACK_HEIGHT = 128;
 
 type SpendByCategoryChartProps = {
     rows: CategorySpend[];
@@ -15,58 +20,58 @@ export function SpendByCategoryChart({ rows }: SpendByCategoryChartProps) {
     const styles = useMemo(() => createChartStyles(theme), [theme]);
     const dashboard = useDashboardStyles();
     const { formatMoney } = useLocale();
+
+    if (rows.length === 0) {
+        return null;
+    }
+
     const max = Math.max(...rows.map((row) => row.amount), 1);
     const total = rows.reduce((sum, row) => sum + row.amount, 0);
 
     return (
-        <View style={styles.card}>
-            <Text style={dashboard.sectionLabel}>Spend by category</Text>
+        <View style={[dashboard.card, styles.card]}>
+            <Text style={[dashboard.sectionLabel, styles.cardTitle]}>
+                Spend by category
+            </Text>
             <Text style={styles.caption}>Selected period only</Text>
-            {rows.length === 0 ? (
-                <Text style={styles.empty}>
-                    No everyday spending in this period yet.
-                </Text>
-            ) : (
-                rows.map((row, index) => {
-                    const share = total > 0 ? (row.amount / total) * 100 : 0;
-                    const color = theme.chart[index % theme.chart.length];
-                    return (
-                        <View key={row.category} style={styles.row}>
-                            <View style={styles.rowTop}>
-                                <View style={styles.legend}>
-                                    <View
-                                        style={[
-                                            styles.dot,
-                                            { backgroundColor: color },
-                                        ]}
-                                    />
-                                    <Text style={styles.label} numberOfLines={1}>
-                                        {row.category}
-                                    </Text>
-                                </View>
-                                <Text style={styles.value}>
-                                    {formatMoney(row.amount, { compact: true })}
-                                    <Text style={styles.share}>
-                                        {" "}
-                                        · {Math.round(share)}%
-                                    </Text>
+            {rows.map((row, index) => {
+                const share = total > 0 ? (row.amount / total) * 100 : 0;
+                const color = theme.chart[index % theme.chart.length];
+                return (
+                    <View key={row.category} style={styles.row}>
+                        <View style={styles.rowTop}>
+                            <View style={styles.legend}>
+                                <Ionicons
+                                    name={iconForExpenseCategory(row.category)}
+                                    size={18}
+                                    color={color}
+                                />
+                                <Text style={styles.label} numberOfLines={1}>
+                                    {row.category}
                                 </Text>
                             </View>
-                            <View style={dashboard.barTrack}>
-                                <View
-                                    style={[
-                                        dashboard.barFill,
-                                        {
-                                            width: `${(row.amount / max) * 100}%`,
-                                            backgroundColor: color,
-                                        },
-                                    ]}
-                                />
-                            </View>
+                            <Text style={styles.value}>
+                                {formatMoney(row.amount, { compact: true })}
+                                <Text style={styles.share}>
+                                    {" "}
+                                    · {Math.round(share)}%
+                                </Text>
+                            </Text>
                         </View>
-                    );
-                })
-            )}
+                        <View style={styles.chartBarTrack}>
+                            <View
+                                style={[
+                                    styles.chartBarFill,
+                                    {
+                                        width: `${(row.amount / max) * 100}%`,
+                                        backgroundColor: color,
+                                    },
+                                ]}
+                            />
+                        </View>
+                    </View>
+                );
+            })}
         </View>
     );
 }
@@ -80,14 +85,21 @@ export function MonthTrendChart({ points }: MonthTrendChartProps) {
     const styles = useMemo(() => createChartStyles(theme), [theme]);
     const dashboard = useDashboardStyles();
     const { formatMoney } = useLocale();
+
+    if (points.length === 0) {
+        return null;
+    }
+
     const maxAbs = Math.max(
         ...points.map((point) => Math.abs(point.leftover)),
         1
     );
 
     return (
-        <View style={styles.card}>
-            <Text style={dashboard.sectionLabel}>Leftover trend</Text>
+        <View style={[dashboard.card, styles.card]}>
+            <Text style={[dashboard.sectionLabel, styles.cardTitle]}>
+                Leftover trend
+            </Text>
             <Text style={styles.caption}>
                 Running balance at the end of each month
             </Text>
@@ -95,13 +107,24 @@ export function MonthTrendChart({ points }: MonthTrendChartProps) {
                 {points.map((point) => {
                     const height = Math.max(
                         8,
-                        (Math.abs(point.leftover) / maxAbs) * 96
+                        (Math.abs(point.leftover) / maxAbs) *
+                            TREND_TRACK_HEIGHT
                     );
                     const positive = point.leftover >= 0;
 
                     return (
                         <View key={point.key} style={styles.trendCol}>
-                            <Text style={styles.trendAmount} numberOfLines={1}>
+                            <Text
+                                style={[
+                                    styles.trendAmount,
+                                    {
+                                        color: positive
+                                            ? theme.money.in.fg
+                                            : theme.money.out.fg,
+                                    },
+                                ]}
+                                numberOfLines={1}
+                            >
                                 {formatMoney(point.leftover, { compact: true })}
                             </Text>
                             <View style={styles.trendTrack}>
@@ -111,8 +134,8 @@ export function MonthTrendChart({ points }: MonthTrendChartProps) {
                                         {
                                             height,
                                             backgroundColor: positive
-                                                ? theme.intent.positive.solid
-                                                : theme.intent.negative.fg,
+                                                ? theme.money.in.solid
+                                                : theme.money.out.solid,
                                         },
                                     ]}
                                 />
@@ -129,22 +152,27 @@ export function MonthTrendChart({ points }: MonthTrendChartProps) {
 function createChartStyles(theme: Theme) {
     return StyleSheet.create({
         card: {
-            marginTop: theme.space.lg,
-            marginBottom: theme.space.sm,
-            paddingHorizontal: 0,
-            paddingTop: 0,
-            paddingBottom: theme.space.sm,
+            marginTop: theme.space.md,
         },
-        empty: {
-            ...text.caption,
-            marginBottom: theme.space.sm,
+        cardTitle: {
+            marginTop: 0,
         },
         caption: {
             ...text.caption,
             marginBottom: theme.space.md,
         },
+        chartBarTrack: {
+            height: CHART_BAR_HEIGHT,
+            borderRadius: theme.radius.pill,
+            backgroundColor: theme.track.base,
+            overflow: "hidden",
+        },
+        chartBarFill: {
+            height: CHART_BAR_HEIGHT,
+            borderRadius: theme.radius.pill,
+        },
         row: {
-            marginBottom: theme.space.md,
+            marginBottom: theme.space.lg,
         },
         rowTop: {
             flexDirection: "row",
@@ -158,11 +186,6 @@ function createChartStyles(theme: Theme) {
             alignItems: "center",
             gap: theme.space.sm,
             flex: 1,
-        },
-        dot: {
-            width: theme.space.sm,
-            height: theme.space.sm,
-            borderRadius: theme.radius.pill,
         },
         label: {
             ...text.body,
@@ -182,14 +205,13 @@ function createChartStyles(theme: Theme) {
             flexDirection: "row",
             alignItems: "flex-end",
             gap: theme.space.sm,
-            minHeight: 144,
+            minHeight: TREND_TRACK_HEIGHT + 56,
         },
         trendCol: {
             flex: 1,
             alignItems: "center",
         },
         trendAmount: {
-            color: theme.text.secondary,
             fontSize: theme.fontSize.xs,
             lineHeight: theme.lineHeight.xs,
             fontWeight: theme.fontWeight.semibold,
@@ -197,7 +219,7 @@ function createChartStyles(theme: Theme) {
             fontVariant: ["tabular-nums"],
         },
         trendTrack: {
-            height: 96,
+            height: TREND_TRACK_HEIGHT,
             width: "100%",
             justifyContent: "flex-end",
             alignItems: "center",

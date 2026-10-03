@@ -1,10 +1,9 @@
 export type WalkthroughStepId =
     | "home-leftover"
     | "home-breakdown"
-    | "home-period"
+    | "calendar-period"
     | "home-due"
     | "activity-income"
-    | "activity-spending"
     | "activity-add"
     | "plans-bills"
     | "plans-savings"
@@ -13,7 +12,11 @@ export type WalkthroughStepId =
 export type WalkthroughRoute =
     | "/(tabs)"
     | "/(tabs)/activity"
-    | "/(tabs)/plans";
+    | "/(tabs)/calendar"
+    | "/(tabs)/plans"
+    | "/(tabs)/bills"
+    | "/(tabs)/savings"
+    | "/(tabs)/debts";
 
 export type WalkthroughStep = {
     id: WalkthroughStepId;
@@ -42,13 +45,6 @@ export const WALKTHROUGH_STEPS: WalkthroughStep[] = [
         preferBubble: "above",
     },
     {
-        id: "home-period",
-        route: "/(tabs)",
-        title: "Pick a window",
-        body: "Switch between today, this week, this month, this year, or payday to change the leftover window.",
-        preferBubble: "below",
-    },
-    {
         id: "home-due",
         route: "/(tabs)",
         title: "What’s due",
@@ -56,44 +52,44 @@ export const WALKTHROUGH_STEPS: WalkthroughStep[] = [
         preferBubble: "below",
     },
     {
-        id: "activity-income",
-        route: "/(tabs)/activity",
-        title: "Income",
-        body: "Log paychecks and other money in here. Home leftover grows from what you record.",
+        id: "calendar-period",
+        route: "/(tabs)/calendar",
+        title: "Pick a window",
+        body: "Use Calendar to switch day, week, month, year, or payday. That window drives leftover on Home and the lists in Activity.",
         preferBubble: "below",
     },
     {
-        id: "activity-spending",
+        id: "activity-income",
         route: "/(tabs)/activity",
-        title: "Spending",
-        body: "Everyday purchases live under Spending. They reduce leftover once you log them.",
+        title: "Your activity",
+        body: "Paychecks and everyday spending share one list for the window you picked. Tap a row to open it.",
         preferBubble: "below",
     },
     {
         id: "activity-add",
         route: "/(tabs)/activity",
         title: "Add with +",
-        body: "Tap + to add income or spending, depending on which tab you’re on. Nothing is saved until you confirm the form.",
+        body: "Tap + and choose Paycheck or Spending. Nothing is saved until you confirm the form.",
         preferBubble: "above",
         showDemoChip: true,
     },
     {
         id: "plans-bills",
-        route: "/(tabs)/plans",
+        route: "/(tabs)/bills",
         title: "Bills",
         body: "Rent, utilities, and subscriptions. Adding a bill doesn’t cut leftover until you mark it paid.",
         preferBubble: "below",
     },
     {
         id: "plans-savings",
-        route: "/(tabs)/plans",
+        route: "/(tabs)/savings",
         title: "Savings",
         body: "Goals and monthly pace targets. Contributions you log reduce leftover; the planned monthly amount is only a guide.",
         preferBubble: "below",
     },
     {
         id: "plans-debts",
-        route: "/(tabs)/plans",
+        route: "/(tabs)/debts",
         title: "Debts",
         body: "Loans and balances. Record payments when you send money — unpaid installments stay due until then.",
         preferBubble: "below",

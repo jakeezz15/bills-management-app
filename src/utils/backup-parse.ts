@@ -1,6 +1,7 @@
 import { Bill } from "@/types/bill";
 import { BillPayment } from "@/types/bill-payment";
 import { CashAccount } from "@/types/account";
+import { AccountAdjustment } from "@/types/account-adjustment";
 import { Debt } from "@/types/debt";
 import { DebtPayment } from "@/types/debt-payment";
 import { Expense } from "@/types/expense";
@@ -9,6 +10,7 @@ import { SavingsGoal } from "@/types/savings";
 import { SavingsContribution } from "@/types/savings-contribution";
 import { Transfer } from "@/types/transfer";
 import {
+    parseAccountAdjustment,
     parseBill,
     parseBillPayment,
     parseCashAccount,
@@ -40,7 +42,7 @@ export type BackupPrefs = {
 };
 
 export type AppBackup = {
-    /** v1 = pre-accounts; v2 = Cash/Online pots + transfers. */
+    /** v1 = pre-accounts; v2 = Cash/Online pots + transfers (+ optional adjustments). */
     version: 1 | 2;
     exportedAt: string;
     income: Income[];
@@ -53,6 +55,7 @@ export type AppBackup = {
     savingsContributions: SavingsContribution[];
     accounts?: CashAccount[];
     transfers?: Transfer[];
+    adjustments?: AccountAdjustment[];
     prefs?: Partial<BackupPrefs>;
 };
 
@@ -140,6 +143,14 @@ export function parseAppBackup(value: unknown): ParseAppBackupResult {
     if (!transfers.ok) {
         return transfers;
     }
+    const adjustments = parseOptionalArray(
+        v.adjustments,
+        parseAccountAdjustment,
+        "adjustments"
+    );
+    if (!adjustments.ok) {
+        return adjustments;
+    }
 
     const backup: AppBackup = {
         version: v.version === 2 ? 2 : 1,
@@ -154,6 +165,7 @@ export function parseAppBackup(value: unknown): ParseAppBackupResult {
         savingsContributions: savingsContributions.items,
         accounts: ensureDefaultAccounts(accountsParsed.items),
         transfers: transfers.items,
+        adjustments: adjustments.items,
         prefs:
             v.prefs && typeof v.prefs === "object"
                 ? (v.prefs as Partial<BackupPrefs>)

@@ -26,8 +26,8 @@ import {
     savingsMonthsRemaining,
     savingsProgressPercent,
 } from "@/utils/savings";
-import { router } from "expo-router";
-import { useMemo, useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+import { useEffect, useMemo, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { useLocale } from "../contexts/LocaleContext";
 import { useSavings } from "../contexts/SavingsContext";
@@ -69,6 +69,14 @@ export default function SavingsScreen({
         [demoMode, storedSavings]
     );
     const [query, setQuery] = useState("");
+    const params = useLocalSearchParams<{ add?: string }>();
+
+    useEffect(() => {
+        if (params.add === "1") {
+            setIsOpen(true);
+            router.setParams({ add: undefined });
+        }
+    }, [params.add]);
 
     const listed = useMemo(
         () => filterBySearch(savings, query),
@@ -111,6 +119,7 @@ export default function SavingsScreen({
                 amountLabel={formatMoney(goal.currentAmount, { compact: true })}
                 amountHint="saved"
                 done={done}
+                progressPercent={savingsProgressPercent(goal)}
                 onPress={() => {
                     if (demoMode) return;
                     router.push(`/goal/${goal.id}`);
@@ -144,6 +153,8 @@ export default function SavingsScreen({
                     <PageHeader
                         title="Savings"
                         subtitle="Goals — tap one to log or edit"
+                        backLabel="Plans"
+                        onBack={() => router.push("/(tabs)/plans")}
                     />
                 ) : null}
 

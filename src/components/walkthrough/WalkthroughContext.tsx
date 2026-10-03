@@ -9,7 +9,6 @@ import {
     type ReactNode,
 } from "react";
 import { router } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
     clearFirstRunFlag,
     hasCompletedFirstRun,
@@ -20,6 +19,9 @@ import {
     type WalkthroughStep,
     type WalkthroughStepId,
 } from "./steps";
+
+/** Flip to true when the tour is ready again (Plans hub routes, etc.). */
+export const WALKTHROUGH_ENABLED = false;
 
 export type AnchorRect = {
     x: number;
@@ -63,8 +65,6 @@ type WalkthroughAnchorContextValue = {
 const WalkthroughContext = createContext<WalkthroughContextValue | null>(null);
 const WalkthroughAnchorContext =
     createContext<WalkthroughAnchorContextValue | null>(null);
-
-const ACTIVITY_SECTION_KEY = "activitySection";
 
 function delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -188,10 +188,6 @@ export function WalkthroughProvider({ children }: { children: ReactNode }) {
                 setTransitioning(true);
             }
 
-            if (nextStep.route === "/(tabs)/activity") {
-                await AsyncStorage.setItem(ACTIVITY_SECTION_KEY, "Income");
-            }
-
             const previousRoute =
                 phaseRef.current === "running"
                     ? WALKTHROUGH_STEPS[stepIndexRef.current]?.route
@@ -221,6 +217,7 @@ export function WalkthroughProvider({ children }: { children: ReactNode }) {
     );
 
     const start = useCallback(() => {
+        if (!WALKTHROUGH_ENABLED) return;
         setPhase("running");
         void goToStep(0, { softStart: true });
     }, [goToStep]);
@@ -243,6 +240,7 @@ export function WalkthroughProvider({ children }: { children: ReactNode }) {
     }, [finish]);
 
     const openOfferIfNeeded = useCallback(async () => {
+        if (!WALKTHROUGH_ENABLED) return;
         if (phaseRef.current !== "idle") return;
         const done = await hasCompletedFirstRun();
         if (done) return;
@@ -250,6 +248,7 @@ export function WalkthroughProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const prepareReplay = useCallback(async () => {
+        if (!WALKTHROUGH_ENABLED) return;
         await clearFirstRunFlag();
         setPhase("offer");
         setStepIndex(0);

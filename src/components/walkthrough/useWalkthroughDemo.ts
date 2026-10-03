@@ -14,11 +14,7 @@ export function useWalkthroughStep(
 
 /** Tour is running on any Activity list step (show sample income/spend). */
 export function useWalkthroughActivityDemo(): boolean {
-    return useWalkthroughStep(
-        "activity-income",
-        "activity-spending",
-        "activity-add"
-    );
+    return useWalkthroughStep("activity-income", "activity-add");
 }
 
 /** Tour is running on a Plans list step. */

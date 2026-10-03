@@ -102,6 +102,13 @@ export default function RootLayout() {
                                                                     }}
                                                                 />
                                                                 <Stack.Screen
+                                                                    name="calendar"
+                                                                    options={{
+                                                                        animation:
+                                                                            "slide_from_right",
+                                                                    }}
+                                                                />
+                                                                <Stack.Screen
                                                                     name="transfer"
                                                                     options={{
                                                                         animation:

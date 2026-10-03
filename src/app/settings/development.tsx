@@ -165,8 +165,8 @@ export default function SettingsDevelopmentScreen() {
                 <SettingsRow
                     icon="bulb-outline"
                     title="Replay walkthrough"
-                    subtitle="Shows the first-run spotlight tour again"
-                    disabled={busy}
+                    subtitle="Disabled for now — flip WALKTHROUGH_ENABLED when ready"
+                    disabled
                     showChevron
                     onPress={() => {
                         void prepareReplay();

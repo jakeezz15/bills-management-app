@@ -14,12 +14,15 @@ import {
 } from "@/components/SettingsList";
 import { SettingsSubpage } from "@/components/SettingsSubpage";
 import { useFormColors, useFormStyles } from "@/styles/form";
-import { CashAccount } from "@/types/account";
+import { CASH_ACCOUNT_ID, CashAccount } from "@/types/account";
+import { Transfer } from "@/types/transfer";
 import { getAccountSplitThrough } from "@/utils/account-balances";
 import { onlineAccounts } from "@/utils/accounts";
 import { confirmDestructive } from "@/utils/confirm";
 import { rangeThrough } from "@/utils/date";
+import { hapticConfirm } from "@/utils/haptics";
 import Ionicons from "@react-native-vector-icons/ionicons";
+import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import {
     Alert,
@@ -44,10 +47,13 @@ export default function SettingsAccountsScreen() {
         cashAccount,
         accounts,
         transfers,
+        adjustments,
         addOnlineAccount,
         renameAccount,
         setPrimaryOnline,
         archiveOnlineAccount,
+        unarchiveOnlineAccount,
+        deleteTransfer,
     } = useAccounts();
     const { income } = useIncome();
     const { expenses } = useExpenses();
@@ -56,6 +62,13 @@ export default function SettingsAccountsScreen() {
     const { contributions: savingsContributions } = useSavings();
 
     const online = useMemo(() => onlineAccounts(accounts), [accounts]);
+    const archivedOnline = useMemo(
+        () =>
+            accounts.filter(
+                (account) => account.kind === "online" && account.archived === true
+            ),
+        [accounts]
+    );
     const canArchive = online.length > 1;
 
     const split = useMemo(
@@ -68,7 +81,8 @@ export default function SettingsAccountsScreen() {
                 billPayments,
                 debtPayments,
                 savingsContributions,
-                transfers
+                transfers,
+                adjustments
             ),
         [
             accounts,
@@ -78,6 +92,7 @@ export default function SettingsAccountsScreen() {
             debtPayments,
             savingsContributions,
             transfers,
+            adjustments,
         ]
     );
 
@@ -88,6 +103,23 @@ export default function SettingsAccountsScreen() {
         }
         return map;
     }, [split.byAccount]);
+
+    const accountNameById = useMemo(() => {
+        const map = new Map<string, string>();
+        for (const account of accounts) {
+            map.set(account.id, account.name);
+        }
+        return map;
+    }, [accounts]);
+
+    const recentTransfers = useMemo(() => {
+        return [...transfers].sort((a, b) => {
+            if (a.date !== b.date) {
+                return a.date < b.date ? 1 : -1;
+            }
+            return a.id < b.id ? 1 : -1;
+        });
+    }, [transfers]);
 
     const [editor, setEditor] = useState<NameEditor>(null);
     const [nameDraft, setNameDraft] = useState("");
@@ -180,6 +212,26 @@ export default function SettingsAccountsScreen() {
                     marginTop: theme.space.sm,
                     marginHorizontal: theme.space.md,
                 },
+                transferRow: {
+                    flexDirection: "row",
+                    alignItems: "center",
+                    minHeight: theme.size.tap,
+                    paddingHorizontal: theme.space.md,
+                    paddingVertical: theme.space.sm,
+                    gap: theme.space.sm,
+                },
+                undo: {
+                    minHeight: theme.size.tap,
+                    minWidth: theme.size.tap,
+                    paddingHorizontal: theme.space.sm,
+                    alignItems: "center",
+                    justifyContent: "center",
+                },
+                undoLabel: {
+                    color: theme.intent.negative.fg,
+                    fontSize: theme.fontSize.sm,
+                    fontWeight: theme.fontWeight.semibold,
+                },
             }),
         [theme]
     );
@@ -222,18 +274,25 @@ export default function SettingsAccountsScreen() {
         }
     };
 
+    const openPot = (accountId: string) => {
+        router.push(`/settings/accounts/${accountId}`);
+    };
+
     const openOnlineActions = (account: CashAccount) => {
-        setEditor({ mode: "rename", account })
         const buttons: {
             text: string;
             style?: "cancel" | "destructive" | "default";
             onPress?: () => void;
         }[] = [
-                {
-                    text: "Rename",
-                    onPress: () => openRename(account),
-                },
-            ];
+            {
+                text: "Open",
+                onPress: () => openPot(account.id),
+            },
+            {
+                text: "Rename",
+                onPress: () => openRename(account),
+            },
+        ];
 
         if (!account.isPrimary) {
             buttons.push({
@@ -272,6 +331,39 @@ export default function SettingsAccountsScreen() {
         );
     };
 
+    const openArchivedActions = (account: CashAccount) => {
+        Alert.alert(account.name, "Archived — restore to use in pickers again.", [
+            {
+                text: "Unarchive",
+                onPress: () => {
+                    void unarchiveOnlineAccount(account.id);
+                },
+            },
+            {
+                text: "Open",
+                onPress: () => openPot(account.id),
+            },
+            { text: "Cancel", style: "cancel" },
+        ]);
+    };
+
+    const undoTransfer = (transfer: Transfer) => {
+        const fromName =
+            accountNameById.get(transfer.fromAccountId) ?? "Account";
+        const toName = accountNameById.get(transfer.toAccountId) ?? "Account";
+        confirmDestructive(
+            "Undo transfer?",
+            `Removes ${formatMoney(transfer.amount, { compact: true })} from ${fromName} → ${toName}.`,
+            () => {
+                void (async () => {
+                    await deleteTransfer(transfer.id);
+                    hapticConfirm();
+                })();
+            },
+            "Undo"
+        );
+    };
+
     const formatBalance = (amount: number) =>
         formatMoney(amount, { compact: true });
 
@@ -283,7 +375,8 @@ export default function SettingsAccountsScreen() {
                         styles.row,
                         pressed && styles.rowPressed,
                     ]}
-                    onPress={() => openRename(cashAccount)}
+                    onPress={() => openPot(CASH_ACCOUNT_ID)}
+                    onLongPress={() => openRename(cashAccount)}
                     accessibilityRole="button"
                     accessibilityLabel={`${cashAccount.name}, ${formatBalance(split.cash)}`}
                 >
@@ -305,6 +398,11 @@ export default function SettingsAccountsScreen() {
                     >
                         {formatBalance(split.cash)}
                     </Text>
+                    <Ionicons
+                        name="chevron-forward"
+                        size={18}
+                        color={theme.text.tertiary}
+                    />
                 </Pressable>
             </SettingsSection>
 
@@ -319,7 +417,8 @@ export default function SettingsAccountsScreen() {
                                     styles.row,
                                     pressed && styles.rowPressed,
                                 ]}
-                                onPress={() => openOnlineActions(account)}
+                                onPress={() => openPot(account.id)}
+                                onLongPress={() => openOnlineActions(account)}
                                 accessibilityRole="button"
                                 accessibilityLabel={`${account.name}, ${formatBalance(balance)}${account.isPrimary ? ", primary" : ""}`}
                             >
@@ -368,6 +467,103 @@ export default function SettingsAccountsScreen() {
                 </Pressable>
             </SettingsSection>
 
+            {archivedOnline.length > 0 ? (
+                <SettingsSection title="Archived">
+                    {archivedOnline.map((account, index) => {
+                        const balance = balanceById.get(account.id) ?? 0;
+                        return (
+                            <View key={account.id}>
+                                {index > 0 ? <SettingsDivider /> : null}
+                                <Pressable
+                                    style={({ pressed }) => [
+                                        styles.row,
+                                        pressed && styles.rowPressed,
+                                    ]}
+                                    onPress={() => openArchivedActions(account)}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`${account.name}, archived, ${formatBalance(balance)}`}
+                                >
+                                    <AccountAvatar
+                                        name={account.name}
+                                        color={account.color}
+                                    />
+                                    <View style={styles.copy}>
+                                        <Text
+                                            style={styles.title}
+                                            numberOfLines={1}
+                                        >
+                                            {account.name}
+                                        </Text>
+                                        <Text style={styles.subtitle}>
+                                            Archived
+                                        </Text>
+                                    </View>
+                                    <Text
+                                        style={[
+                                            styles.balance,
+                                            balance < 0 &&
+                                                styles.balanceNegative,
+                                        ]}
+                                    >
+                                        {formatBalance(balance)}
+                                    </Text>
+                                </Pressable>
+                            </View>
+                        );
+                    })}
+                </SettingsSection>
+            ) : null}
+
+            {recentTransfers.length > 0 ? (
+                <SettingsSection title="Transfers">
+                    {recentTransfers.map((transfer, index) => {
+                        const fromName =
+                            accountNameById.get(transfer.fromAccountId) ??
+                            "Account";
+                        const toName =
+                            accountNameById.get(transfer.toAccountId) ??
+                            "Account";
+                        return (
+                            <View key={transfer.id}>
+                                {index > 0 ? <SettingsDivider /> : null}
+                                <Pressable
+                                    style={({ pressed }) => [
+                                        styles.transferRow,
+                                        pressed && styles.rowPressed,
+                                    ]}
+                                    onPress={() => undoTransfer(transfer)}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Undo transfer ${fromName} to ${toName}`}
+                                >
+                                    <View style={styles.copy}>
+                                        <Text
+                                            style={styles.title}
+                                            numberOfLines={1}
+                                        >
+                                            {fromName} → {toName}
+                                        </Text>
+                                        <Text style={styles.subtitle}>
+                                            {transfer.date}
+                                            {transfer.note
+                                                ? ` · ${transfer.note}`
+                                                : ""}
+                                        </Text>
+                                    </View>
+                                    <Text style={styles.balance}>
+                                        {formatBalance(transfer.amount)}
+                                    </Text>
+                                    <View style={styles.undo}>
+                                        <Text style={styles.undoLabel}>
+                                            Undo
+                                        </Text>
+                                    </View>
+                                </Pressable>
+                            </View>
+                        );
+                    })}
+                </SettingsSection>
+            ) : null}
+
             <View
                 style={styles.totalCard}
                 accessibilityRole="summary"
@@ -385,8 +581,8 @@ export default function SettingsAccountsScreen() {
             </View>
 
             <Text style={styles.hint}>
-                Balances as of today. Names and letter avatars only — no bank
-                connection.
+                Tap a pot for balance, adjust, and activity. Long-press for
+                rename, primary, or archive.
             </Text>
 
             <FormDialog

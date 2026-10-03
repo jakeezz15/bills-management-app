@@ -3,11 +3,12 @@ import { useBills } from "@/app/contexts/BillsContext";
 import { useDebt } from "@/app/contexts/DebtsContext";
 import { useLocale } from "@/app/contexts/LocaleContext";
 import { CompactPlanRow } from "@/components/CompactPlanRow";
+import { QuickPayAccountDialog } from "@/components/QuickPayAccountDialog";
 import { text, theme } from "@/design";
+import { ensureCanDebit, useDebitLedger } from "@/hooks/useDebitLedger";
 import { useDashboardStyles } from "@/styles/dashboard";
 import { Bill } from "@/types/bill";
 import { Debt } from "@/types/debt";
-import { defaultInboundAccountId } from "@/utils/accounts";
 import { todayIsoDate } from "@/utils/date";
 import {
     dueNowLabel,
@@ -18,7 +19,7 @@ import { getLastBillPayment } from "@/utils/filters";
 import { hapticConfirm } from "@/utils/haptics";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { router } from "expo-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import Animated, {
     FadeIn,
@@ -44,6 +45,10 @@ function hasTrackedPlans(bills: Bill[], debts: Debt[]): boolean {
     return debts.some((debt) => debt.balance > 0 && !debt.paidOffDate);
 }
 
+type PendingPay =
+    | { kind: "bill"; id: string; name: string; amount: number }
+    | { kind: "debt"; id: string; name: string; amount: number };
+
 type DueNowSectionProps = {
     title?: string;
     caption?: string;
@@ -60,9 +65,11 @@ export function DueNowSection({
     const dashboard = useDashboardStyles();
     const { formatMoney } = useLocale();
     const { accounts } = useAccounts();
-    const { bills, payments: billPayments, toggleBillPaid } = useBills();
+    const debitLedger = useDebitLedger();
+    const { toggleBillPaid } = useBills();
+    const { bills, payments: billPayments } = useBills();
     const { debts, payments: debtPayments, recordPayment } = useDebt();
-    const defaultAccountId = defaultInboundAccountId(accounts);
+    const [pendingPay, setPendingPay] = useState<PendingPay | null>(null);
 
     const items = useMemo(
         () =>
@@ -78,11 +85,49 @@ export function DueNowSection({
     );
     const showClear = items.length === 0 && hasTrackedPlans(bills, debts);
 
-    if (items.length === 0 && !showClear) {
+    if (items.length === 0 && !showClear && !pendingPay) {
         return null;
     }
 
     const asOfIso = todayIsoDate();
+
+    const confirmPay = (accountId: string) => {
+        if (!pendingPay) {
+            return;
+        }
+        const potName =
+            accounts.find((account) => account.id === accountId)?.name ??
+            "Account";
+        if (
+            !ensureCanDebit({
+                accountId,
+                amount: pendingPay.amount,
+                asOfIso: asOfIso,
+                accountName: potName,
+                ledger: debitLedger,
+                formatMoney: (value) => formatMoney(value, { compact: true }),
+            })
+        ) {
+            return;
+        }
+        hapticConfirm();
+        if (pendingPay.kind === "bill") {
+            void toggleBillPaid(
+                pendingPay.id,
+                asOfIso,
+                undefined,
+                accountId
+            );
+        } else {
+            void recordPayment(
+                pendingPay.id,
+                undefined,
+                asOfIso,
+                accountId
+            );
+        }
+        setPendingPay(null);
+    };
 
     return (
         <Animated.View layout={layout} style={styles.wrap}>
@@ -149,22 +194,20 @@ export function DueNowSection({
                                             router.push(`/bill/${item.id}`);
                                             return;
                                         }
-                                        hapticConfirm();
-                                        void toggleBillPaid(
-                                            item.id,
-                                            asOfIso,
-                                            undefined,
-                                            defaultAccountId
-                                        );
+                                        setPendingPay({
+                                            kind: "bill",
+                                            id: item.id,
+                                            name: item.name,
+                                            amount: item.amount,
+                                        });
                                         return;
                                     }
-                                    hapticConfirm();
-                                    void recordPayment(
-                                        item.id,
-                                        undefined,
-                                        asOfIso,
-                                        defaultAccountId
-                                    );
+                                    setPendingPay({
+                                        kind: "debt",
+                                        id: item.id,
+                                        name: item.name,
+                                        amount: item.amount,
+                                    });
                                 }}
                                 toggleAccessibilityLabel={
                                     item.kind === "bill" && item.amountVaries
@@ -180,6 +223,24 @@ export function DueNowSection({
             </View>
 
             {showClear ? <DueClearCard /> : null}
+
+            <QuickPayAccountDialog
+                visible={pendingPay !== null}
+                title={
+                    pendingPay
+                        ? pendingPay.kind === "debt"
+                            ? `Pay ${pendingPay.name}`
+                            : `Pay ${pendingPay.name}`
+                        : "Pay"
+                }
+                subtitle={
+                    pendingPay?.kind === "debt"
+                        ? `Records ${formatMoney(pendingPay.amount, { compact: true })} from this pot.`
+                        : "Money leaves this pot."
+                }
+                onCancel={() => setPendingPay(null)}
+                onConfirm={confirmPay}
+            />
         </Animated.View>
     );
 }
