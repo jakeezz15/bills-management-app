@@ -9,11 +9,16 @@ import { IncomeProvider } from "@/app/contexts/IncomeContext";
 import { LocaleProvider } from "@/app/contexts/LocaleContext";
 import { ThemeProvider } from "@/app/contexts/ThemeContext";
 import { SavingsProvider } from "@/app/contexts/SavingsContext";
+import { AccountsProvider } from "@/app/contexts/AccountsContext";
 import { AuthGate } from "@/components/AuthGate";
 import { NotificationTapHandler } from "@/components/NotificationTapHandler";
 import { ReminderSync } from "@/components/ReminderSync";
 import { StorageHealthBanner } from "@/components/StorageHealthBanner";
 import { SyncProgressProvider } from "@/components/SyncProgressOverlay";
+import {
+    WalkthroughHost,
+    WalkthroughProvider,
+} from "@/components/walkthrough";
 import { View } from "react-native";
 
 export default function RootLayout() {
@@ -25,17 +30,20 @@ export default function RootLayout() {
                 <ThemeProvider>
                     <LocaleProvider>
                         <DateRangeProvider>
+                            <AccountsProvider>
                             <IncomeProvider>
                                 <SavingsProvider>
                                     <DebtsProvider>
                                         <BillsProvider>
                                             <ExpensesProvider>
                                                 <SyncProgressProvider>
+                                                    <WalkthroughProvider>
                                                     <ReminderSync />
                                                     <NotificationTapHandler />
                                                     <AuthGate>
                                                         <View style={{ flex: 1 }}>
                                                             <StorageHealthBanner />
+                                                            <WalkthroughHost />
                                                             <Stack
                                                                 screenOptions={{
                                                                     headerShown: false,
@@ -86,15 +94,38 @@ export default function RootLayout() {
                                                                             "slide_from_right",
                                                                     }}
                                                                 />
+                                                                <Stack.Screen
+                                                                    name="statement"
+                                                                    options={{
+                                                                        animation:
+                                                                            "slide_from_right",
+                                                                    }}
+                                                                />
+                                                                <Stack.Screen
+                                                                    name="calendar"
+                                                                    options={{
+                                                                        animation:
+                                                                            "slide_from_right",
+                                                                    }}
+                                                                />
+                                                                <Stack.Screen
+                                                                    name="transfer"
+                                                                    options={{
+                                                                        animation:
+                                                                            "slide_from_right",
+                                                                    }}
+                                                                />
                                                             </Stack>
                                                         </View>
                                                     </AuthGate>
+                                                    </WalkthroughProvider>
                                                 </SyncProgressProvider>
                                             </ExpensesProvider>
                                         </BillsProvider>
                                     </DebtsProvider>
                                 </SavingsProvider>
                             </IncomeProvider>
+                            </AccountsProvider>
                         </DateRangeProvider>
                     </LocaleProvider>
                 </ThemeProvider>

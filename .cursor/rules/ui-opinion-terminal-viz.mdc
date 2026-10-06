@@ -1,0 +1,31 @@
+---
+description: When giving UI opinions, always include a terminal-style ASCII before/after (or proposed) visualization
+alwaysApply: true
+---
+
+# UI opinions need terminal visuals
+
+Whenever the user asks for a **UI opinion**, design feedback, layout preference, or “what do you think?” about how something looks or should look:
+
+1. Give a short verbal verdict (1–3 sentences).
+2. **Always** include a **terminal-style ASCII visualization** so they can appreciate the idea without running the app.
+3. Prefer **before → after** side-by-side (or stacked) when comparing the current UI to a proposed change.
+4. Keep the sketch concrete: labels, amounts, bars/cards, hierarchy — not abstract boxes only.
+5. Match the app’s real section names when known (e.g. This month, Spend by category, Leftover trend).
+
+## Sketch conventions
+
+- Use box-drawing characters: `┌ ┐ └ ┘ │ ─ ├ ┤`
+- Mark color roles in comments on the right (`← green`, `← red`, `← primary`) when color is the point
+- Keep width readable in chat (~40–60 chars per column)
+
+## Example shape
+
+```
+BEFORE                          AFTER
+┌─────────────────────┐         ┌─────────────────────┐
+│ ... current UI ...  │         │ ... proposed UI ... │
+└─────────────────────┘         └─────────────────────┘
+```
+
+Do **not** skip the visual when only giving an opinion. Code changes still wait for an explicit implement/go-ahead unless already in agent implement mode.

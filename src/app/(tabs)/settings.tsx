@@ -92,7 +92,18 @@ export default function SettingsScreen() {
             >
                 <Text style={styles.pageTitle}>Settings</Text>
 
+
                 <SettingsSection title="Preferences">
+                    <SettingsRow
+                        icon="person-circle-outline"
+                        title="Account"
+                        subtitle={accountSubtitle}
+                        showChevron
+                        onPress={() => {
+                            router.push("/settings/account");
+                        }}
+                    />
+                    <SettingsDivider />
                     <SettingsRow
                         icon="options-outline"
                         title="General"
@@ -116,6 +127,18 @@ export default function SettingsScreen() {
                     />
                     <SettingsDivider />
 
+
+                    <SettingsRow
+                        icon="wallet-outline"
+                        title="Wallet Accounts"
+                        subtitle="Cash and Online balances"
+                        showChevron
+                        onPress={() => {
+                            router.push("/settings/accounts");
+                        }}
+                    />
+                    <SettingsDivider />
+
                     <SettingsRow
                         icon="folder-outline"
                         title="Data & privacy"
@@ -127,16 +150,7 @@ export default function SettingsScreen() {
                     />
                     <SettingsDivider />
 
-                    <SettingsRow
-                        icon="person-circle-outline"
-                        title="Account"
-                        subtitle={accountSubtitle}
-                        showChevron
-                        onPress={() => {
-                            router.push("/settings/account");
-                        }}
-                    />
-                    <SettingsDivider />
+
                 </SettingsSection>
 
                 <SettingsSection title="App">

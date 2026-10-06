@@ -11,7 +11,11 @@ import {
     startOfDay,
     toIsoDate,
 } from "@/utils/date";
-import { debtStartDate } from "@/utils/timestamps";
+import {
+    dueDateInMonth,
+    firstDueOnOrAfter,
+} from "@/utils/reminder-schedule";
+import { billStartDate, debtStartDate } from "@/utils/timestamps";
 
 export function filterByCategory<T extends { category?: string }>(
     items: T[],
@@ -49,7 +53,9 @@ export function filterBillsByPaidStatus(
     }
 
     return bills.filter((bill) => {
-        const paid = isBillPaidAsOf(bill, payments, asOf);
+        const paid = isBillPaidAsOf(bill, payments, asOf, {
+            anyDayInMonth: true,
+        });
         return paidFilter === "Paid" ? paid : !paid;
     });
 }
@@ -98,12 +104,98 @@ export function isDebtNotStartedAsOf(debt: Debt, asOf: Date): boolean {
     return toIsoDate(asOf) < debtStartDate(debt);
 }
 
+/** Bill visibility: hidden before optional startDate. */
+export function isBillVisibleAsOf(bill: Bill, asOf: Date): boolean {
+    const start = billStartDate(bill);
+    if (!start) {
+        return true;
+    }
+    return toIsoDate(asOf) >= start;
+}
+
+export function isBillNotStartedAsOf(bill: Bill, asOf: Date): boolean {
+    const start = billStartDate(bill);
+    if (!start) {
+        return false;
+    }
+    return toIsoDate(asOf) < start;
+}
+
+export function filterBillsVisibleAsOf(bills: Bill[], asOf: Date): Bill[] {
+    return bills.filter((bill) => isBillVisibleAsOf(bill, asOf));
+}
+
+/**
+ * Days until/after the effective due for this plan as of `asOf`.
+ * Returns null when the plan has not started yet.
+ * Mid-month starts with an earlier due day use the first due on/after start.
+ */
+export function getPlanDueOffset(
+    dueDay: number,
+    asOf: Date,
+    startIso?: string | null
+): number | null {
+    const asOfDay = startOfDay(asOf);
+    if (startIso && toIsoDate(asOfDay) < startIso) {
+        return null;
+    }
+
+    const dueThisMonth = startOfDay(
+        dueDateInMonth(dueDay, asOfDay.getFullYear(), asOfDay.getMonth())
+    );
+    const dueIso = toIsoDate(dueThisMonth);
+
+    if (startIso && dueIso < startIso) {
+        const start = parseIsoDate(startIso);
+        if (!start) {
+            return getBillDueOffset(dueDay, asOfDay, asOfDay);
+        }
+        const first = startOfDay(firstDueOnOrAfter(dueDay, start));
+        return Math.round(
+            (first.getTime() - asOfDay.getTime()) / 86400000
+        );
+    }
+
+    return Math.round(
+        (dueThisMonth.getTime() - asOfDay.getTime()) / 86400000
+    );
+}
+
+/** Payment recorded for this debt in `asOf`'s calendar month, if any. */
+export function getDebtPaymentInMonth(
+    debtId: string,
+    payments: DebtPayment[],
+    asOf: Date
+): DebtPayment | undefined {
+    const asOfDay = startOfDay(asOf);
+    return payments.find((payment) => {
+        if (payment.debtId !== debtId) {
+            return false;
+        }
+        const paidOn = parseIsoDate(payment.date);
+        if (!paidOn) {
+            return false;
+        }
+        return isSameCalendarMonth(paidOn, asOfDay);
+    });
+}
+
+export function isDebtSkippedInMonth(
+    debtId: string,
+    payments: DebtPayment[],
+    asOf: Date
+): boolean {
+    return getDebtPaymentInMonth(debtId, payments, asOf)?.skipped === true;
+}
+
 export function getDebtTotalPaid(
     debtId: string,
     payments: DebtPayment[]
 ): number {
     return payments
-        .filter((payment) => payment.debtId === debtId)
+        .filter(
+            (payment) => payment.debtId === debtId && payment.skipped !== true
+        )
         .reduce((sum, payment) => sum + payment.amount, 0);
 }
 

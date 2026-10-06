@@ -1,16 +1,20 @@
+import { useAccounts } from "@/app/contexts/AccountsContext";
 import { useBills } from "@/app/contexts/BillsContext";
 import { useDebt } from "@/app/contexts/DebtsContext";
 import { useLocale } from "@/app/contexts/LocaleContext";
 import { useTheme } from "@/app/contexts/ThemeContext";
+import { AppButton } from "@/components/AppButton";
 import { CompactPlanRow } from "@/components/CompactPlanRow";
+import { QuickPayAccountDialog } from "@/components/QuickPayAccountDialog";
 import { elevation, text, type Theme } from "@/design";
+import { ensureCanDebit, useDebitLedger } from "@/hooks/useDebitLedger";
 import { useDueNowInbox } from "@/hooks/useDueNowInbox";
 import { hapticConfirm } from "@/utils/haptics";
-import { dueNowLabel, dueNowTone } from "@/utils/due-now";
+import { dueNowLabel, dueNowTone, type DueNowItem } from "@/utils/due-now";
 import { getLastBillPayment } from "@/utils/filters";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { router } from "expo-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
     Modal,
     Pressable,
@@ -36,6 +40,10 @@ const badgeEnter = ZoomIn.springify()
     .damping(14)
     .reduceMotion(ReduceMotion.System);
 
+type PendingPay =
+    | { kind: "bill"; id: string; name: string; amount: number }
+    | { kind: "debt"; id: string; name: string; amount: number };
+
 type DueNowModalProps = {
     visible: boolean;
     onClose: () => void;
@@ -43,6 +51,17 @@ type DueNowModalProps = {
     caption?: string;
     clearCaption?: string;
     soonWithinDays?: number;
+    /** Walkthrough: sample rows (display only). */
+    itemsOverride?: DueNowItem[];
+    /** Walkthrough: tip + Next/Skip instead of Done. */
+    tour?: {
+        title: string;
+        body: string;
+        stepIndex: number;
+        totalSteps: number;
+        onNext: () => void;
+        onSkip: () => void;
+    };
 };
 
 export function DueNowModal({
@@ -52,46 +71,99 @@ export function DueNowModal({
     caption = "Log these to drop leftover. Overdue, due today, and due in 3 days.",
     clearCaption = "Nothing waiting in the next 3 days.",
     soonWithinDays,
+    itemsOverride,
+    tour,
 }: DueNowModalProps) {
     const { theme } = useTheme();
     const styles = useMemo(() => createDueNowStyles(theme), [theme]);
     const { formatMoney } = useLocale();
+    const { accounts } = useAccounts();
+    const debitLedger = useDebitLedger();
     const { toggleBillPaid, payments: billPayments } = useBills();
     const { recordPayment } = useDebt();
-    const { items, showClear, asOfIso } = useDueNowInbox(soonWithinDays);
+    const inbox = useDueNowInbox(soonWithinDays);
+    const items = itemsOverride ?? inbox.items;
+    const showClear = itemsOverride ? false : inbox.showClear;
+    const asOfIso = inbox.asOfIso;
+    const tourMode = Boolean(tour);
+    const [pendingPay, setPendingPay] = useState<PendingPay | null>(null);
 
     const openPlan = (kind: "bill" | "debt", id: string) => {
+        if (tourMode) return;
         onClose();
         router.push(kind === "debt" ? `/debt/${id}` : `/bill/${id}`);
     };
 
+    const confirmPay = (accountId: string) => {
+        if (!pendingPay) {
+            return;
+        }
+        const potName =
+            accounts.find((account) => account.id === accountId)?.name ??
+            "Account";
+        if (
+            !ensureCanDebit({
+                accountId,
+                amount: pendingPay.amount,
+                asOfIso,
+                accountName: potName,
+                ledger: debitLedger,
+                formatMoney: (value) => formatMoney(value, { compact: true }),
+            })
+        ) {
+            return;
+        }
+        hapticConfirm();
+        if (pendingPay.kind === "bill") {
+            void toggleBillPaid(
+                pendingPay.id,
+                asOfIso,
+                undefined,
+                accountId
+            );
+        } else {
+            void recordPayment(
+                pendingPay.id,
+                undefined,
+                asOfIso,
+                accountId
+            );
+        }
+        setPendingPay(null);
+    };
+
     return (
+        <>
         <Modal
             visible={visible}
             animationType="fade"
             transparent
-            onRequestClose={onClose}
+            onRequestClose={tour ? tour.onSkip : onClose}
         >
             <View style={styles.overlay}>
                 <View style={styles.card}>
                     <View style={styles.header}>
                         <View style={{ flex: 1 }}>
-                            <Text style={styles.kicker}>Plans</Text>
+                            <Text style={styles.kicker}>
+                                {tourMode ? "Walkthrough" : "Plans"}
+                            </Text>
                             <Text
                                 style={styles.title}
                                 accessibilityRole="header"
                             >
-                                {title}
+                                {tourMode ? tour!.title : title}
                             </Text>
                         </View>
                         <Pressable
-                            onPress={onClose}
+                            onPress={tour ? tour.onSkip : onClose}
                             style={({ pressed }) => [
                                 styles.close,
                                 pressed && styles.closePressed,
                             ]}
                             accessibilityRole="button"
-                            accessibilityLabel="Close"
+                            accessibilityLabel={
+                                tourMode ? "Skip walkthrough" : "Close"
+                            }
                             hitSlop={8}
                         >
                             <Ionicons
@@ -107,9 +179,19 @@ export function DueNowModal({
                         contentContainerStyle={styles.body}
                         keyboardShouldPersistTaps="handled"
                     >
-                        <Text style={styles.caption}>
-                            {showClear ? clearCaption : caption}
-                        </Text>
+                        {tourMode ? (
+                            <Text style={styles.caption}>{tour!.body}</Text>
+                        ) : (
+                            <Text style={styles.caption}>
+                                {showClear ? clearCaption : caption}
+                            </Text>
+                        )}
+
+                        {tourMode ? (
+                            <Text style={styles.tourSampleNote}>
+                                Sample dues for this tour — not your real plans.
+                            </Text>
+                        ) : null}
 
                         <View
                             style={[
@@ -142,7 +224,11 @@ export function DueNowModal({
                                                         lastOpenPayment.amount,
                                                         { compact: true }
                                                     )
-                                                  : "—"
+                                                  : tourMode
+                                                    ? formatMoney(95, {
+                                                          compact: true,
+                                                      })
+                                                    : "—"
                                                 : formatMoney(
                                                       item.remaining ??
                                                           item.amount,
@@ -155,7 +241,9 @@ export function DueNowModal({
                                                 : item.amountVaries
                                                   ? lastOpenPayment
                                                     ? "previous payment"
-                                                    : "when paid"
+                                                    : tourMode
+                                                      ? "previous payment"
+                                                      : "when paid"
                                                   : "due"
                                         }
                                         actionAmountLabel={
@@ -170,24 +258,26 @@ export function DueNowModal({
                                             openPlan(item.kind, item.id);
                                         }}
                                         onToggle={() => {
+                                            if (tourMode) return;
                                             if (item.kind === "bill") {
                                                 if (item.amountVaries) {
                                                     openPlan("bill", item.id);
                                                     return;
                                                 }
-                                                hapticConfirm();
-                                                void toggleBillPaid(
-                                                    item.id,
-                                                    asOfIso
-                                                );
+                                                setPendingPay({
+                                                    kind: "bill",
+                                                    id: item.id,
+                                                    name: item.name,
+                                                    amount: item.amount,
+                                                });
                                                 return;
                                             }
-                                            hapticConfirm();
-                                            void recordPayment(
-                                                item.id,
-                                                undefined,
-                                                asOfIso
-                                            );
+                                            setPendingPay({
+                                                kind: "debt",
+                                                id: item.id,
+                                                name: item.name,
+                                                amount: item.amount,
+                                            });
                                         }}
                                         toggleAccessibilityLabel={
                                             item.kind === "bill" &&
@@ -212,20 +302,56 @@ export function DueNowModal({
                     </ScrollView>
 
                     <View style={styles.footer}>
-                        <Pressable
-                            onPress={onClose}
-                            accessibilityRole="button"
-                            style={({ pressed }) => [
-                                styles.done,
-                                pressed && { opacity: 0.9 },
-                            ]}
-                        >
-                            <Text style={styles.doneText}>Done</Text>
-                        </Pressable>
+                        {tourMode ? (
+                            <View style={styles.tourFooter}>
+                                <Pressable
+                                    onPress={tour!.onSkip}
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Skip walkthrough"
+                                    style={styles.tourSkip}
+                                    hitSlop={8}
+                                >
+                                    <Text style={styles.tourSkipText}>
+                                        Skip
+                                    </Text>
+                                </Pressable>
+                                <Text style={styles.tourProgress}>
+                                    {tour!.stepIndex + 1} / {tour!.totalSteps}
+                                </Text>
+                                <AppButton
+                                    label="Next"
+                                    onPress={tour!.onNext}
+                                />
+                            </View>
+                        ) : (
+                            <Pressable
+                                onPress={onClose}
+                                accessibilityRole="button"
+                                style={({ pressed }) => [
+                                    styles.done,
+                                    pressed && { opacity: 0.9 },
+                                ]}
+                            >
+                                <Text style={styles.doneText}>Done</Text>
+                            </Pressable>
+                        )}
                     </View>
                 </View>
             </View>
         </Modal>
+
+            <QuickPayAccountDialog
+                visible={pendingPay !== null}
+                title={pendingPay ? `Pay ${pendingPay.name}` : "Pay"}
+                subtitle={
+                    pendingPay?.kind === "debt"
+                        ? `Records ${formatMoney(pendingPay.amount, { compact: true })} from this pot.`
+                        : "Money leaves this pot."
+                }
+                onCancel={() => setPendingPay(null)}
+                onConfirm={confirmPay}
+            />
+        </>
     );
 }
 
@@ -384,6 +510,33 @@ function createDueNowStyles(theme: Theme) {
         borderTopWidth: StyleSheet.hairlineWidth,
         borderTopColor: theme.border.subtle,
         backgroundColor: theme.bg.surface,
+    },
+    tourSampleNote: {
+        ...text.caption,
+        color: theme.text.tertiary,
+        marginBottom: theme.space.sm,
+    },
+    tourFooter: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: theme.space.sm,
+    },
+    tourSkip: {
+        paddingVertical: theme.space.sm,
+        paddingHorizontal: theme.space.xs,
+    },
+    tourSkipText: {
+        color: theme.text.tertiary,
+        fontSize: theme.fontSize.sm,
+        fontWeight: theme.fontWeight.semibold,
+    },
+    tourProgress: {
+        color: theme.text.tertiary,
+        fontSize: theme.fontSize.xs,
+        fontWeight: theme.fontWeight.semibold,
+        flex: 1,
+        textAlign: "center",
     },
     done: {
         minHeight: theme.size.tap,

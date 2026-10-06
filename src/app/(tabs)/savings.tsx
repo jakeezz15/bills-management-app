@@ -10,6 +10,11 @@ import { FloatingAddButton } from "@/components/FloatingAddButton";
 import { PageHeader } from "@/components/ui";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import SavingsForm from "@/components/SavingsForm";
+import { WalkthroughAnchor } from "@/components/walkthrough/WalkthroughAnchor";
+import {
+    useWalkthroughPlansDemo,
+    walkthroughSavingsDemo,
+} from "@/components/walkthrough";
 import { useScreenTopPadding } from "@/hooks/useScreenTopPadding";
 import { useStatusBarStyle } from "@/hooks/useStatusBarStyle";
 import { useStickyHero } from "@/hooks/useStickyHero";
@@ -21,7 +26,7 @@ import {
     savingsMonthsRemaining,
     savingsProgressPercent,
 } from "@/utils/savings";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { useLocale } from "../contexts/LocaleContext";
@@ -57,8 +62,23 @@ export default function SavingsScreen({
 
     const { formatMoney } = useLocale();
     const [isOpen, setIsOpen] = useState(false);
-    const { savings, loading } = useSavings();
+    const { savings: storedSavings, loading } = useSavings();
+    const demoMode = useWalkthroughPlansDemo("savings");
+    const savings = useMemo(
+        () => (demoMode ? walkthroughSavingsDemo() : storedSavings),
+        [demoMode, storedSavings]
+    );
     const [query, setQuery] = useState("");
+    const params = useLocalSearchParams<{ add?: string }>();
+    const openFromRoute = params.add === "1";
+    const formOpen = isOpen || openFromRoute;
+
+    const closeForm = () => {
+        setIsOpen(false);
+        if (openFromRoute) {
+            router.setParams({ add: undefined });
+        }
+    };
 
     const listed = useMemo(
         () => filterBySearch(savings, query),
@@ -101,7 +121,11 @@ export default function SavingsScreen({
                 amountLabel={formatMoney(goal.currentAmount, { compact: true })}
                 amountHint="saved"
                 done={done}
-                onPress={() => router.push(`/goal/${goal.id}`)}
+                progressPercent={savingsProgressPercent(goal)}
+                onPress={() => {
+                    if (demoMode) return;
+                    router.push(`/goal/${goal.id}`);
+                }}
             />
         );
     };
@@ -131,26 +155,27 @@ export default function SavingsScreen({
                     <PageHeader
                         title="Savings"
                         subtitle="Goals — tap one to log or edit"
+                        backLabel="Plans"
+                        onBack={() => router.push("/(tabs)/plans")}
                     />
                 ) : null}
 
-                {loading ? (
+                {loading && !demoMode ? (
                     <DashboardSkeleton />
                 ) : showHero ? (
                     <DashboardHero
                         kicker="Saved so far"
                         value={heroValue}
-                        caption={`of ${formatMoney(totals.target, { compact: true })} · ${heroCaption}`}
+                        caption={
+                            demoMode
+                                ? "Sample goals for this tour"
+                                : `of ${formatMoney(totals.target, { compact: true })} · ${heroCaption}`
+                        }
                         percent={totals.percent}
                     />
                 ) : null}
 
-                <SavingsForm
-                    visible={isOpen}
-                    onClose={() => {
-                        setIsOpen(false);
-                    }}
-                />
+                <SavingsForm visible={formOpen} onClose={closeForm} />
 
                 {showHero && !loading ? (
                     <SearchField
@@ -161,7 +186,7 @@ export default function SavingsScreen({
                     />
                 ) : null}
 
-                {savings.length === 0 && !loading && (
+                {savings.length === 0 && !loading && !demoMode && (
                     <DashboardEmpty
                         icon="flag-outline"
                         title="No goals yet"
@@ -181,21 +206,25 @@ export default function SavingsScreen({
                     />
                 )}
 
-                {inProgress.length > 0 ? (
-                    <View>
-                        <Text style={dashboard.sectionLabel}>In progress</Text>
-                        <PlanGroup>{inProgress.map(renderGoal)}</PlanGroup>
-                    </View>
-                ) : null}
+                <WalkthroughAnchor id="plans-savings">
+                    {inProgress.length > 0 ? (
+                        <View>
+                            <Text style={dashboard.sectionLabel}>
+                                In progress
+                            </Text>
+                            <PlanGroup>{inProgress.map(renderGoal)}</PlanGroup>
+                        </View>
+                    ) : null}
 
-                {reached.length > 0 ? (
-                    <View>
-                        <Text style={dashboard.sectionLabel}>Reached</Text>
-                        <PlanGroup>{reached.map(renderGoal)}</PlanGroup>
-                    </View>
-                ) : null}
+                    {reached.length > 0 ? (
+                        <View>
+                            <Text style={dashboard.sectionLabel}>Reached</Text>
+                            <PlanGroup>{reached.map(renderGoal)}</PlanGroup>
+                        </View>
+                    ) : null}
+                </WalkthroughAnchor>
             </ScrollView>
-            {!loading ? (
+            {!loading || demoMode ? (
                 <FloatingAddButton
                     onPress={openAdd}
                     accessibilityLabel="Add savings goal"

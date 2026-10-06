@@ -6,6 +6,12 @@ export interface Bill extends Timestamps {
     /** Recurring / set amount. Actual leftover uses the payment ledger. */
     amount: number;
     dueDay: number;
+    /**
+     * When this bill becomes active (`YYYY-MM-DD`). Optional — omitted on
+     * older records means already active. Hidden from Due now / reminders
+     * before this day.
+     */
+    startDate?: string;
     isPaid: boolean;
     category?: string;
     isRecurring: boolean;

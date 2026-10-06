@@ -19,18 +19,24 @@ import {
     loadBills,
     loadDebtPayments,
     loadDebts,
+    loadAccounts,
+    loadAccountAdjustments,
     loadExpenses,
     loadIncome,
     loadSavings,
     loadSavingsContributions,
+    loadTransfers,
     saveBillPayments,
     saveBills,
     saveDebtPayments,
     saveDebts,
+    saveAccounts,
+    saveAccountAdjustments,
     saveExpenses,
     saveIncome,
     saveSavings,
     saveSavingsContributions,
+    saveTransfers,
 } from "./storage";
 
 export type { AppBackup, BackupPrefs, ParseAppBackupResult } from "@/utils/backup-parse";
@@ -60,6 +66,9 @@ export async function buildAppBackup(): Promise<AppBackup> {
         debtPayments,
         billPayments,
         savingsContributions,
+        accounts,
+        transfers,
+        adjustments,
         currencyCode,
         dueRemindersEnabled,
         reminderPrefs,
@@ -72,13 +81,16 @@ export async function buildAppBackup(): Promise<AppBackup> {
         loadDebtPayments(),
         loadBillPayments(),
         loadSavingsContributions(),
+        loadAccounts(),
+        loadTransfers(),
+        loadAccountAdjustments(),
         getStoredCurrency(),
         areDueRemindersEnabled(),
         getReminderPrefs(),
     ]);
 
     return {
-        version: 1,
+        version: 2,
         exportedAt: new Date().toISOString(),
         income: incomes,
         expenses,
@@ -88,11 +100,17 @@ export async function buildAppBackup(): Promise<AppBackup> {
         debtPayments,
         billPayments,
         savingsContributions,
+        accounts,
+        transfers,
+        adjustments,
         prefs: {
             currencyCode,
             dueRemindersEnabled,
             dueReminderHour: reminderPrefs.hour,
             dueReminderLeadDays: reminderPrefs.leadDays,
+            dueReminderSoundEnabled: reminderPrefs.soundEnabled,
+            dueReminderVibrateEnabled: reminderPrefs.vibrateEnabled,
+            dueReminderAlertStyle: reminderPrefs.alertStyle,
         },
     };
 }
@@ -124,6 +142,9 @@ export async function applyAppBackup(
         saveDebtPayments(backup.debtPayments),
         saveBillPayments(backup.billPayments),
         saveSavingsContributions(backup.savingsContributions),
+        saveAccounts(backup.accounts ?? []),
+        saveTransfers(backup.transfers ?? []),
+        saveAccountAdjustments(backup.adjustments ?? []),
     ]);
 
     if (prefs) {
@@ -132,6 +153,9 @@ export async function applyAppBackup(
             setReminderPrefs({
                 hour: prefs.dueReminderHour,
                 leadDays: prefs.dueReminderLeadDays,
+                soundEnabled: prefs.dueReminderSoundEnabled,
+                vibrateEnabled: prefs.dueReminderVibrateEnabled,
+                alertStyle: prefs.dueReminderAlertStyle,
             }),
             setDueRemindersEnabled(prefs.dueRemindersEnabled),
         ]);

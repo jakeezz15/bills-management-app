@@ -364,10 +364,43 @@ describe("getExpenseSpendByCategory", () => {
 });
 
 describe("getMonthlyTrend", () => {
-    it("returns one point per month, oldest first", () => {
+    it("starts at first activity month and goes forward (oldest first)", () => {
         const points = getMonthlyTrend(
-            new Date(2026, 1, 28),
+            new Date(2026, 9, 15), // Oct 2026
             6,
+            [],
+            [],
+            [],
+            [],
+            [makeIncome({ date: "2026-10-01", net: 1000 })]
+        );
+
+        expect(points.map((point) => point.label)).toEqual(["Oct"]);
+        expect(points[0].leftover).toBe(1000);
+    });
+
+    it("fills months from first activity through the anchor", () => {
+        const points = getMonthlyTrend(
+            new Date(2026, 11, 15), // Dec 2026
+            6,
+            [makeExpense({ date: "2026-11-10", amount: 100 })],
+            [],
+            [],
+            [],
+            [makeIncome({ date: "2026-10-05", net: 1000 })]
+        );
+
+        expect(points.map((point) => point.label)).toEqual([
+            "Oct",
+            "Nov",
+            "Dec",
+        ]);
+    });
+
+    it("caps at count months when history is longer", () => {
+        const points = getMonthlyTrend(
+            new Date(2026, 9, 15), // Oct 2026
+            3,
             [],
             [],
             [],
@@ -375,15 +408,24 @@ describe("getMonthlyTrend", () => {
             [makeIncome({ date: "2026-01-01", net: 1000 })]
         );
 
-        expect(points).toHaveLength(6);
         expect(points.map((point) => point.label)).toEqual([
+            "Aug",
             "Sep",
             "Oct",
-            "Nov",
-            "Dec",
-            "Jan",
-            "Feb",
         ]);
+    });
+
+    it("returns empty when there is no activity", () => {
+        const points = getMonthlyTrend(
+            new Date(2026, 9, 15),
+            6,
+            [],
+            [],
+            [],
+            [],
+            []
+        );
+        expect(points).toEqual([]);
     });
 
     it("carries the running balance forward across months", () => {
@@ -397,7 +439,6 @@ describe("getMonthlyTrend", () => {
             [makeIncome({ date: "2026-01-05", net: 1000 })]
         );
 
-        // January's income is still counted in February's point.
         expect(points[0].leftover).toBe(1000);
         expect(points[1].leftover).toBe(600);
         expect(points[1].outflow).toBe(400);

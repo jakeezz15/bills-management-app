@@ -127,6 +127,32 @@ export async function pullCloudToLocal(): Promise<string> {
     }
 
     await applyAppBackup(checked.backup, checked.prefs);
+
+    if (checked.prefs) {
+        const { applyDueReminderPrefsFromBackup } = await import(
+            "@/services/reminders"
+        );
+        const {
+            loadBillPayments,
+            loadBills,
+            loadDebtPayments,
+            loadDebts,
+        } = await import("@/services/storage");
+        const [bills, debts, billPayments, debtPayments] = await Promise.all([
+            loadBills(),
+            loadDebts(),
+            loadBillPayments(),
+            loadDebtPayments(),
+        ]);
+        await applyDueReminderPrefsFromBackup(
+            checked.prefs.dueRemindersEnabled,
+            bills,
+            debts,
+            billPayments,
+            debtPayments
+        );
+    }
+
     const at =
         typeof data.updatedAt === "string" && data.updatedAt
             ? data.updatedAt

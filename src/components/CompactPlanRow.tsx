@@ -6,7 +6,14 @@ import {
 } from "@/components/plan-status";
 import { text, type Theme } from "@/design";
 import Ionicons from "@react-native-vector-icons/ionicons";
-import { ReactNode, useMemo } from "react";
+import {
+    Children,
+    ReactElement,
+    ReactNode,
+    cloneElement,
+    isValidElement,
+    useMemo,
+} from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 type CompactPlanRowProps = {
@@ -22,6 +29,11 @@ type CompactPlanRowProps = {
     onPress: () => void;
     onToggle?: () => void;
     toggleAccessibilityLabel?: string;
+    /** Thin progress 0–100 under the meta (savings). */
+    progressPercent?: number;
+    /** Set by PlanGroup — sheet row, not a standalone card. */
+    inSheet?: boolean;
+    isLast?: boolean;
 };
 
 /**
@@ -38,6 +50,9 @@ export function CompactPlanRow({
     onPress,
     onToggle,
     toggleAccessibilityLabel,
+    progressPercent,
+    inSheet = false,
+    isLast = false,
 }: CompactPlanRowProps) {
     const { theme } = useTheme();
     const styles = useMemo(() => createCompactStyles(theme), [theme]);
@@ -49,11 +64,16 @@ export function CompactPlanRow({
     const spokenAmount = amountHint
         ? `${amountHint} ${amountLabel}`
         : amountLabel;
+    const clampedProgress =
+        progressPercent === undefined
+            ? null
+            : Math.max(0, Math.min(100, progressPercent));
 
     return (
         <View
             style={[
-                styles.row,
+                inSheet ? styles.sheetRow : styles.cardRow,
+                inSheet && !isLast && styles.sheetRowBorder,
                 done && styles.rowDone,
             ]}
         >
@@ -119,6 +139,21 @@ export function CompactPlanRow({
                     >
                         {meta}
                     </Text>
+                    {clampedProgress !== null ? (
+                        <View style={styles.progressTrack}>
+                            <View
+                                style={[
+                                    styles.progressFill,
+                                    {
+                                        width: `${clampedProgress}%`,
+                                        backgroundColor: done
+                                            ? theme.intent.positive.solid
+                                            : theme.action.primary.bg,
+                                    },
+                                ]}
+                            />
+                        </View>
+                    ) : null}
                 </View>
 
                 <View style={styles.amountCol}>
@@ -151,122 +186,164 @@ type PlanGroupProps = {
     children: ReactNode;
 };
 
-/** One sheet for a due-day (or Due now) group — not a card per row. */
+/** One sheet for a group — not a card per row. */
 export function PlanGroup({ children }: PlanGroupProps) {
     const { theme } = useTheme();
     const styles = useMemo(() => createCompactStyles(theme), [theme]);
-    return <View style={styles.group}>{children}</View>;
+    const items = Children.toArray(children).filter(isValidElement);
+
+    return (
+        <View style={styles.group}>
+            {items.map((child, index) =>
+                cloneElement(
+                    child as ReactElement<CompactPlanRowProps>,
+                    {
+                        inSheet: true,
+                        isLast: index === items.length - 1,
+                    }
+                )
+            )}
+        </View>
+    );
 }
 
 function createCompactStyles(theme: Theme) {
     return StyleSheet.create({
-    group: {
-        gap: theme.space.sm,
-        marginBottom: theme.space.md,
-    },
-    row: {
-        flexDirection: "row",
-        alignItems: "center",
-        backgroundColor: theme.bg.surface,
-        borderRadius: theme.radius.md,
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: theme.border.subtle,
-        paddingVertical: theme.space.md,
-        paddingRight: theme.space.md,
-        paddingLeft: theme.space.sm,
-        minHeight: 64,
-    },
-    rowDone: {
-        backgroundColor: theme.bg.sunken,
-    },
-    accent: {
-        width: 4,
-        alignSelf: "stretch",
-        borderRadius: theme.radius.pill,
-        marginRight: theme.space.sm,
-        marginVertical: theme.space.xs,
-    },
-    toggle: {
-        width: theme.size.control,
-        height: theme.size.control,
-        borderRadius: theme.radius.pill,
-        alignItems: "center",
-        justifyContent: "center",
-        marginRight: theme.space.sm,
-    },
-    toggleIdle: {
-        backgroundColor: theme.bg.canvas,
-    },
-    toggleDone: {
-        backgroundColor: theme.intent.positive.strong,
-    },
-    // Tonal, not solid: one row of many, so it must sit below the FAB.
-    payChip: {
-        minWidth: theme.size.tap,
-        minHeight: theme.size.tap,
-        paddingHorizontal: theme.space.sm,
-        borderRadius: theme.radius.sm,
-        alignItems: "center",
-        justifyContent: "center",
-        marginRight: theme.space.sm,
-        backgroundColor: theme.intent.info.bg,
-    },
-    payChipText: {
-        ...text.money,
-        color: theme.text.accent,
-        fontSize: theme.fontSize.xs,
-        lineHeight: theme.lineHeight.xs,
-    },
-    main: {
-        flex: 1,
-        flexDirection: "row",
-        alignItems: "center",
-        gap: theme.space.md,
-        minWidth: 0,
-        minHeight: theme.size.tap,
-    },
-    mainPressed: {
-        opacity: 0.88,
-    },
-    copy: {
-        flex: 1,
-        minWidth: 0,
-        gap: theme.space.xs,
-    },
-    title: text.itemTitle,
-    titleDone: {
-        color: theme.text.secondary,
-        textDecorationLine: "line-through",
-        fontWeight: theme.fontWeight.semibold,
-    },
-    meta: {
-        fontSize: theme.fontSize.xs,
-        fontWeight: theme.fontWeight.semibold,
-        lineHeight: theme.lineHeight.xs,
-    },
-    amountCol: {
-        alignItems: "flex-end",
-        justifyContent: "center",
-        gap: theme.space.xs,
-        flexShrink: 0,
-    },
-    amount: {
-        ...text.money,
-        textAlign: "right",
-    },
-    amountDone: {
-        color: theme.text.tertiary,
-    },
-    amountHint: {
-        ...text.caption,
-        textAlign: "right",
-    },
-    amountHintDone: {
-        color: theme.text.tertiary,
-    },
-    amountHintSpacer: {
-        fontSize: theme.fontSize.xs,
-        lineHeight: theme.lineHeight.xs,
-    },
-});
+        group: {
+            backgroundColor: theme.bg.surface,
+            borderRadius: theme.radius.md,
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: theme.border.subtle,
+            overflow: "hidden",
+            marginBottom: theme.space.md,
+        },
+        cardRow: {
+            flexDirection: "row",
+            alignItems: "center",
+            backgroundColor: theme.bg.surface,
+            borderRadius: theme.radius.md,
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: theme.border.subtle,
+            paddingVertical: theme.space.md,
+            paddingRight: theme.space.md,
+            paddingLeft: theme.space.sm,
+            minHeight: 64,
+            marginBottom: theme.space.sm,
+        },
+        sheetRow: {
+            flexDirection: "row",
+            alignItems: "center",
+            backgroundColor: theme.bg.surface,
+            paddingVertical: theme.space.md,
+            paddingRight: theme.space.md,
+            paddingLeft: theme.space.sm,
+            minHeight: 64,
+        },
+        sheetRowBorder: {
+            borderBottomWidth: StyleSheet.hairlineWidth,
+            borderBottomColor: theme.border.subtle,
+        },
+        rowDone: {
+            backgroundColor: theme.bg.sunken,
+        },
+        accent: {
+            width: 4,
+            alignSelf: "stretch",
+            borderRadius: theme.radius.pill,
+            marginRight: theme.space.sm,
+            marginVertical: theme.space.xs,
+        },
+        toggle: {
+            width: theme.size.control,
+            height: theme.size.control,
+            borderRadius: theme.radius.pill,
+            alignItems: "center",
+            justifyContent: "center",
+            marginRight: theme.space.sm,
+        },
+        toggleIdle: {
+            backgroundColor: theme.bg.canvas,
+        },
+        toggleDone: {
+            backgroundColor: theme.intent.positive.strong,
+        },
+        payChip: {
+            minWidth: theme.size.tap,
+            minHeight: theme.size.tap,
+            paddingHorizontal: theme.space.sm,
+            borderRadius: theme.radius.sm,
+            alignItems: "center",
+            justifyContent: "center",
+            marginRight: theme.space.sm,
+            backgroundColor: theme.intent.info.bg,
+        },
+        payChipText: {
+            ...text.money,
+            color: theme.text.accent,
+            fontSize: theme.fontSize.xs,
+            lineHeight: theme.lineHeight.xs,
+        },
+        main: {
+            flex: 1,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: theme.space.md,
+            minWidth: 0,
+            minHeight: theme.size.tap,
+        },
+        mainPressed: {
+            opacity: 0.88,
+        },
+        copy: {
+            flex: 1,
+            minWidth: 0,
+            gap: theme.space.xs,
+        },
+        title: text.itemTitle,
+        titleDone: {
+            color: theme.text.secondary,
+            textDecorationLine: "line-through",
+            fontWeight: theme.fontWeight.semibold,
+        },
+        meta: {
+            fontSize: theme.fontSize.xs,
+            fontWeight: theme.fontWeight.semibold,
+            lineHeight: theme.lineHeight.xs,
+        },
+        progressTrack: {
+            height: 4,
+            borderRadius: theme.radius.pill,
+            backgroundColor: theme.track.base,
+            overflow: "hidden",
+            marginTop: 2,
+        },
+        progressFill: {
+            height: 4,
+            borderRadius: theme.radius.pill,
+        },
+        amountCol: {
+            alignItems: "flex-end",
+            justifyContent: "center",
+            gap: theme.space.xs,
+            flexShrink: 0,
+        },
+        amount: {
+            ...text.money,
+            textAlign: "right",
+        },
+        amountDone: {
+            color: theme.text.tertiary,
+        },
+        amountHint: {
+            ...text.caption,
+            textAlign: "right",
+        },
+        amountHintDone: {
+            color: theme.text.tertiary,
+        },
+        amountHintSpacer: {
+            fontSize: theme.fontSize.xs,
+            lineHeight: theme.lineHeight.xs,
+        },
+    });
 }

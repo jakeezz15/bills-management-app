@@ -4,11 +4,13 @@ import { Debt } from "@/types/debt";
 import { DebtPayment } from "@/types/debt-payment";
 import { startOfDay } from "@/utils/date";
 import {
-    getBillDueOffset,
+    getPlanDueOffset,
     isBillPaidAsOf,
+    isBillVisibleAsOf,
     isDebtInstallmentPaidAsOf,
     isDebtVisibleAsOf,
 } from "@/utils/filters";
+import { billStartDate, debtStartDate } from "@/utils/timestamps";
 
 export type DueNowKind = "bill" | "debt";
 export type DueNowUrgency = "overdue" | "due-today" | "due-soon";
@@ -65,13 +67,21 @@ export function getDueNowItems(
     const items: DueNowItem[] = [];
 
     for (const bill of bills) {
+        if (!isBillVisibleAsOf(bill, asOf)) {
+            continue;
+        }
         if (isBillPaidAsOf(bill, billPayments, asOf, { anyDayInMonth: true })) {
             continue;
         }
-        const urgency = urgencyFromOffset(
-            getBillDueOffset(bill.dueDay, asOf, asOf),
-            soonWithinDays
+        const offset = getPlanDueOffset(
+            bill.dueDay,
+            asOf,
+            billStartDate(bill)
         );
+        if (offset === null) {
+            continue;
+        }
+        const urgency = urgencyFromOffset(offset, soonWithinDays);
         if (!urgency) {
             continue;
         }
@@ -96,10 +106,15 @@ export function getDueNowItems(
         if (isDebtInstallmentPaidAsOf(debt, asOf, debtPayments)) {
             continue;
         }
-        const urgency = urgencyFromOffset(
-            getBillDueOffset(debt.dueDay, asOf, asOf),
-            soonWithinDays
+        const offset = getPlanDueOffset(
+            debt.dueDay,
+            asOf,
+            debtStartDate(debt)
         );
+        if (offset === null) {
+            continue;
+        }
+        const urgency = urgencyFromOffset(offset, soonWithinDays);
         if (!urgency) {
             continue;
         }
