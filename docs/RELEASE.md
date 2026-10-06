@@ -100,6 +100,7 @@ Daily “log spending?” habit nudge is lower priority than the two above.
 3. **Check for updates (Settings)** — after closed testing settles: EAS Update for JS/UI OTA + Settings row; optional Play store version check for mandatory binary bumps. Skip while closed-test AABs are the update channel.
 4. **About: what’s new** — when an update ships, surface those release notes on the Settings **About** page so users can see what changed (version + short changelog), not only that an update exists.
 5. **Swipe to delete on list rows** — Income, Spending, Bills, Savings, and Debts: swipe a row to delete (with confirm), so cleanup doesn’t require opening the detail screen every time.
+6. **Android deobfuscation file (Play)** — Play Console may warn that no deobfuscation file is attached to the AAB. Not a release blocker. Later: confirm whether EAS production builds emit R8 `mapping.txt`, upload it with the bundle (or wire EAS/Play to attach it), and verify crash stacks are readable. Skip while shipping the first public build.
 
 ---
 
